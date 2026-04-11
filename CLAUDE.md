@@ -48,16 +48,24 @@ Steps:
 2. Append to audit log: `[timestamp] Elicitation approved`
 3. Run planning sub-agent: Task tool with `.claude/agents/planning/prompt.md`, passing task description + elicitation answers + CODEBASE_CONTEXT.md
 4. Write the plan to `.ai/sessions/{id}/PLAN.md`
-5. Present the plan clearly to the user
-6. Say: "Plan ready. Review it above, then type `/approve plan` to begin implementation."
-7. **STOP. Do not write any source files until user types `/approve plan`.**
+5. Run plan integrity check: Task tool with `.claude/agents/plan-integrity/prompt.md`, passing the path to PLAN.md and CODEBASE_CONTEXT.md
+6. If integrity check returns **MIRAGES_FOUND**:
+   - Show the mirages to the user
+   - Say: "The plan references things that don't exist in the codebase (listed above). The plan must be corrected before it can be approved. I can re-run planning with corrections, or you can edit PLAN.md manually."
+   - **STOP. Do not accept `/approve plan` until mirages are resolved.**
+7. If integrity check returns **CLEAN** (or only warnings):
+   - Show any warnings to the user
+   - Present the plan
+   - Say: "Plan ready. Review it above, then type `/approve plan` to begin implementation."
+8. **STOP. Do not write any source files until user types `/approve plan`.**
 
 The plan must include:
-- Numbered checklist of files to change/create
-- Database schema changes (if any)
-- Test plan: what to test, what scenarios
+- Numbered checklist of files to change/create (exact paths)
+- Tests to write first — TDD anchor with specific scenarios
+- Database schema changes (if any, with migration version)
+- Optional smoke verification commands
 - Affected systems beyond this task
-- Explicit scope boundary: "Everything outside this list is out of scope"
+- Explicit scope boundary
 
 ---
 
@@ -69,11 +77,26 @@ Steps:
 1. Write `PLAN_APPROVED` to `.ai/sessions/{id}/state`
 2. Write `IMPLEMENTING` to `.ai/sessions/{id}/state`
 3. Append to audit log: `[timestamp] Plan approved, implementation started`
-4. Implement following the plan exactly. Mark checklist items `[x]` as completed.
-5. **If you discover something not in the plan that significantly affects scope**: STOP immediately. Explain what you found. Ask whether to update the plan before continuing. Do not silently expand scope.
-6. When done: append to audit log: `[timestamp] Implementation complete`
-7. Say: "Implementation complete. Running quality gate..."
-8. Proceed to Phase 4 automatically.
+4. Create `.ai/sessions/{id}/decisions.md` with header:
+   ```
+   # Decisions — {task description}
+   Session: {id}
+   ```
+5. Implement following the plan exactly. Follow the TDD anchor — write the specified tests first, then implement.
+6. Mark checklist items `[x]` in PLAN.md as completed.
+7. **When making a non-obvious decision** (choosing between approaches, deviating from a pattern, working around a gotcha): append to `decisions.md`:
+   ```
+   ## [timestamp] {Short title}
+   **Decision**: {what was decided}
+   **Reasoning**: {why}
+   **Alternative considered**: {what else was possible}
+   ```
+   Non-obvious means: a senior developer reading the diff would wonder "why did they do it this way?"
+8. **If you discover something not in the plan that significantly affects scope**: STOP immediately. Explain what you found. Ask whether to update the plan before continuing. Do not silently expand scope.
+9. **Maximum 3 fix iterations**: if the quality gate or reviewer finds issues and you have already made 3 rounds of fixes without resolving them, stop and escalate to the user. Do not loop indefinitely.
+10. When done: append to audit log: `[timestamp] Implementation complete`
+11. Say: "Implementation complete. Running quality gate..."
+12. Proceed to Phase 4 automatically.
 
 ---
 
@@ -102,6 +125,7 @@ Steps:
 2. PR description must include:
    - What was built and why (from task + elicitation)
    - Summary of elicitation answers (the accepted requirements)
+   - Key decisions from `decisions.md` (non-obvious choices reviewers should know about)
    - Quality report summary
 3. Write `PR_CREATED` to `.ai/sessions/{id}/state`
 4. Append to audit log: `[timestamp] PR created: {url}`
