@@ -1,7 +1,8 @@
 #!/bin/bash
 # post-stop.sh
-# Fires when the agent stops. Checks whether quality gate was run
-# for any in-progress implementation session and warns the user if not.
+# Fires when the agent stops (Stop event).
+# If a session is in IMPLEMENTING state, the quality gate has not run yet.
+# Warn the user so they know to continue the session to complete the workflow.
 
 CURRENT_SESSION_FILE=".ai/current-session"
 if [ ! -f "$CURRENT_SESSION_FILE" ]; then
@@ -13,13 +14,21 @@ if [ -z "$SESSION" ]; then
   exit 0
 fi
 
-STATE=$(cat ".ai/sessions/$SESSION/state" 2>/dev/null | tr -d '[:space:]' || echo "")
+STATE_FILE=".ai/sessions/$SESSION/state"
+STATE=$(cat "$STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "")
 
 if [ "$STATE" = "IMPLEMENTING" ]; then
+  TASK=$(cat ".ai/sessions/$SESSION/task.md" 2>/dev/null | head -1 || echo "unknown task")
   echo ""
-  echo "WARNING: Session '$SESSION' is in IMPLEMENTING state but quality gate has not run."
-  echo "Before creating a PR, the quality gate must complete."
-  echo "Continue the session and the quality gate will run automatically when implementation is done."
+  echo "⚠ Quality gate has not run for session: $SESSION"
+  echo "  Task: $TASK"
+  echo "  State: IMPLEMENTING"
+  echo ""
+  echo "  The quality gate must complete before a PR can be created."
+  echo "  Continue this session — the quality gate runs automatically"
+  echo "  when implementation is complete."
+  echo ""
+  echo "  To check status: /status"
 fi
 
 exit 0
