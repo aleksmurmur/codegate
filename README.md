@@ -92,16 +92,13 @@ your-project/
 ## Milestone status
 
 - [x] M0: Foundation (hooks, state machine, slash commands)
-- [ ] M1: Codebase Intelligence Engine
+- [x] M1: Codebase Intelligence Engine
 - [ ] M2: Elicitation Engine (context-aware questions)
 - [ ] M3: Plan Gate
 - [ ] M4: Quality Gate
 - [ ] M5: SQL EXPLAIN Integration
 - [ ] M6: Observability Integration
 - [ ] M7: Open Source Release
-
-Sub-agent prompts in `.claude/agents/` are functional stubs until their milestones are complete.
-The enforcement layer (hooks, state machine) is fully functional now.
 
 ## Requirements
 
