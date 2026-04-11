@@ -1,25 +1,42 @@
 # Bug Fix Elicitation Checklist
 
-## Reproduction
-- How do you reproduce the bug? (steps, inputs, environment)
-- Is it reproducible consistently or intermittent?
-- When did it start? (after a deploy, always existed, after a data change?)
+Each item is a trigger. Ask it only if the condition is true.
+Replace bracketed placeholders with actual names from CODEBASE_CONTEXT.md.
 
-## Impact
-- Who is affected? (all users, specific users, specific conditions)
-- What is the severity? (data loss, downtime, cosmetic, performance)
-- Is there a workaround users can use right now?
+---
+
+## Reproduction
+
+- **Always**: How do you reproduce it? Steps, inputs, environment.
+- **If description doesn't say**: Is this consistent or intermittent?
+- **If description doesn't say**: When did it start — after a specific deploy, always existed,
+  or after a data change?
 
 ## Expected vs actual
-- What should happen?
-- What actually happens?
-- Any error messages, stack traces, or log lines?
 
-## Root cause hypothesis
-- Do you have any idea where in the code this originates?
-- Has anyone looked at logs or metrics related to this?
+- **If not clear from description**: What should happen vs what actually happens?
+- **If context shows a logging/observability setup**: Are there any relevant log lines, stack
+  traces, or [metrics/traces from context] that point to the cause?
+
+## Root cause
+
+- **If description doesn't mention a suspected location**: Is there a hypothesis about where
+  in the code this originates? Has anyone looked at [logging system from context] yet?
+- **If context shows a known fragile area (from Gotchas)**: Could this be related to
+  [specific gotcha]?
 
 ## Scope of fix
-- Should the fix be minimal (patch only what's broken) or is a broader fix appropriate?
-- Are there other places in the code with the same bug pattern?
-- Does fixing this require a data migration or backfill?
+
+- **Always**: Should the fix be minimal (patch exactly what's broken) or is a broader fix
+  appropriate?
+- **If context shows the same pattern used in multiple places**: Are there other locations
+  in the codebase with the same pattern that might have the same bug?
+- **If bug involves data**: Does fixing this require a data migration or backfill for
+  already-corrupted rows?
+
+## Side-effects of the fix
+
+- **If the fix touches a shared utility, base class, or cross-domain component**: Which other
+  domains or features could be affected by this change?
+- **If context shows a caching layer near the bug**: Does the fix require cache invalidation
+  or a cache flush?
