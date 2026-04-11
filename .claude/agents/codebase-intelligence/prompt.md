@@ -124,18 +124,33 @@ Look for:
 
 ## Phase 4: Pattern Synthesis
 
-After reading, synthesize what you found. Be explicit about confidence levels.
+**The core rule: write patterns, not inventory.**
 
-**HIGH confidence**: You saw this consistently in 3+ places with no counter-examples.
-**MEDIUM confidence**: You saw this in most places but with some exceptions. Note the exceptions.
-**LOW confidence**: You inferred this from limited evidence. State the evidence.
+CODEBASE_CONTEXT.md describes how the codebase works — not what files exist.
+It should be valid for months, not days. Details that change with every PR do not belong here.
 
-For naming conventions: derive the rule from examples. Don't prescribe — describe.
-E.g., not "should use camelCase" but "all observed method names use camelCase: findById, createOrder, updateStatus".
+**What to write:**
+- Rules and conventions: "Services own all business logic. Controllers are thin."
+- One real example to illustrate each rule — not an exhaustive list
+- Surprises and gotchas: things that would trip up a developer who assumes normal conventions
 
-For anti-patterns: be specific about what you found. Don't say "possible N+1 issue" —
-say "UserService.getOrdersForUser() calls orderRepository.findByUserId() which fetches User entities,
-then accesses user.getOrders() in a loop without a JOIN FETCH — confirmed N+1 pattern."
+**What NOT to write:**
+- Line numbers — they are wrong after the next edit
+- Full lists of every class, file, or method — inventory goes stale immediately
+- Full directory trees — describe the pattern with 1–2 representative examples instead
+- Every query cited by name — describe the query style, not each query
+
+**Confidence levels:**
+- HIGH: seen consistently in 3+ places with no counter-examples
+- MEDIUM: most places but with exceptions — note the exceptions
+- LOW: inferred from limited evidence — state the evidence
+
+**For naming conventions**: one real example per rule. Not a list of ten.
+Good: `"Method names use camelCase verb-first: findById, createOrder"`
+Bad: `"findById, createOrder, updateStatus, deleteById, findAll, processPayment..."`
+
+**For anti-patterns in tech debt entries** (not in CODEBASE_CONTEXT.md): be specific there.
+In CODEBASE_CONTEXT.md just note "N+1 risks present — see tech debt log."
 
 ---
 
@@ -183,13 +198,13 @@ Fill every section. If you have nothing to report for a section, write "Not obse
 "Not applicable" — do not leave sections empty or delete them.
 
 For the Domain Map table: every identified domain gets a row.
-For the Pre-existing Issues table: every tech debt entry you created gets a row.
 
 After writing, do a final self-check:
 - Does the architecture section accurately reflect what you read?
 - Are the naming convention examples real (copy-pasted from actual files, not invented)?
 - Are confidence levels honest?
 - Would a new developer joining this project find this useful?
+- Are you describing patterns or inventory? If you wrote line numbers, full lists of files, or every method by name — rewrite those sections as rules with one example each.
 
 Finally, report to the user:
 - How many files were read

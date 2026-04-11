@@ -26,6 +26,20 @@ if [[ "$FILE" == .claude/* ]] || [[ "$FILE" == */.claude/* ]]; then
   exit 0
 fi
 
+# Always allow writes to linter config files (CIE updates these during /context, which has no session)
+BASENAME=$(basename "$FILE")
+case "$BASENAME" in
+  .editorconfig|.eslintrc|.eslintrc.js|.eslintrc.cjs|.eslintrc.json|.eslintrc.yml|.eslintrc.yaml|\
+  eslint.config.js|eslint.config.cjs|eslint.config.mjs|eslint.config.ts|\
+  .prettierrc|.prettierrc.js|.prettierrc.json|.prettierrc.yml|.prettierrc.yaml|prettier.config.js|\
+  checkstyle.xml|detekt.yml|detekt.yaml|.detekt.yml|\
+  .rubocop.yml|.flake8|ruff.toml|.ruff.toml|pyproject.toml|\
+  .golangci.yml|.golangci.yaml|scalafmt.conf|.scalafmt.conf|\
+  rustfmt.toml|.rustfmt.toml|clippy.toml|.clippy.toml)
+    exit 0
+    ;;
+esac
+
 # Check active session
 CURRENT_SESSION_FILE=".ai/current-session"
 if [ ! -f "$CURRENT_SESSION_FILE" ]; then
