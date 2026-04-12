@@ -119,6 +119,38 @@ improve this. Questions below are based on direct code reading."
 
 ---
 
+## Handling "unsure" or "to be decided" answers
+
+If the user answers a question with "unsure", "not sure", "to be decided", "TBD", or
+any equivalent non-answer:
+
+**Do not accept it. Do not proceed.**
+
+Instead:
+1. Identify the concrete options available given the codebase you read.
+2. Present those options as a numbered trade-off list:
+   - What it is
+   - Cost / benefit
+   - When you'd pick it
+3. Ask the user to pick one. Make it easy: "Option 1, 2, or 3?"
+
+Only when every question has a concrete answer may you write the elicitation summary
+and tell the user to type `/approve elicit`.
+
+**Example**:
+> User answers Q5 with "not sure, maybe a new table?"
+>
+> Don't write "to be decided in planning." Instead:
+>
+> "For Q5 (opt-out storage), there are two realistic options given the current schema:
+> 1. New column on `users` — simple, no join needed, but couples user profile with
+>    notification prefs
+> 2. New `user_preferences` table — cleaner separation, slightly more complex query
+>
+> Which do you prefer? (1 or 2)"
+
+---
+
 ## Output format
 
 Present questions as a numbered list. Group with a one-line header when 3+ questions

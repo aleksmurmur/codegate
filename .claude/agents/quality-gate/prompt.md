@@ -15,11 +15,12 @@ was clean.
 - Git diff of all changes in this session
 - Path to `CODEBASE_CONTEXT.md`
 - Path to the session's `PLAN.md` (for scope context and smoke commands)
+- Path to the session's `test-baseline.txt` (pre-implementation test run snapshot)
 - Path to `.ai/tech-debt/` directory (for logging complex issues)
 
 ---
 
-## Stage 1 — Linters
+## Stage 2 — Linters
 
 Detect which linters are configured in the project root:
 
@@ -45,7 +46,7 @@ For each linter:
 
 ---
 
-## Stage 2 — Smoke Verification
+## Stage 3 — Smoke Verification
 
 Read the session's `PLAN.md`. Look for a "Smoke Verification" section.
 
@@ -57,17 +58,17 @@ If the section exists and contains commands:
 - **Command succeeds but output is unexpected**: WARN — show expected vs actual
 - **Command fails (non-zero exit, connection refused, 4xx/5xx)**: FAIL
 
-If no "Smoke Verification" section in PLAN.md, or section is empty: skip Stage 2,
+If no "Smoke Verification" section in PLAN.md, or section is empty: skip Stage 3,
 mark as "Not applicable".
 
 ---
 
-## Stage 3 — LLM Review
+## Stage 4 — LLM Review
 
 Read the full git diff carefully. Read CODEBASE_CONTEXT.md. Review across these
 dimensions. For each dimension: assign PASS / WARN / FAIL and list specific findings.
 
-### 3.1 Convention Consistency
+### 4.1 Convention Consistency
 
 Compare new code against CODEBASE_CONTEXT.md:
 - Naming conventions followed (classes, methods, variables, DB columns)?
@@ -83,7 +84,7 @@ finding in CODEBASE_CONTEXT.md without explanation.
 **WARN if**: deviation from a MEDIUM-confidence finding, or a new pattern that isn't
 wrong but is inconsistent.
 
-### 3.2 Architecture Boundaries
+### 4.2 Architecture Boundaries
 
 - Does new code respect domain boundaries from the Domain Map?
 - Does it introduce cross-domain repository injection that wasn't there before?
@@ -93,7 +94,7 @@ wrong but is inconsistent.
 **FAIL if**: new domain boundary violation that isn't acknowledged in the plan.
 **WARN if**: borderline case or pattern inconsistency that doesn't cross a clear line.
 
-### 3.3 SQL / Database
+### 4.3 SQL / Database
 
 For any new queries, schema changes, or ORM usage:
 - Could this cause an N+1 query? (loop + query per item, missing JOIN FETCH, missing
@@ -109,7 +110,7 @@ For any new queries, schema changes, or ORM usage:
 SQL injection risk, missing migration for a schema change.
 **WARN if**: potential N+1 that needs investigation, index that might be needed.
 
-### 3.4 Test Quality
+### 4.4 Test Quality
 
 - Do the tests assert meaningful behavior, or just "it ran without exception"?
 - Are the scenarios from the plan's TDD anchor actually covered?
@@ -122,7 +123,7 @@ SQL injection risk, missing migration for a schema change.
 that no exception was thrown.
 **WARN if**: test coverage is thin but not absent, or test names are unclear.
 
-### 3.5 Error Handling
+### 4.5 Error Handling
 
 - Are new error paths handled, or do they propagate as unhandled exceptions?
 - Are errors logged with enough context (user ID, resource ID, action)?
@@ -132,7 +133,7 @@ that no exception was thrown.
 **FAIL if**: sensitive data in logs, empty catch block swallowing errors silently.
 **WARN if**: missing logging on an important operation, inconsistent error message format.
 
-### 3.6 Security Basics
+### 4.6 Security Basics
 
 - Is user input validated before use?
 - Are there any hardcoded secrets or credentials?
@@ -144,7 +145,7 @@ that no exception was thrown.
 injection risk, user input used without validation.
 **WARN if**: auth approach is inconsistent but not obviously wrong.
 
-### 3.7 Resource Management
+### 4.7 Resource Management
 
 - Are any heavy resources (DB connections, HTTP clients, thread pools, large caches)
   created per-request instead of as singletons?
@@ -189,7 +190,19 @@ Write to `.ai/sessions/{session-id}/QUALITY_REPORT.md`:
 
 ---
 
-## Stage 1 — Linters
+## Stage 1 — Test Results
+
+| | Count |
+|---|---|
+| Pre-existing failures (baseline) | 0 |
+| New failures introduced | 0 |
+| Tests passing | 142 |
+
+(or: "No baseline available — N tests passing, M failing")
+
+---
+
+## Stage 2 — Linters
 
 | Linter | Result | Notes |
 |---|---|---|
@@ -200,7 +213,7 @@ Write to `.ai/sessions/{session-id}/QUALITY_REPORT.md`:
 
 ---
 
-## Stage 2 — Smoke Verification
+## Stage 3 — Smoke Verification
 
 | Command | Result | Notes |
 |---|---|---|
@@ -210,7 +223,7 @@ Write to `.ai/sessions/{session-id}/QUALITY_REPORT.md`:
 
 ---
 
-## Stage 3 — LLM Review
+## Stage 4 — LLM Review
 
 | Dimension | Result | Findings |
 |---|---|---|

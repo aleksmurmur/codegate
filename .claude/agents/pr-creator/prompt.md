@@ -22,10 +22,35 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
 
 3. **Push branch**
    - Run `git push -u origin {branch}`
+   - If push fails (no remote, protected branch, auth error): report the error and stop.
+     Do not force push.
 
-4. **Create PR**
-   - Run `gh pr create` with the description template below
-   - Use `--base main` (or `master` — check what the default branch is)
+4. **Detect remote and create PR**
+
+   First, detect the remote URL:
+   ```
+   git remote get-url origin
+   ```
+
+   Based on the URL, determine which tool to use:
+
+   **GitHub** (`github.com` in URL):
+   - Try `gh pr create` (if `gh` is installed and authenticated)
+   - If `gh` fails or is not installed: output the manual URL:
+     `https://github.com/{owner}/{repo}/compare/{branch}?expand=1`
+     Tell the user: "Push succeeded. Open this URL to create the PR manually."
+
+   **GitLab** (`gitlab.com` or self-hosted GitLab in URL):
+   - Try `glab mr create` (if `glab` is installed and authenticated)
+   - If `glab` fails or is not installed: output the manual URL:
+     `https://{host}/{owner}/{repo}/-/merge_requests/new?merge_request[source_branch]={branch}`
+     Tell the user: "Push succeeded. Open this URL to create the MR manually."
+
+   **Other / unknown**:
+   - Skip CLI tools. Tell the user: "Push succeeded. Create a PR/MR manually on your
+     hosting provider for branch `{branch}`."
+
+   Regardless of method: include the PR description from the template below.
 
 ## PR Description Template
 
@@ -80,8 +105,8 @@ Types: `feat`, `fix`, `refactor`, `migration`, `chore`
 
 ## Error handling
 
-- If `gh` is not installed or not authenticated: report this to the main agent.
-  Do not attempt to push manually.
-- If the branch push fails (protected branch, no remote): report and stop.
-  Do not force push.
-- If PR already exists for this branch: report the existing PR URL and stop.
+- If push fails: report the error and stop. Do not force push.
+- If no CLI tool is available (`gh`/`glab`): fall back to the manual URL approach
+  described in Step 4. Do not treat this as a fatal error.
+- If PR/MR already exists for this branch: report the existing URL and stop.
+- If `git remote get-url origin` fails (no remote configured): report and stop.

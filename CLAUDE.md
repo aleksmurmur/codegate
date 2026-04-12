@@ -82,7 +82,8 @@ Steps:
    # Decisions — {task description}
    Session: {id}
    ```
-5. Implement following the plan exactly. Follow the TDD anchor — write the specified tests first, then implement.
+5. **Run baseline test suite**: run the full test suite now, before writing any code. Save the names of any failing tests to `.ai/sessions/{id}/test-baseline.txt`. If the suite is clean, write "CLEAN" to that file. This baseline is used by the quality gate to distinguish pre-existing failures from new ones introduced by this task.
+6. Implement following the plan exactly. Follow the TDD anchor — write the specified tests first, then implement.
 6. Mark checklist items `[x]` in PLAN.md as completed.
 7. **When making a non-obvious decision** (choosing between approaches, deviating from a pattern, working around a gotcha): append to `decisions.md`:
    ```
@@ -105,14 +106,16 @@ Steps:
 **Entry**: automatic after Phase 3 completes, or triggered by `post-stop.sh` hook
 
 Steps:
-1. Run quality gate sub-agent: Task tool with `.claude/agents/quality-gate/prompt.md`, passing the git diff and CODEBASE_CONTEXT.md
+1. Run quality gate sub-agent: Task tool with `.claude/agents/quality-gate/prompt.md`, passing the git diff, CODEBASE_CONTEXT.md, path to PLAN.md, path to `test-baseline.txt`, and path to `.ai/tech-debt/`
 2. Write quality report to `.ai/sessions/{id}/QUALITY_REPORT.md`
 3. Write `QUALITY_REVIEWED` to `.ai/sessions/{id}/state`
 4. Append to audit log: `[timestamp] Quality gate complete`
 5. Present `QUALITY_REPORT.md` to the user
-6. If FAIL items exist: explain each one, ask the user how to proceed. Do not create PR until FAILs are resolved or user explicitly overrides with `/approve quality`
-7. If only WARN or PASS: say "Quality gate passed. Ready to create PR."
-8. Proceed to Phase 5.
+6. If verdict is **PASS**: say "Quality gate passed. Proceeding to PR creation." Append to audit log: `[timestamp] Quality gate passed — verdict: PASS`. Proceed to Phase 5 automatically.
+7. If verdict is **WARN**: present the warnings, say "Quality gate passed with warnings (listed above). Type `/approve quality` to proceed, or fix the warnings first." Do not proceed until user responds.
+8. If verdict is **FAIL**: explain each FAIL item. Say "Quality gate failed. These must be fixed before creating a PR." After fixes, re-run quality gate (up to 3 rounds total). If FAILs remain after round 3, escalate to user. Append to audit log: `[timestamp] Quality gate FAIL — N issues, awaiting fix`.
+   - If user explicitly overrides with `/approve quality`: append `[timestamp] Quality gate override by user — FAIL items accepted`. Then proceed to Phase 5.
+   - Critical SQL and security FAILs cannot be overridden.
 
 ---
 

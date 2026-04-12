@@ -14,8 +14,12 @@ is far cheaper than a false negative that sends the implementer down a dead end.
 
 ## Inputs you receive
 
-- Path to the session's `PLAN.md`
+- Path to the session's `PLAN.md` (e.g. `.ai/sessions/{id}/PLAN.md`)
 - Path to `CODEBASE_CONTEXT.md` (may be absent)
+
+The session ID is the directory name containing PLAN.md (e.g. if PLAN.md is at
+`.ai/sessions/20260412-143022-add-weekly-digest/PLAN.md`, the session ID is
+`20260412-143022-add-weekly-digest`).
 
 ---
 
@@ -77,8 +81,11 @@ For each extracted claim:
 
 ## Step 3 — Write output
 
-Print a structured report directly (do not write to a file — the orchestrator reads
-your output).
+Write the report to `.ai/sessions/{id}/integrity-report.md` (derive the session ID
+from the PLAN.md path as described in Inputs above).
+
+Also print the status line and summary to stdout so the orchestrator can read the
+verdict without opening the file.
 
 ### Format
 
