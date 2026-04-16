@@ -71,7 +71,9 @@ Steps:
    - Say: "The plan references things that don't exist in the codebase (listed above). The plan must be corrected before it can be approved. I can re-run planning with corrections, or you can edit PLAN.md manually."
    - **STOP. Do not accept `/cg-approve plan` until mirages are resolved.**
 7. If the script exits with **0 (CLEAN)**:
-   - Show any warnings from the report to the user (symbols not found, etc.)
+   - If `.ai/CODEBASE_CONTEXT.md` exists, run the pattern review sub-agent (Task tool with `.claude/agents/plan-review/prompt.md`, passing the path to PLAN.md, CODEBASE_CONTEXT.md, and `integrity-report.md`). The agent appends an advisory `## Pattern Review` section to `integrity-report.md`. If CODEBASE_CONTEXT.md is absent, skip this step.
+   - Show any warnings from the script to the user (symbols not found, etc.)
+   - Show any Pattern Review advisory findings to the user, prefixed with "Advisory (not blocking):"
    - Present the plan
    - Say: "Plan ready. Review it above, then type `/cg-approve plan` to begin implementation."
 8. **STOP. Do not write any source files until user types `/cg-approve plan`.**
