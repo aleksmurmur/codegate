@@ -21,7 +21,7 @@ Every task goes through five phases in order. You cannot skip phases.
 
 ## Phase 1: Elicitation
 
-**Entry**: user runs `/cg-feature [description]`, `/cg-bugfix [description]`, etc.
+**Entry**: user runs `/cg-feature [description]`, `/cg-bugfix [description]`, or `/cg-refactor [description]`.
 
 Steps:
 1. Generate session ID: `$(date +%Y%m%d-%H%M%S)-$(echo "$TASK" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | cut -c1-30)`
@@ -83,8 +83,7 @@ Steps:
    Session: {id}
    ```
 5. **Run baseline test suite**: run the full test suite now, before writing any code. Save the names of any failing tests to `.ai/sessions/{id}/test-baseline.txt`. If the suite is clean, write "CLEAN" to that file. This baseline is used by the quality gate to distinguish pre-existing failures from new ones introduced by this task.
-6. Implement following the plan exactly. Follow the TDD anchor — write the specified tests first, then implement.
-6. Mark checklist items `[x]` in PLAN.md as completed.
+6. Implement following the plan exactly. Follow the TDD anchor — write the specified tests first, then implement. Mark checklist items `[x]` in PLAN.md as each is completed.
 7. **When making a non-obvious decision** (choosing between approaches, deviating from a pattern, working around a gotcha): append to `decisions.md`:
    ```
    ## [timestamp] {Short title}
@@ -95,7 +94,7 @@ Steps:
    Non-obvious means: a senior developer reading the diff would wonder "why did they do it this way?"
 8. **If you discover something not in the plan that significantly affects scope**: STOP immediately. Explain what you found. Ask whether to update the plan before continuing. Do not silently expand scope.
 9. **Maximum 3 fix iterations**: if the quality gate or reviewer finds issues and you have already made 3 rounds of fixes without resolving them, stop and escalate to the user. Do not loop indefinitely.
-10. When done: append to audit log: `[timestamp] Implementation complete`
+10. When done: append to audit log: `[timestamp] Implementation complete`.
 11. Say: "Implementation complete. Type `/cg-approve implementation` to commit and run the quality gate."
 12. **STOP. Do not proceed until user types `/cg-approve implementation`.**
 
