@@ -31,7 +31,7 @@ fi
 # require an active session.
 BASENAME=$(basename "$FILE")
 case "$BASENAME" in
-  CLAUDE.md|README.md|.gitignore)
+  CLAUDE.md|README.md|README_*.md|.gitignore)
     exit 0
     ;;
 esac
