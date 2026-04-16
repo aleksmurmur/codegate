@@ -127,14 +127,20 @@ Steps:
 1. **Commit all implementation changes** (this is commit #1 for this task):
    - Run `git add -A` then commit with message: `{type}: {short description from task.md}`
    - If nothing to commit (already clean): skip, note in audit log
-2. Run quality gate sub-agent: Task tool with `.claude/agents/quality-gate/prompt.md`, passing the git diff since the baseline commit, CODEBASE_CONTEXT.md, path to PLAN.md, path to `test-baseline.txt`, and path to `.ai/tech-debt/`
-3. Write quality report to `.ai/sessions/{id}/QUALITY_REPORT.md`
-4. Write `QUALITY_REVIEWED` to `.ai/sessions/{id}/state`
-5. Append to audit log: `[timestamp] Quality gate complete`
-6. Present `QUALITY_REPORT.md` to the user
-7. If verdict is **PASS**: say "Quality gate passed. Proceeding to PR creation." Append to audit log: `[timestamp] Quality gate passed — verdict: PASS`. Proceed to Phase 5 automatically.
-8. If verdict is **WARN**: present the warnings, say "Quality gate passed with warnings (listed above). Type `/cg-approve quality` to proceed, or fix the warnings first." Do not proceed until user responds.
-9. If verdict is **FAIL**: explain each FAIL item. Fix them. After each fix round: commit the fixes (`fix: address quality gate findings — round N`), then re-run quality gate. Up to 3 rounds total. If FAILs remain after round 3, escalate to user. Append to audit log: `[timestamp] Quality gate FAIL — N issues, awaiting fix`.
+2. **Diff-coverage check** (mechanical, runs before the agent):
+   - Compute base: `BASE=$(git merge-base main HEAD)`
+   - Run: `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output .ai/sessions/{id}/coverage-report.md`
+   - Exit **0 (CLEAN)**: continue to step 3.
+   - Exit **1 (FAIL)**: do NOT run the quality-gate agent. Present the coverage report to the user. Say: "Coverage check failed — new production code isn't exercised by tests (details above). Add tests, commit, then run `/cg-approve implementation` again." Append to audit log: `[timestamp] Coverage check FAIL — N uncovered items`. STOP.
+   - Exit **2 (script error)**: warn the user and continue to step 3; note in audit log.
+3. Run quality gate sub-agent: Task tool with `.claude/agents/quality-gate/prompt.md`, passing the git diff since the baseline commit, CODEBASE_CONTEXT.md, path to PLAN.md, path to `test-baseline.txt`, path to `coverage-report.md`, and path to `.ai/tech-debt/`
+4. Write quality report to `.ai/sessions/{id}/QUALITY_REPORT.md`
+5. Write `QUALITY_REVIEWED` to `.ai/sessions/{id}/state`
+6. Append to audit log: `[timestamp] Quality gate complete`
+7. Present `QUALITY_REPORT.md` to the user
+8. If verdict is **PASS**: say "Quality gate passed. Proceeding to PR creation." Append to audit log: `[timestamp] Quality gate passed — verdict: PASS`. Proceed to Phase 5 automatically.
+9. If verdict is **WARN**: present the warnings, say "Quality gate passed with warnings (listed above). Type `/cg-approve quality` to proceed, or fix the warnings first." Do not proceed until user responds.
+10. If verdict is **FAIL**: explain each FAIL item. Fix them. After each fix round: commit the fixes (`fix: address quality gate findings — round N`), then re-run quality gate. Up to 3 rounds total. If FAILs remain after round 3, escalate to user. Append to audit log: `[timestamp] Quality gate FAIL — N issues, awaiting fix`.
    - If user explicitly overrides with `/cg-approve quality`: append `[timestamp] Quality gate override by user — FAIL items accepted`. Then proceed to Phase 5.
    - Critical SQL and security FAILs cannot be overridden.
 
