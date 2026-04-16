@@ -28,7 +28,7 @@ if [ "$STATE" = "IMPLEMENTING" ]; then
   echo ""
   echo "When implementation is complete, type:"
   echo ""
-  echo "  /approve implementation"
+  echo "  /cg-approve implementation"
   echo ""
   echo "This will commit all changes and run the quality gate."
   echo "Do NOT push manually — the quality gate must pass first."

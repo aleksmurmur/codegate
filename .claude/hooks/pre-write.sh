@@ -26,7 +26,7 @@ if [[ "$FILE" == .claude/* ]] || [[ "$FILE" == */.claude/* ]]; then
   exit 0
 fi
 
-# Always allow writes to linter config files (CIE updates these during /context, which has no session)
+# Always allow writes to linter config files (CIE updates these during /cg-context, which has no session)
 BASENAME=$(basename "$FILE")
 case "$BASENAME" in
   .editorconfig|.eslintrc|.eslintrc.js|.eslintrc.cjs|.eslintrc.json|.eslintrc.yml|.eslintrc.yaml|\
@@ -43,13 +43,13 @@ esac
 # Check active session
 CURRENT_SESSION_FILE=".ai/current-session"
 if [ ! -f "$CURRENT_SESSION_FILE" ]; then
-  echo "No active session. Start a task with /feature, /bugfix, /migration, or /refactor before editing source files."
+  echo "No active session. Start a task with /cg-feature, /cg-bugfix, /cg-migration, or /cg-refactor before editing source files."
   exit 2
 fi
 
 SESSION=$(cat "$CURRENT_SESSION_FILE" 2>/dev/null | tr -d '[:space:]')
 if [ -z "$SESSION" ]; then
-  echo "Current session file is empty. Start a new task with /feature or /bugfix."
+  echo "Current session file is empty. Start a new task with /cg-feature or /cg-bugfix."
   exit 2
 fi
 
@@ -61,15 +61,15 @@ case "$STATE" in
     exit 0
     ;;
   IDLE)
-    echo "Cannot modify '$FILE': state is IDLE. Complete elicitation questions first, then run /approve elicit."
+    echo "Cannot modify '$FILE': state is IDLE. Complete elicitation questions first, then run /cg-approve elicit."
     exit 2
     ;;
   ELICITED)
-    echo "Cannot modify '$FILE': state is ELICITED. A plan must be created and approved. Run /approve plan after reviewing the plan."
+    echo "Cannot modify '$FILE': state is ELICITED. A plan must be created and approved. Run /cg-approve plan after reviewing the plan."
     exit 2
     ;;
   *)
-    echo "Cannot modify '$FILE': unexpected state '$STATE'. Check /status."
+    echo "Cannot modify '$FILE': unexpected state '$STATE'. Check /cg-status."
     exit 2
     ;;
 esac

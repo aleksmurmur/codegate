@@ -1,1 +1,7 @@
-.ai/
+# Ignore ephemeral AI session data
+.ai/sessions/
+.ai/current-session
+
+# Keep these tracked in git:
+# .ai/CODEBASE_CONTEXT.md  — shared codebase understanding for the whole team
+# .ai/tech-debt/           — persistent issues worth tracking across PRs

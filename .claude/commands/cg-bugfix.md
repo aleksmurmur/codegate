@@ -10,10 +10,10 @@ Follow the workflow defined in CLAUDE.md exactly:
 5. Run elicitation sub-agent (Task tool, .claude/agents/elicitation/prompt.md) with:
    - Task type: bugfix
    - Task description: $ARGUMENTS
-   - Checklist: .claude/agents/elicitation/checklists/bugfix.md
+   - Checklist: .claude/agents/elicitation/checklists/cg-bugfix.md
    - Context: contents of .ai/CODEBASE_CONTEXT.md if present
    - Observability context: any metrics/logs found in step 4
 6. Present all elicitation questions at once to the user
 7. Wait for answers, record them
-8. Say: "Elicitation complete. Review the answers above, then type /approve elicit to proceed to planning."
+8. Say: "Elicitation complete. Review the answers above, then type /cg-approve elicit to proceed to planning."
 9. Stop and wait.

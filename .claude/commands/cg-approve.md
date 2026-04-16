@@ -38,4 +38,4 @@ Handle based on approval type:
 - Proceed to Phase 5: PR Creation
 
 If the approval type doesn't match the current state, explain the mismatch and what state the session is actually in.
-If no active session exists, say: "No active session. Start one with /feature, /bugfix, /migration, or /refactor."
+If no active session exists, say: "No active session. Start one with /cg-feature, /cg-bugfix, /cg-migration, or /cg-refactor."

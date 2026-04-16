@@ -60,7 +60,7 @@ echo ""
 case "$STATE" in
   ELICITED)
     echo "▶ Resume: Elicitation is complete. Planning has not started."
-    echo "  Remind the user to type /approve elicit to begin planning."
+    echo "  Remind the user to type /cg-approve elicit to begin planning."
     echo "  Elicitation Q&A is at: $SESSION_DIR/elicitation.md"
     ;;
   PLAN_APPROVED|IMPLEMENTING)
@@ -79,7 +79,7 @@ case "$STATE" in
         done
       else
         echo "  All checklist items appear complete."
-        echo "  Type /approve implementation to commit and run the quality gate."
+        echo "  Type /cg-approve implementation to commit and run the quality gate."
       fi
     fi
     ;;

@@ -7,13 +7,13 @@ Hooks physically block file writes at the wrong phase — do not attempt to work
 
 ## Two Flows
 
-### Flow A: Codebase Context (`/context`)
+### Flow A: Codebase Context (`/cg-context`)
 
 Run once per project, refresh when architecture changes significantly.
 Produces `.ai/CODEBASE_CONTEXT.md`, updates linter configs, seeds tech debt log.
 Does NOT create a session. Independent of any task.
 
-### Flow B: Task (`/feature`, `/bugfix`, `/migration`, `/refactor`)
+### Flow B: Task (`/cg-feature`, `/cg-bugfix`, `/cg-migration`, `/cg-refactor`)
 
 Every task goes through five phases in order. You cannot skip phases.
 
@@ -21,7 +21,7 @@ Every task goes through five phases in order. You cannot skip phases.
 
 ## Phase 1: Elicitation
 
-**Entry**: user runs `/feature [description]`, `/bugfix [description]`, etc.
+**Entry**: user runs `/cg-feature [description]`, `/cg-bugfix [description]`, etc.
 
 Steps:
 1. Generate session ID: `$(date +%Y%m%d-%H%M%S)-$(echo "$TASK" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | cut -c1-30)`
@@ -30,18 +30,18 @@ Steps:
 4. Write `IDLE` to `.ai/sessions/{id}/state`
 5. Write session ID to `.ai/current-session`
 6. Append to `.ai/sessions/{id}/audit.log`: `[timestamp] Session started, task type: {type}`
-7. If `.ai/CODEBASE_CONTEXT.md` does not exist: warn the user — "No codebase context found. Run `/context` first for best results. Continuing without it."
+7. If `.ai/CODEBASE_CONTEXT.md` does not exist: warn the user — "No codebase context found. Run `/cg-context` first for best results. Continuing without it."
 8. Run elicitation: use the Task tool with the prompt at `.claude/agents/elicitation/prompt.md`, passing the task description, task type, and contents of CODEBASE_CONTEXT.md (if present) and the relevant checklist from `.claude/agents/elicitation/checklists/{type}.md`
 9. Present the elicitation questions to the user. Ask them all at once, not one by one.
 10. Wait for answers. Record Q&A in `.ai/sessions/{id}/elicitation.md`
-11. Say: "Elicitation complete. Review the answers above, then type `/approve elicit` to proceed to planning."
-12. **STOP. Do not proceed until user types `/approve elicit`.**
+11. Say: "Elicitation complete. Review the answers above, then type `/cg-approve elicit` to proceed to planning."
+12. **STOP. Do not proceed until user types `/cg-approve elicit`.**
 
 ---
 
 ## Phase 2: Planning
 
-**Entry**: user types `/approve elicit`
+**Entry**: user types `/cg-approve elicit`
 
 Steps:
 1. Write `ELICITED` to `.ai/sessions/{id}/state`
@@ -52,12 +52,12 @@ Steps:
 6. If integrity check returns **MIRAGES_FOUND**:
    - Show the mirages to the user
    - Say: "The plan references things that don't exist in the codebase (listed above). The plan must be corrected before it can be approved. I can re-run planning with corrections, or you can edit PLAN.md manually."
-   - **STOP. Do not accept `/approve plan` until mirages are resolved.**
+   - **STOP. Do not accept `/cg-approve plan` until mirages are resolved.**
 7. If integrity check returns **CLEAN** (or only warnings):
    - Show any warnings to the user
    - Present the plan
-   - Say: "Plan ready. Review it above, then type `/approve plan` to begin implementation."
-8. **STOP. Do not write any source files until user types `/approve plan`.**
+   - Say: "Plan ready. Review it above, then type `/cg-approve plan` to begin implementation."
+8. **STOP. Do not write any source files until user types `/cg-approve plan`.**
 
 The plan must include:
 - Numbered checklist of files to change/create (exact paths)
@@ -71,7 +71,7 @@ The plan must include:
 
 ## Phase 3: Implementation
 
-**Entry**: user types `/approve plan`
+**Entry**: user types `/cg-approve plan`
 
 Steps:
 1. Write `PLAN_APPROVED` to `.ai/sessions/{id}/state`
@@ -96,14 +96,14 @@ Steps:
 8. **If you discover something not in the plan that significantly affects scope**: STOP immediately. Explain what you found. Ask whether to update the plan before continuing. Do not silently expand scope.
 9. **Maximum 3 fix iterations**: if the quality gate or reviewer finds issues and you have already made 3 rounds of fixes without resolving them, stop and escalate to the user. Do not loop indefinitely.
 10. When done: append to audit log: `[timestamp] Implementation complete`
-11. Say: "Implementation complete. Type `/approve implementation` to commit and run the quality gate."
-12. **STOP. Do not proceed until user types `/approve implementation`.**
+11. Say: "Implementation complete. Type `/cg-approve implementation` to commit and run the quality gate."
+12. **STOP. Do not proceed until user types `/cg-approve implementation`.**
 
 ---
 
 ## Phase 4: Quality Gate
 
-**Entry**: user types `/approve implementation`
+**Entry**: user types `/cg-approve implementation`
 
 Steps:
 1. **Commit all implementation changes** (this is commit #1 for this task):
@@ -115,16 +115,16 @@ Steps:
 5. Append to audit log: `[timestamp] Quality gate complete`
 6. Present `QUALITY_REPORT.md` to the user
 7. If verdict is **PASS**: say "Quality gate passed. Proceeding to PR creation." Append to audit log: `[timestamp] Quality gate passed — verdict: PASS`. Proceed to Phase 5 automatically.
-8. If verdict is **WARN**: present the warnings, say "Quality gate passed with warnings (listed above). Type `/approve quality` to proceed, or fix the warnings first." Do not proceed until user responds.
+8. If verdict is **WARN**: present the warnings, say "Quality gate passed with warnings (listed above). Type `/cg-approve quality` to proceed, or fix the warnings first." Do not proceed until user responds.
 9. If verdict is **FAIL**: explain each FAIL item. Fix them. After each fix round: commit the fixes (`fix: address quality gate findings — round N`), then re-run quality gate. Up to 3 rounds total. If FAILs remain after round 3, escalate to user. Append to audit log: `[timestamp] Quality gate FAIL — N issues, awaiting fix`.
-   - If user explicitly overrides with `/approve quality`: append `[timestamp] Quality gate override by user — FAIL items accepted`. Then proceed to Phase 5.
+   - If user explicitly overrides with `/cg-approve quality`: append `[timestamp] Quality gate override by user — FAIL items accepted`. Then proceed to Phase 5.
    - Critical SQL and security FAILs cannot be overridden.
 
 ---
 
 ## Phase 5: PR Creation
 
-**Entry**: quality gate passed (or overridden with `/approve quality`)
+**Entry**: quality gate passed (or overridden with `/cg-approve quality`)
 
 Steps:
 1. Run PR creator sub-agent: Task tool with `.claude/agents/pr-creator/prompt.md`
@@ -140,39 +140,39 @@ Steps:
 
 ## Slash Command Handlers
 
-**`/context`**
+**`/cg-context`**
 Run the CIE sub-agent (Task tool, `.claude/agents/codebase-intelligence/prompt.md`).
 No session needed. Output goes to `.ai/CODEBASE_CONTEXT.md`.
 
-**`/feature [description]`**
+**`/cg-feature [description]`**
 Task type: `feature`. Begin Phase 1.
 
-**`/bugfix [description]`**
+**`/cg-bugfix [description]`**
 Task type: `bugfix`. Begin Phase 1.
 
-**`/migration [description]`**
+**`/cg-migration [description]`**
 Task type: `migration`. Begin Phase 1.
 
-**`/refactor [description]`**
+**`/cg-refactor [description]`**
 Task type: `refactor`. Begin Phase 1.
 
-**`/approve elicit`**
+**`/cg-approve elicit`**
 Transition from Phase 1 to Phase 2. Write `ELICITED` to state file. Proceed to planning.
 
-**`/approve plan`**
+**`/cg-approve plan`**
 Transition from Phase 2 to Phase 3. Write `PLAN_APPROVED` then `IMPLEMENTING`. Proceed to implementation.
 
-**`/approve implementation`**
+**`/cg-approve implementation`**
 Transition from Phase 3 to Phase 4. Commit all implementation changes, then run the quality gate.
 
-**`/approve quality`**
+**`/cg-approve quality`**
 Override WARN-level quality issues. Write `QUALITY_REVIEWED`. Proceed to Phase 5.
 
-**`/status`**
+**`/cg-status`**
 Read `.ai/current-session`. Report: session ID, task description, current state, what action is needed next.
 If no active session: say "No active session."
 
-**`/debt`**
+**`/cg-debt`**
 List all `.ai/tech-debt/*.md` files. Show filename, one-line summary of each issue, and severity.
 If empty: say "No tech debt logged."
 
@@ -198,3 +198,4 @@ IDLE → ELICITED → PLAN_APPROVED → IMPLEMENTING → QUALITY_REVIEWED → PR
 4. Always log state transitions to `.ai/sessions/{id}/audit.log` with a timestamp.
 5. Writes to `.ai/` are always allowed regardless of state — that is where session data lives.
 6. If the user asks you to skip a phase: explain why the phase exists, then ask if they still want to skip. If yes, document the skip in the audit log.
+7. **Respond in the user's language.** If the user writes in Russian, respond in Russian. If in English, respond in English. Match the language of the user's most recent message. This applies to all responses, questions, and status messages throughout the workflow.

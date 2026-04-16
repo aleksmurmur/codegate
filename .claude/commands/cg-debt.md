@@ -10,4 +10,4 @@ Steps:
    | File | Location | Severity | Summary |
    |------|----------|----------|---------|
    | ...  | ...      | ...      | ...     |
-5. At the end, show total count and a note: "To address an item, run /refactor with the relevant file as context."
+5. At the end, show total count and a note: "To address an item, run /cg-refactor with the relevant file as context."

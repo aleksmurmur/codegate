@@ -13,7 +13,7 @@ a new Claude Code window, or an unexpected stop.
 
    Read `.ai/current-session` to get the session ID.
    If the file doesn't exist or is empty: say "No active session found. Start a new
-   task with /feature, /bugfix, /migration, or /refactor."
+   task with /cg-feature, /cg-bugfix, /cg-migration, or /cg-refactor."
 
 2. **Read session state**
 
@@ -55,6 +55,6 @@ a new Claude Code window, or an unexpected stop.
 4. **Resume**
 
    After reporting, immediately continue from the next step without waiting for the
-   user to say "continue" — they ran /resume because they want to keep going.
+   user to say "continue" — they ran /cg-resume because they want to keep going.
 
    Follow CLAUDE.md phase instructions for the current state.
