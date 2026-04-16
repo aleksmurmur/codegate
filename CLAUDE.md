@@ -96,24 +96,27 @@ Steps:
 8. **If you discover something not in the plan that significantly affects scope**: STOP immediately. Explain what you found. Ask whether to update the plan before continuing. Do not silently expand scope.
 9. **Maximum 3 fix iterations**: if the quality gate or reviewer finds issues and you have already made 3 rounds of fixes without resolving them, stop and escalate to the user. Do not loop indefinitely.
 10. When done: append to audit log: `[timestamp] Implementation complete`
-11. Say: "Implementation complete. Running quality gate..."
-12. Proceed to Phase 4 automatically.
+11. Say: "Implementation complete. Type `/approve implementation` to commit and run the quality gate."
+12. **STOP. Do not proceed until user types `/approve implementation`.**
 
 ---
 
 ## Phase 4: Quality Gate
 
-**Entry**: automatic after Phase 3 completes, or triggered by `post-stop.sh` hook
+**Entry**: user types `/approve implementation`
 
 Steps:
-1. Run quality gate sub-agent: Task tool with `.claude/agents/quality-gate/prompt.md`, passing the git diff, CODEBASE_CONTEXT.md, path to PLAN.md, path to `test-baseline.txt`, and path to `.ai/tech-debt/`
-2. Write quality report to `.ai/sessions/{id}/QUALITY_REPORT.md`
-3. Write `QUALITY_REVIEWED` to `.ai/sessions/{id}/state`
-4. Append to audit log: `[timestamp] Quality gate complete`
-5. Present `QUALITY_REPORT.md` to the user
-6. If verdict is **PASS**: say "Quality gate passed. Proceeding to PR creation." Append to audit log: `[timestamp] Quality gate passed — verdict: PASS`. Proceed to Phase 5 automatically.
-7. If verdict is **WARN**: present the warnings, say "Quality gate passed with warnings (listed above). Type `/approve quality` to proceed, or fix the warnings first." Do not proceed until user responds.
-8. If verdict is **FAIL**: explain each FAIL item. Say "Quality gate failed. These must be fixed before creating a PR." After fixes, re-run quality gate (up to 3 rounds total). If FAILs remain after round 3, escalate to user. Append to audit log: `[timestamp] Quality gate FAIL — N issues, awaiting fix`.
+1. **Commit all implementation changes** (this is commit #1 for this task):
+   - Run `git add -A` then commit with message: `{type}: {short description from task.md}`
+   - If nothing to commit (already clean): skip, note in audit log
+2. Run quality gate sub-agent: Task tool with `.claude/agents/quality-gate/prompt.md`, passing the git diff since the baseline commit, CODEBASE_CONTEXT.md, path to PLAN.md, path to `test-baseline.txt`, and path to `.ai/tech-debt/`
+3. Write quality report to `.ai/sessions/{id}/QUALITY_REPORT.md`
+4. Write `QUALITY_REVIEWED` to `.ai/sessions/{id}/state`
+5. Append to audit log: `[timestamp] Quality gate complete`
+6. Present `QUALITY_REPORT.md` to the user
+7. If verdict is **PASS**: say "Quality gate passed. Proceeding to PR creation." Append to audit log: `[timestamp] Quality gate passed — verdict: PASS`. Proceed to Phase 5 automatically.
+8. If verdict is **WARN**: present the warnings, say "Quality gate passed with warnings (listed above). Type `/approve quality` to proceed, or fix the warnings first." Do not proceed until user responds.
+9. If verdict is **FAIL**: explain each FAIL item. Fix them. After each fix round: commit the fixes (`fix: address quality gate findings — round N`), then re-run quality gate. Up to 3 rounds total. If FAILs remain after round 3, escalate to user. Append to audit log: `[timestamp] Quality gate FAIL — N issues, awaiting fix`.
    - If user explicitly overrides with `/approve quality`: append `[timestamp] Quality gate override by user — FAIL items accepted`. Then proceed to Phase 5.
    - Critical SQL and security FAILs cannot be overridden.
 
@@ -158,6 +161,9 @@ Transition from Phase 1 to Phase 2. Write `ELICITED` to state file. Proceed to p
 
 **`/approve plan`**
 Transition from Phase 2 to Phase 3. Write `PLAN_APPROVED` then `IMPLEMENTING`. Proceed to implementation.
+
+**`/approve implementation`**
+Transition from Phase 3 to Phase 4. Commit all implementation changes, then run the quality gate.
 
 **`/approve quality`**
 Override WARN-level quality issues. Write `QUALITY_REVIEWED`. Proceed to Phase 5.

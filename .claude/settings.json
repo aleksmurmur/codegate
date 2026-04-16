@@ -19,6 +19,15 @@
             "command": "bash .claude/hooks/pre-write.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash(git push*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-push.sh"
+          }
+        ]
       }
     ],
     "Stop": [
@@ -43,7 +52,6 @@
       "Write(**/.env.staging)",
       "Edit(**/.env)",
       "Edit(**/.env.local)",
-      "Edit(**/.env.production)",
       "Edit(**/.env.staging)"
     ]
   }

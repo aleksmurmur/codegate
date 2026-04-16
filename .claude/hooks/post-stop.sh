@@ -1,8 +1,7 @@
 #!/bin/bash
 # post-stop.sh
 # Fires when the agent stops (Stop event).
-# If a session is in IMPLEMENTING state, the quality gate has not run yet.
-# Warn the user so they know to continue the session to complete the workflow.
+# If a session is in IMPLEMENTING state, remind the user to approve implementation.
 
 CURRENT_SESSION_FILE=".ai/current-session"
 if [ ! -f "$CURRENT_SESSION_FILE" ]; then
@@ -20,15 +19,20 @@ STATE=$(cat "$STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "")
 if [ "$STATE" = "IMPLEMENTING" ]; then
   TASK=$(cat ".ai/sessions/$SESSION/task.md" 2>/dev/null | head -1 || echo "unknown task")
   echo ""
-  echo "⚠ Quality gate has not run for session: $SESSION"
-  echo "  Task: $TASK"
-  echo "  State: IMPLEMENTING"
+  echo "╔══════════════════════════════════════════════╗"
+  echo "║         IMPLEMENTATION AWAITING APPROVAL     ║"
+  echo "╚══════════════════════════════════════════════╝"
   echo ""
-  echo "  The quality gate must complete before a PR can be created."
-  echo "  Continue this session — the quality gate runs automatically"
-  echo "  when implementation is complete."
+  echo "Session : $SESSION"
+  echo "Task    : $TASK"
   echo ""
-  echo "  To check status: /status"
+  echo "When implementation is complete, type:"
+  echo ""
+  echo "  /approve implementation"
+  echo ""
+  echo "This will commit all changes and run the quality gate."
+  echo "Do NOT push manually — the quality gate must pass first."
+  echo ""
 fi
 
 exit 0

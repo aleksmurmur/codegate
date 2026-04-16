@@ -78,7 +78,8 @@ case "$STATE" in
           echo "    $line"
         done
       else
-        echo "  All checklist items appear complete — run quality gate next."
+        echo "  All checklist items appear complete."
+        echo "  Type /approve implementation to commit and run the quality gate."
       fi
     fi
     ;;
