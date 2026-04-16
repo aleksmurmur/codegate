@@ -13,7 +13,7 @@ a new Claude Code window, or an unexpected stop.
 
    Read `.ai/current-session` to get the session ID.
    If the file doesn't exist or is empty: say "No active session found. Start a new
-   task with /cg-feature, /cg-bugfix, /cg-migration, or /cg-refactor."
+   task with /cg-feature, /cg-bugfix, or /cg-refactor."
 
 2. **Read session state**
 

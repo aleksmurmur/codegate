@@ -43,7 +43,7 @@ esac
 # Check active session
 CURRENT_SESSION_FILE=".ai/current-session"
 if [ ! -f "$CURRENT_SESSION_FILE" ]; then
-  echo "No active session. Start a task with /cg-feature, /cg-bugfix, /cg-migration, or /cg-refactor before editing source files."
+  echo "No active session. Start a task with /cg-feature, /cg-bugfix, or /cg-refactor before editing source files."
   exit 2
 fi
 

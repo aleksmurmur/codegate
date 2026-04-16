@@ -1,17 +1,4 @@
-Start a new refactor task session and begin Phase 1: Elicitation.
+Start a new refactor task session. Task type: `refactor`. Task description: $ARGUMENTS
 
-Task description: $ARGUMENTS
-
-Follow the workflow defined in CLAUDE.md exactly:
-1. Generate a session ID, create session directory, write task.md, set state to IDLE
-2. Write session ID to .ai/current-session
-3. Check if .ai/CODEBASE_CONTEXT.md exists; warn if not
-4. Run elicitation sub-agent (Task tool, .claude/agents/elicitation/prompt.md) with:
-   - Task type: refactor
-   - Task description: $ARGUMENTS
-   - Checklist: .claude/agents/elicitation/checklists/cg-refactor.md
-   - Context: contents of .ai/CODEBASE_CONTEXT.md if present
-5. Present all elicitation questions at once to the user
-6. Wait for answers, record them
-7. Say: "Elicitation complete. Review the answers above, then type /cg-approve elicit to proceed to planning."
-8. Stop and wait.
+Run Phase 1 (Elicitation) per CLAUDE.md §Phase 1.
+Checklist: `.claude/agents/elicitation/checklists/refactor.md`

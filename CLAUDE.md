@@ -13,7 +13,7 @@ Run once per project, refresh when architecture changes significantly.
 Produces `.ai/CODEBASE_CONTEXT.md`, updates linter configs, seeds tech debt log.
 Does NOT create a session. Independent of any task.
 
-### Flow B: Task (`/cg-feature`, `/cg-bugfix`, `/cg-migration`, `/cg-refactor`)
+### Flow B: Task (`/cg-feature`, `/cg-bugfix`, `/cg-refactor`)
 
 Every task goes through five phases in order. You cannot skip phases.
 
@@ -149,9 +149,6 @@ Task type: `feature`. Begin Phase 1.
 
 **`/cg-bugfix [description]`**
 Task type: `bugfix`. Begin Phase 1.
-
-**`/cg-migration [description]`**
-Task type: `migration`. Begin Phase 1.
 
 **`/cg-refactor [description]`**
 Task type: `refactor`. Begin Phase 1.

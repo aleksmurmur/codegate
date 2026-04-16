@@ -2,7 +2,7 @@ Show the current session status.
 
 Steps:
 1. Read .ai/current-session
-2. If file does not exist or is empty: say "No active session. Start one with /cg-feature, /cg-bugfix, /cg-migration, or /cg-refactor."
+2. If file does not exist or is empty: say "No active session. Start one with /cg-feature, /cg-bugfix, or /cg-refactor."
 3. Otherwise, read:
    - .ai/sessions/{id}/task.md (task description)
    - .ai/sessions/{id}/state (current phase)
