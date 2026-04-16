@@ -37,6 +37,26 @@ Do not skip this. Read the actual source files in the affected area:
 
 Read until you can answer: "Where exactly does the new code go, what does it call, and what does it change?" If you can't answer that, read more.
 
+### Step 2.5 — Verify every path and symbol you will cite
+
+Before writing the plan, verify each path and each symbol you plan to reference:
+- **Every file path** listed in the Checklist must come from a `Glob` or `Read` result
+  you just obtained in this session. If you didn't read it or glob it, don't cite it.
+- **Every class / method / field** referenced in the plan (in backticks) must come from
+  a `Grep` result with a concrete line in a concrete file. If `grep` didn't return it,
+  don't mention it.
+- **Every migration version number** must be checked against existing migrations by
+  globbing `**/migration/V*__*.sql` (or your project's equivalent). Use the next free
+  version, never a colliding one.
+
+If a symbol you need does not exist yet (you're creating it), state that explicitly:
+`new method: findByStatus() on SiteRepository` — this signals "to be created" rather than
+"assumed to exist." Never write a symbol name that hasn't been verified or explicitly
+marked as new.
+
+A mechanical integrity check runs after planning and will flag any cited path or symbol
+it cannot find. Save a round-trip by getting it right the first time.
+
 ### Step 3 — Produce the plan
 
 Write a plan with the sections below. Every file path and class/method name must come
@@ -53,8 +73,7 @@ hexagonal structure — new domain interface in `domain/`, JPA implementation in
 `infrastructure/jpa/`").
 
 ### Checklist
-Numbered list of every file change. Each item must include the full path and what
-changes:
+Numbered list of every file change. Format is strict — the integrity checker parses it:
 
 ```
 [ ] 1. Modify src/main/kotlin/.../SomeService.kt — add findByStatus() method
@@ -63,8 +82,13 @@ changes:
 [ ] 4. Modify src/test/kotlin/.../SomeServiceTest.kt — add tests for findByStatus
 ```
 
+Required shape per line: `[ ] <N>. <Verb> <path-with-extension> — <description>`
+- Verbs for new files: `Create`, `Add`, `New`
+- Verbs for existing files: `Modify`, `Update`, `Change`, `Edit`, `Extend`
+- Verbs for removals: `Delete`, `Remove`
+
 Rules:
-- Use exact paths you read, not guessed paths
+- Use exact paths you verified in Step 2.5, not guessed paths
 - Tests are not optional — always included
 - If schema changes: migration file always included with the correct next version number
 - If touching >7 files, explain why the scope can't be reduced
@@ -151,3 +175,7 @@ Out of scope:
 
 5. **Tests are implementation items** — they appear in the checklist with checkboxes,
    not as an afterthought. TDD anchor specifies which scenarios to write first.
+
+6. **No uncited paths or symbols** — everything you name must come from a tool result
+   you saw during this planning session (Glob, Grep, Read). If you didn't verify it,
+   don't cite it. For new symbols, explicitly label them as new.

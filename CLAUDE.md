@@ -32,10 +32,20 @@ Steps:
 6. Append to `.ai/sessions/{id}/audit.log`: `[timestamp] Session started, task type: {type}`
 7. If `.ai/CODEBASE_CONTEXT.md` does not exist: warn the user — "No codebase context found. Run `/cg-context` first for best results. Continuing without it."
 8. Run elicitation: use the Task tool with the prompt at `.claude/agents/elicitation/prompt.md`, passing the task description, task type, and contents of CODEBASE_CONTEXT.md (if present) and the relevant checklist from `.claude/agents/elicitation/checklists/{type}.md`
-9. Present the elicitation questions to the user. Ask them all at once, not one by one.
-10. Wait for answers. Record Q&A in `.ai/sessions/{id}/elicitation.md`
-11. Say: "Elicitation complete. Review the answers above, then type `/cg-approve elicit` to proceed to planning."
-12. **STOP. Do not proceed until user types `/cg-approve elicit`.**
+9. The elicitation agent returns **either** a fast-path proposal **or** a question list:
+
+   **If the agent returns a fast-path proposal** (cosmetic change only; never for `refactor`):
+   - Write the mini-plan section of the proposal to `.ai/sessions/{id}/PLAN.md`
+   - Append to audit log: `[timestamp] Fast-path proposed — classification: cosmetic`
+   - Present the proposal to the user verbatim
+   - Say: "This change looks cosmetic. Type `/cg-approve quick` to skip elicitation and planning and go straight to implementation, or `/cg-approve elicit` to run the full workflow anyway."
+   - **STOP. Wait for `/cg-approve quick` or `/cg-approve elicit`.**
+
+   **If the agent returns a question list** (normal flow):
+   - Present the questions to the user. Ask them all at once, not one by one.
+   - Wait for answers. Record Q&A in `.ai/sessions/{id}/elicitation.md`
+   - Say: "Elicitation complete. Review the answers above, then type `/cg-approve elicit` to proceed to planning."
+   - **STOP. Do not proceed until user types `/cg-approve elicit`.**
 
 ---
 
@@ -48,13 +58,20 @@ Steps:
 2. Append to audit log: `[timestamp] Elicitation approved`
 3. Run planning sub-agent: Task tool with `.claude/agents/planning/prompt.md`, passing task description + elicitation answers + CODEBASE_CONTEXT.md
 4. Write the plan to `.ai/sessions/{id}/PLAN.md`
-5. Run plan integrity check: Task tool with `.claude/agents/plan-integrity/prompt.md`, passing the path to PLAN.md and CODEBASE_CONTEXT.md
-6. If integrity check returns **MIRAGES_FOUND**:
-   - Show the mirages to the user
+5. Run the plan integrity check (deterministic, no LLM):
+   ```
+   python3 .claude/scripts/plan-integrity.py .ai/sessions/{id}/PLAN.md
+   ```
+   The script checks that every file path in the Checklist exists (for Modify) or does
+   not exist yet (for Create), and that no migration version number collides with an
+   existing migration. Output is written to `.ai/sessions/{id}/integrity-report.md`.
+   Exit code: `0` = CLEAN, `1` = MIRAGES_FOUND.
+6. If the script exits with **1 (MIRAGES_FOUND)**:
+   - Show the report to the user
    - Say: "The plan references things that don't exist in the codebase (listed above). The plan must be corrected before it can be approved. I can re-run planning with corrections, or you can edit PLAN.md manually."
    - **STOP. Do not accept `/cg-approve plan` until mirages are resolved.**
-7. If integrity check returns **CLEAN** (or only warnings):
-   - Show any warnings to the user
+7. If the script exits with **0 (CLEAN)**:
+   - Show any warnings from the report to the user (symbols not found, etc.)
    - Present the plan
    - Say: "Plan ready. Review it above, then type `/cg-approve plan` to begin implementation."
 8. **STOP. Do not write any source files until user types `/cg-approve plan`.**
@@ -151,6 +168,13 @@ Task type: `bugfix`. Begin Phase 1.
 
 **`/cg-refactor [description]`**
 Task type: `refactor`. Begin Phase 1.
+
+**`/cg-approve quick`**
+Accept a cosmetic fast-path proposal from Phase 1. Write `IMPLEMENTING` directly to the
+state file (skipping `ELICITED` and `PLAN_APPROVED`). Append to audit log:
+`[timestamp] Fast-path approved — elicitation and planning skipped`. Proceed to Phase 3
+using the mini-plan already written to `PLAN.md`. Only valid when the elicitation agent
+returned a fast-path proposal on this session.
 
 **`/cg-approve elicit`**
 Transition from Phase 1 to Phase 2. Write `ELICITED` to state file. Proceed to planning.

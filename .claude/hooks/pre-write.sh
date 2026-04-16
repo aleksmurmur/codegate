@@ -26,8 +26,17 @@ if [[ "$FILE" == .claude/* ]] || [[ "$FILE" == */.claude/* ]]; then
   exit 0
 fi
 
-# Always allow writes to linter config files (CIE updates these during /cg-context, which has no session)
+# Always allow writes to workflow-config files at the project root. These define the
+# workflow itself; editing them is meta-work, not source-code changes, and should not
+# require an active session.
 BASENAME=$(basename "$FILE")
+case "$BASENAME" in
+  CLAUDE.md|README.md|.gitignore)
+    exit 0
+    ;;
+esac
+
+# Always allow writes to linter config files (CIE updates these during /cg-context, which has no session)
 case "$BASENAME" in
   .editorconfig|.eslintrc|.eslintrc.js|.eslintrc.cjs|.eslintrc.json|.eslintrc.yml|.eslintrc.yaml|\
   eslint.config.js|eslint.config.cjs|eslint.config.mjs|eslint.config.ts|\

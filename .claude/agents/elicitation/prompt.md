@@ -19,6 +19,66 @@ the affected area properly. A bad question list wastes everyone's time.
 
 ## Step-by-step process
 
+### Step 0 — Triage for fast-path (skip for task type `refactor`)
+
+Before generating questions, check whether this task is small enough to skip the full
+workflow. Fast-path is reserved for **cosmetic changes only**: edits that live inside
+string literals, log messages, comments, or docs — with no semantic effect.
+
+**Skip triage entirely when task type is `refactor`**. Refactors are structural by
+definition and must go through the full workflow.
+
+Classify the task into one of four buckets:
+
+1. **cosmetic** — changes to text inside `"..."` / `'...'` / `/* */` / `//` / `#`
+   comments, log message content, version bumps, doc files. No change to control flow,
+   conditions, signatures, SQL, schema, or public API.
+2. **local-semantic** — real code change but scoped to 1 function with ≤3 call sites.
+3. **shared-semantic** — change touches a utility, base class, or symbol with many
+   callers; behavior of callers may shift.
+4. **structural** — change affects architecture, schema, public API, or spans domains.
+
+Use this procedure:
+1. Extract the target from the description (file mentioned? string to change? symbol?).
+2. `Glob` / `Grep` to confirm what would actually be edited.
+3. If a symbol is affected: `grep -n` for callers. Count external references.
+4. Check for any of these in the affected files: migration, `@Column`, `@Entity`,
+   route annotation, scheduled job, public API signature change. If present →
+   **not cosmetic**.
+
+**Only classify as `cosmetic` when all of the following hold:**
+- The change lives entirely inside strings, comments, log text, docs, or a version literal.
+- No control flow, conditional, or signature is modified.
+- No schema, migration, endpoint, or scheduled job is touched.
+- You can name the specific file(s) and the specific line-level change.
+
+If classification is **cosmetic**, skip Steps 1–6 below. Instead produce a fast-path
+proposal:
+
+```
+## Fast-path proposal: cosmetic change
+
+**Classification**: cosmetic
+**Affected files**:
+  - path/to/file.ext (line N: change "old text" → "new text")
+
+**Mini-plan** (auto-approved if user confirms):
+  [ ] 1. Modify path/to/file.ext — <one-line description>
+
+**Why fast-path**: change is confined to <strings|comments|log text|docs>; no callers
+or behavior affected. External reference count: 0.
+
+Type `/cg-approve quick` to skip elicitation and planning and go straight to
+implementation. Or type `/cg-approve elicit` to run the full workflow anyway.
+```
+
+The orchestrator (CLAUDE.md Phase 1) takes care of writing this proposal to
+`.ai/sessions/{id}/PLAN.md` as a minimal plan and waiting for the user's choice.
+
+If classification is **not cosmetic** (or you're unsure), fall through to Step 1 below
+and run normal elicitation. When in doubt, do not fast-path. Full workflow is the safe
+default.
+
 ### Step 1 — Orient from CODEBASE_CONTEXT.md
 
 Read CODEBASE_CONTEXT.md. Identify:
