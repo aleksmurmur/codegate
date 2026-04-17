@@ -68,10 +68,12 @@ Steps:
    (no changeset-id parsing in v1). Output is written to
    `.ai/sessions/{id}/integrity-report.md`.
    Exit code: `0` = CLEAN, `1` = MIRAGES_FOUND.
-6. If the script exits with **1 (MIRAGES_FOUND)**:
+6. If the script exits with **1** (verdict `MIRAGES_FOUND` or `PARSE_FAILED`):
    - Show the report to the user
-   - Say: "The plan references things that don't exist in the codebase (listed above). The plan must be corrected before it can be approved. I can re-run planning with corrections, or you can edit PLAN.md manually."
-   - **STOP. Do not accept `/cg-approve plan` until mirages are resolved.**
+   - For MIRAGES_FOUND say: "The plan references things that don't exist in the codebase (listed above). The plan must be corrected before it can be approved."
+   - For PARSE_FAILED say: "The plan is missing a `## Checklist` heading or its items don't match the expected format (`[ ] N. Verb path.ext — description`). The plan must be corrected."
+   - Offer to re-run planning with corrections, or let the user edit PLAN.md manually.
+   - **STOP. Do not accept `/cg-approve plan` until the issue is resolved.**
 7. If the script exits with **0 (CLEAN)**:
    - If `.ai/CODEBASE_CONTEXT.md` exists, run the pattern review sub-agent (Task tool with `.claude/agents/plan-review/prompt.md`, passing the path to PLAN.md, CODEBASE_CONTEXT.md, and `integrity-report.md`). The agent appends an advisory `## Pattern Review` section to `integrity-report.md`. If CODEBASE_CONTEXT.md is absent, skip this step.
    - Show any warnings from the script to the user (symbols not found, etc.)

@@ -19,7 +19,9 @@ Usage:
 
 Exit codes:
     0 — CLEAN (no mirages; warnings may exist but are not blocking)
-    1 — MIRAGES_FOUND (blocking; plan must be corrected)
+    1 — blocking failure, one of:
+        MIRAGES_FOUND — plan cites paths/symbols that don't exist
+        PARSE_FAILED  — no `## Checklist` heading, or heading present but no items parsed
     2 — error reading inputs
 
 Output:
@@ -39,7 +41,7 @@ MODIFY_VERBS = {"modify", "update", "change", "edit", "extend"}
 DELETE_VERBS = {"delete", "remove"}
 
 CHECKLIST_LINE = re.compile(
-    r"^\s*\[[ xX]\]\s*\d+\.\s*(\w+)\s+`?(\S+?\.\w+)`?(?:\s|$)"
+    r"^\s*[-*]?\s*\[[ xX]\]\s*\d+\.?\s+(\w+)\s+`?(\S+?\.\w+)`?(?:\s|$)"
 )
 MIGRATION_VERSION = re.compile(r"V(\d+)__")
 LIQUIBASE_SIGNALS = re.compile(
@@ -58,11 +60,18 @@ def read_plan(path: Path) -> str:
 
 
 def extract_checklist(text: str):
-    """Yield (verb_lower, path) tuples from lines inside the Checklist section."""
+    """Return (items, had_header).
+
+    items: list of (verb_lower, path) tuples from lines inside the Checklist section.
+    had_header: True if a `## Checklist` heading (any level) appeared in the plan.
+    """
+    items: list[tuple[str, str]] = []
+    had_header = False
     in_checklist = False
     for line in text.splitlines():
         if re.match(r"^#+\s+Checklist", line, re.IGNORECASE):
             in_checklist = True
+            had_header = True
             continue
         if in_checklist and line.startswith("#"):
             in_checklist = False
@@ -71,7 +80,8 @@ def extract_checklist(text: str):
             continue
         m = CHECKLIST_LINE.match(line)
         if m:
-            yield m.group(1).lower(), m.group(2)
+            items.append((m.group(1).lower(), m.group(2)))
+    return items, had_header
 
 
 def git_ls_files() -> set[str]:
@@ -195,18 +205,31 @@ def main() -> None:
 
     plan_path = Path(sys.argv[1])
     text = read_plan(plan_path)
-    items = list(extract_checklist(text))
+    items, had_header = extract_checklist(text)
 
     tracked = git_ls_files()
     tool = detect_migration_tool(tracked)
+    report_path = plan_path.parent / "integrity-report.md"
+
+    if not had_header:
+        print("FAIL: no '## Checklist' heading found in plan")
+        write_report(
+            report_path, "PARSE_FAILED", tool, [], [],
+            ["no '## Checklist' heading — every plan must have a Checklist section"],
+        )
+        sys.exit(1)
 
     if not items:
-        print("WARN: no checklist items found — check PLAN.md format")
-        report_path = plan_path.parent / "integrity-report.md"
+        print("FAIL: Checklist section has no parseable items")
         write_report(
-            report_path, "CLEAN", tool, [], [], ["no checklist items parsed"]
+            report_path, "PARSE_FAILED", tool, [], [],
+            [
+                "Checklist heading found but no items parsed.",
+                "Expected: `[ ] N. Verb path.ext — description`",
+                "Optional `-` or `*` bullet prefix and period after N are accepted.",
+            ],
         )
-        sys.exit(0)
+        sys.exit(1)
 
     mirages: list[str] = []
     verified: list[str] = []
@@ -223,7 +246,6 @@ def main() -> None:
     warnings = check_symbols(text)
 
     verdict = "MIRAGES_FOUND" if mirages else "CLEAN"
-    report_path = plan_path.parent / "integrity-report.md"
     write_report(report_path, verdict, tool, verified, mirages, warnings)
 
     print(f"Plan integrity: {verdict}")
