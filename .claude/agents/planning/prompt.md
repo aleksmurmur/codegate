@@ -45,9 +45,10 @@ Before writing the plan, verify each path and each symbol you plan to reference:
 - **Every class / method / field** referenced in the plan (in backticks) must come from
   a `Grep` result with a concrete line in a concrete file. If `grep` didn't return it,
   don't mention it.
-- **Every migration version number** must be checked against existing migrations by
-  globbing `**/migration/V*__*.sql` (or your project's equivalent). Use the next free
-  version, never a colliding one.
+- **Every migration identifier** must be checked against existing migrations.
+  Flyway: glob `**/migration/V*__*.sql`, pick the next free version.
+  Liquibase: read the target changelog, pick an unused `(id, author)` pair.
+  Never reuse an existing identifier.
 
 If a symbol you need does not exist yet (you're creating it), state that explicitly:
 `new method: findByStatus() on SiteRepository` — this signals "to be created" rather than

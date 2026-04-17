@@ -1,7 +1,7 @@
 # Agent Workflow System
 
 This project uses a structured coding workflow. Every task follows enforced phases.
-Hooks physically block file writes at the wrong phase — do not attempt to work around them.
+Hooks block the agent's Write and Edit tool calls at the wrong phase (Bash-based writes — redirects, `sed -i` — are not intercepted). Follow the workflow, don't try to route around it.
 
 ---
 
@@ -63,8 +63,10 @@ Steps:
    python3 .claude/scripts/plan-integrity.py .ai/sessions/{id}/PLAN.md
    ```
    The script checks that every file path in the Checklist exists (for Modify) or does
-   not exist yet (for Create), and that no migration version number collides with an
-   existing migration. Output is written to `.ai/sessions/{id}/integrity-report.md`.
+   not exist yet (for Create). For Flyway projects it also checks that no migration
+   version collides with an existing one. Liquibase projects get only the path check
+   (no changeset-id parsing in v1). Output is written to
+   `.ai/sessions/{id}/integrity-report.md`.
    Exit code: `0` = CLEAN, `1` = MIRAGES_FOUND.
 6. If the script exits with **1 (MIRAGES_FOUND)**:
    - Show the report to the user

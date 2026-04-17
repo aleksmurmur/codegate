@@ -42,6 +42,9 @@ CHECKLIST_LINE = re.compile(
     r"^\s*\[[ xX]\]\s*\d+\.\s*(\w+)\s+`?(\S+?\.\w+)`?(?:\s|$)"
 )
 MIGRATION_VERSION = re.compile(r"V(\d+)__")
+LIQUIBASE_SIGNALS = re.compile(
+    r"(^|/)db/changelog/|changelog-master\.(xml|ya?ml|json|sql)$"
+)
 SYMBOL_IN_BACKTICKS = re.compile(
     r"`([A-Z][A-Za-z0-9_]+(?:\.[a-zA-Z_][A-Za-z0-9_]*)?(?:\(\))?)`"
 )
@@ -79,6 +82,22 @@ def git_ls_files() -> set[str]:
         return set(out.splitlines())
     except (subprocess.CalledProcessError, FileNotFoundError):
         return set()
+
+
+def detect_migration_tool(tracked: set[str]) -> str:
+    """Identify which migration tool the repo uses from tracked files.
+
+    Returns one of: "flyway", "liquibase", "both", "none".
+    """
+    has_flyway = any(MIGRATION_VERSION.search(Path(p).name) for p in tracked)
+    has_liquibase = any(LIQUIBASE_SIGNALS.search(p) for p in tracked)
+    if has_flyway and has_liquibase:
+        return "both"
+    if has_flyway:
+        return "flyway"
+    if has_liquibase:
+        return "liquibase"
+    return "none"
 
 
 def check_path(verb: str, path: str, tracked: set[str]) -> str | None:
@@ -141,8 +160,16 @@ def check_symbols(text: str) -> list[str]:
     return warnings
 
 
-def write_report(report_path: Path, verdict: str, verified, mirages, warnings) -> None:
-    lines = ["# Plan Integrity Report", "", f"**Status**: {verdict}", ""]
+def write_report(
+    report_path: Path, verdict: str, tool: str, verified, mirages, warnings
+) -> None:
+    lines = [
+        "# Plan Integrity Report",
+        "",
+        f"**Status**: {verdict}",
+        f"**Migration tool**: {tool}",
+        "",
+    ]
     if verified:
         lines.append(f"## Verified ({len(verified)} items)")
         lines.extend(f"- OK: {v}" for v in verified)
@@ -170,13 +197,17 @@ def main() -> None:
     text = read_plan(plan_path)
     items = list(extract_checklist(text))
 
+    tracked = git_ls_files()
+    tool = detect_migration_tool(tracked)
+
     if not items:
         print("WARN: no checklist items found — check PLAN.md format")
         report_path = plan_path.parent / "integrity-report.md"
-        write_report(report_path, "CLEAN", [], [], ["no checklist items parsed"])
+        write_report(
+            report_path, "CLEAN", tool, [], [], ["no checklist items parsed"]
+        )
         sys.exit(0)
 
-    tracked = git_ls_files()
     mirages: list[str] = []
     verified: list[str] = []
 
@@ -187,14 +218,16 @@ def main() -> None:
         else:
             verified.append(f"{verb} {path}")
 
-    mirages.extend(check_migration_collisions(items, tracked))
+    if tool in ("flyway", "both"):
+        mirages.extend(check_migration_collisions(items, tracked))
     warnings = check_symbols(text)
 
     verdict = "MIRAGES_FOUND" if mirages else "CLEAN"
     report_path = plan_path.parent / "integrity-report.md"
-    write_report(report_path, verdict, verified, mirages, warnings)
+    write_report(report_path, verdict, tool, verified, mirages, warnings)
 
     print(f"Plan integrity: {verdict}")
+    print(f"  Migration tool: {tool}")
     print(f"  Verified: {len(verified)}")
     print(f"  Mirages:  {len(mirages)}")
     print(f"  Warnings: {len(warnings)}")

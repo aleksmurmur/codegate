@@ -10,7 +10,8 @@
 **Language(s)**: {e.g. Kotlin 1.9}
 **Framework(s)**: {e.g. Spring Boot 3.2}
 **Build tool**: {e.g. Gradle 8 Kotlin DSL}
-**Database / ORM**: {e.g. PostgreSQL via Spring Data JPA + Flyway migrations}
+**Database / ORM**: {e.g. PostgreSQL via Spring Data JPA}
+**Migration tool**: {flyway | liquibase | alembic | prisma-migrate | none}
 **Test framework**: {e.g. JUnit 5 + MockK + Testcontainers}
 **Key dependencies**: {notable ones — auth, messaging, caching, observability. Only what matters for understanding the codebase.}
 

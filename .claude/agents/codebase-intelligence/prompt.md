@@ -29,6 +29,7 @@ From the build file, extract:
 - Primary language(s) and version
 - Framework(s) — e.g. Spring Boot 3.2, React 18, Django 4.2
 - Database driver / ORM — e.g. spring-data-jpa, sqlalchemy, prisma
+- Migration tool — Flyway, Liquibase, Alembic, Prisma Migrate, or none (detect via build deps and presence of `db/migration/V*__*.sql` or `db/changelog/`)
 - Test framework — e.g. JUnit 5, pytest, jest
 - Key dependencies worth noting — auth (Spring Security, Passport), messaging (Kafka, RabbitMQ), caching (Redis), observability (Micrometer, OpenTelemetry)
 - Linter / formatting plugins already in the build

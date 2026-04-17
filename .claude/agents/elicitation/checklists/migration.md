@@ -42,5 +42,6 @@ Replace bracketed placeholders with actual names from CODEBASE_CONTEXT.md.
 
 - **If migration adds a column used in WHERE/ORDER BY/JOIN**: Does the new column
   need an index?
-- **If context shows [migration tool] versioning**: Which version number should this
-  migration use? Are there pending migrations in other branches?
+- **If context shows [migration tool] versioning**: Which identifier should this
+  migration use (Flyway version number / Liquibase changeset id / equivalent)? Are
+  there pending migrations in other branches?

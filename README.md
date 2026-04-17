@@ -20,7 +20,7 @@ Every task follows enforced phases before code reaches review:
    dimensions, with baseline-diffed test run and tech-debt log.
 5. **PR creation** — branch, commit, PR with quality report attached.
 
-Hooks physically block file writes at wrong phases — the agent cannot bypass them.
+Hooks block the agent's `Write` and `Edit` tool calls at wrong phases. Bash-based writes (redirects, `sed -i`) are not intercepted — treat the hook as a guardrail, not a sandbox.
 
 ## Install
 
