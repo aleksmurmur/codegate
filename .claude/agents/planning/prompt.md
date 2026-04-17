@@ -79,14 +79,12 @@ Numbered list of every file change. Format is strict — the integrity checker p
 ```
 [ ] 1. Modify src/main/kotlin/.../SomeService.kt — add findByStatus() method
 [ ] 2. Create src/main/kotlin/.../NewRepository.kt — implement domain ArticleRepository
-[ ] 3. Add src/main/resources/db/migration/V21__add_status_column.sql — new column
+[ ] 3. Create src/main/resources/db/migration/V21__add_status_column.sql — new column
 [ ] 4. Modify src/test/kotlin/.../SomeServiceTest.kt — add tests for findByStatus
 ```
 
 Required shape per line: `[ ] <N>. <Verb> <path-with-extension> — <description>`
-- Verbs for new files: `Create`, `Add`, `New`
-- Verbs for existing files: `Modify`, `Update`, `Change`, `Edit`, `Extend`
-- Verbs for removals: `Delete`, `Remove`
+- Verbs: `Create` (new file), `Modify` (existing file), `Delete` (remove file). Use exactly these — the integrity checker only recognises these three.
 
 Rules:
 - Use exact paths you verified in Step 2.5, not guessed paths

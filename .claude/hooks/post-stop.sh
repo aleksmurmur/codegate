@@ -19,9 +19,7 @@ STATE=$(cat "$STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "")
 if [ "$STATE" = "IMPLEMENTING" ]; then
   TASK=$(cat ".ai/sessions/$SESSION/task.md" 2>/dev/null | head -1 || echo "unknown task")
   echo ""
-  echo "╔══════════════════════════════════════════════╗"
-  echo "║         IMPLEMENTATION AWAITING APPROVAL     ║"
-  echo "╚══════════════════════════════════════════════╝"
+  echo "IMPLEMENTATION AWAITING APPROVAL"
   echo ""
   echo "Session : $SESSION"
   echo "Task    : $TASK"

@@ -45,9 +45,7 @@ STATE=$(cat "$SESSION_DIR/state" 2>/dev/null | tr -d '[:space:]' || echo "")
 
 TASK=$(head -1 "$SESSION_DIR/task.md" 2>/dev/null || echo "(task description not found)")
 
-echo "╔══════════════════════════════════════════════╗"
-echo "║           SESSION RECOVERY CONTEXT           ║"
-echo "╚══════════════════════════════════════════════╝"
+echo "SESSION RECOVERY CONTEXT"
 echo ""
 echo "Context was compacted. An active session was found."
 echo ""

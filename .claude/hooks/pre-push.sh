@@ -21,11 +21,7 @@ case "$STATE" in
   IDLE|ELICITED|PLAN_APPROVED|IMPLEMENTING)
     TASK=$(cat ".ai/sessions/$SESSION/task.md" 2>/dev/null | head -1 || echo "unknown task")
     echo ""
-    echo "╔══════════════════════════════════════════════╗"
-    echo "║              PUSH BLOCKED                    ║"
-    echo "╚══════════════════════════════════════════════╝"
-    echo ""
-    echo "Active session has not passed the quality gate."
+    echo "PUSH BLOCKED: active session has not passed the quality gate."
     echo ""
     echo "Session : $SESSION"
     echo "Task    : $TASK"

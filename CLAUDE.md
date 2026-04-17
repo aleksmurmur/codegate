@@ -168,57 +168,15 @@ Steps:
 
 ## Slash Command Handlers
 
-**`/cg-context`**
-Run the CIE sub-agent (Task tool, `.claude/agents/codebase-intelligence/prompt.md`).
-No session needed. Output goes to `.ai/CODEBASE_CONTEXT.md`.
+- `/cg-context` — run the CIE sub-agent (`.claude/agents/codebase-intelligence/prompt.md`). No session needed. Output: `.ai/CODEBASE_CONTEXT.md`.
+- `/cg-feature [description]` — task type `feature`. Begin Phase 1.
+- `/cg-bugfix [description]` — task type `bugfix`. Begin Phase 1.
+- `/cg-refactor [description]` — task type `refactor`. Begin Phase 1.
+- `/cg-approve {quick|elicit|plan|implementation|quality}` — phase transitions. See `.claude/commands/cg-approve.md` for the state-by-state behaviour.
+- `/cg-status` — read `.ai/current-session`; report session ID, task, state, and next action. If no session: "No active session."
+- `/cg-debt` — list `.ai/tech-debt/*.md` with severity. If empty: "No tech debt logged."
 
-**`/cg-feature [description]`**
-Task type: `feature`. Begin Phase 1.
-
-**`/cg-bugfix [description]`**
-Task type: `bugfix`. Begin Phase 1.
-
-**`/cg-refactor [description]`**
-Task type: `refactor`. Begin Phase 1.
-
-**`/cg-approve quick`**
-Accept a cosmetic fast-path proposal from Phase 1. Write `IMPLEMENTING` directly to the
-state file (skipping `ELICITED` and `PLAN_APPROVED`). Append to audit log:
-`[timestamp] Fast-path approved — elicitation and planning skipped`. Proceed to Phase 3
-using the mini-plan already written to `PLAN.md`. Only valid when the elicitation agent
-returned a fast-path proposal on this session.
-
-**`/cg-approve elicit`**
-Transition from Phase 1 to Phase 2. Write `ELICITED` to state file. Proceed to planning.
-
-**`/cg-approve plan`**
-Transition from Phase 2 to Phase 3. Write `PLAN_APPROVED` then `IMPLEMENTING`. Proceed to implementation.
-
-**`/cg-approve implementation`**
-Transition from Phase 3 to Phase 4. Commit all implementation changes, then run the quality gate.
-
-**`/cg-approve quality`**
-Override WARN-level quality issues. Write `QUALITY_REVIEWED`. Proceed to Phase 5.
-
-**`/cg-status`**
-Read `.ai/current-session`. Report: session ID, task description, current state, what action is needed next.
-If no active session: say "No active session."
-
-**`/cg-debt`**
-List all `.ai/tech-debt/*.md` files. Show filename, one-line summary of each issue, and severity.
-If empty: say "No tech debt logged."
-
----
-
-## State File Reference
-
-State file location: `.ai/sessions/{id}/state`
-Current session pointer: `.ai/current-session`
-
-Valid states in order:
-```
-IDLE → ELICITED → PLAN_APPROVED → IMPLEMENTING → QUALITY_REVIEWED → PR_CREATED
-```
+State transitions in order: `IDLE → ELICITED → PLAN_APPROVED → IMPLEMENTING → QUALITY_REVIEWED → PR_CREATED`. State file: `.ai/sessions/{id}/state`. Current-session pointer: `.ai/current-session`.
 
 ---
 
@@ -231,4 +189,4 @@ IDLE → ELICITED → PLAN_APPROVED → IMPLEMENTING → QUALITY_REVIEWED → PR
 5. Writes to `.ai/` are always allowed regardless of state — that is where session data lives.
 6. If the user asks you to skip a phase: explain why the phase exists, then ask if they still want to skip. If yes, document the skip in the audit log.
 7. **Respond in the user's language.** If the user writes in Russian, respond in Russian. If in English, respond in English. Match the language of the user's most recent message. This applies to all responses, questions, and status messages throughout the workflow.
-8. **When uncertain during implementation, ask — do not assume.** If something in the plan is ambiguous, two valid approaches exist with real trade-offs, or codebase reality contradicts what elicitation assumed: stop and ask the user before proceeding. Do not pick an interpretation silently. Small technical choices (variable names, method signatures) may go to `decisions.md`; anything affecting behavior, API shape, data model, or user-visible output must be raised with the user first. If the user writes in Russian, respond in Russian. If in English, respond in English. Match the language of the user's most recent message. This applies to all responses, questions, and status messages throughout the workflow.
+8. **When uncertain during implementation, ask — do not assume.** If something in the plan is ambiguous, two valid approaches exist with real trade-offs, or codebase reality contradicts what elicitation assumed: stop and ask the user before proceeding. Do not pick an interpretation silently. Small technical choices (variable names, method signatures) may go to `decisions.md`; anything affecting behavior, API shape, data model, or user-visible output must be raised with the user first.

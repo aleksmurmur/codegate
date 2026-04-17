@@ -36,9 +36,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-CREATE_VERBS = {"create", "add", "new"}
-MODIFY_VERBS = {"modify", "update", "change", "edit", "extend"}
-DELETE_VERBS = {"delete", "remove"}
+CREATE_VERBS = {"create"}
+MODIFY_VERBS = {"modify"}
+DELETE_VERBS = {"delete"}
 
 CHECKLIST_LINE = re.compile(
     r"^\s*[-*]?\s*\[[ xX]\]\s*\d+\.?\s+(\w+)\s+`?(\S+?\.\w+)`?(?:\s|$)"
