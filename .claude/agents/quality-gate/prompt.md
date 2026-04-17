@@ -237,14 +237,23 @@ Write to `.ai/sessions/{session-id}/QUALITY_REPORT.md`:
 
 ### Findings Detail
 
+Every non-PASS finding MUST include a `**Why it matters**:` line — one sentence naming
+the concrete consequence (user-visible, operational, or maintenance). No abstractions
+("bad practice", "code smell", "not clean"). If you can't articulate the consequence
+in one sentence, the finding probably doesn't belong in the report.
+
 **[FAIL] SQL / Database — N+1 query**
 `AlertService.checkAlerts()` iterates over sites and calls `siteRepository.findById()`
 inside the loop. This is a confirmed N+1.
+**Why it matters**: with 500 monitored sites this issues 500 separate `SELECT` queries
+per alert cycle — the cycle will time out and alerts will stop firing.
 Fix: use `siteRepository.findAllByIds(siteIds)` and iterate in memory.
 
 **[WARN] Architecture Boundaries**
 `NotificationService` injects `UserRepository` directly. The user domain is accessed
 from the notification domain without going through a service interface.
+**Why it matters**: every future change to `User` now risks breaking notifications;
+the two domains can no longer evolve independently.
 This is a minor boundary violation consistent with an existing pattern in this codebase
 (noted in Domain Map). Logged to tech-debt: `{date}-notification-user-boundary.md`.
 
@@ -280,3 +289,10 @@ Max 3 fix rounds. If issues remain after round 3, the session will be escalated 
 
 Critical SQL and security FAILs cannot be overridden with `/approve quality`.
 They must be fixed.
+
+## Teaching rule (applies to every finding)
+
+Each FAIL and WARN entry in "Findings Detail" MUST include a `**Why it matters**:` line
+stating the concrete consequence in one sentence. The goal is for a junior developer
+reading the report to learn *why* the rule exists, not just that it was broken. If you
+cannot name a real consequence, drop the finding.
