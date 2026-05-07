@@ -112,16 +112,27 @@ SQL injection risk, missing migration for a schema change.
 
 ### 4.4 Test Quality
 
-- Do the tests assert meaningful behavior, or just "it ran without exception"?
+Run these mechanical checks on every test file touched in the diff. Paste grep
+results before assigning a verdict.
+
+1. **Loose assertions on deterministic values.** Grep `isNotNull|isNotEmpty|isNotBlank|contains(` in changed test files. Each match must be either replaced with an exact-equality assertion (test value is deterministic) or justified inline (truly opaque, e.g., DB-generated UUID with no retrieval API).
+2. **Calculated expected values.** Grep arithmetic operators (`+`, `-`, `*`, `/`) inside assertion call arguments. Tests must compare against literal constants — no arithmetic deriving the expected value at runtime.
+3. **Sleep-based waits.** Grep `sleep\(|Thread\.sleep|time\.sleep|setTimeout|delay\(` in changed test files. Each match should be replaced with polling/wait-for; an inline comment justifying the sleep is required otherwise.
+4. **No-op assertions.** Read each new test method body in the diff. If it makes a call but asserts nothing on returned state (no `assert*`/`expect*`/`should*` on a value or side effect), the test only checks no-throw — flag it.
+5. **Range assertions hiding non-determinism.** Grep `isBetween|isGreaterThan|isLessThan|isAfter|isBefore` inside assertion calls. Each match must point to a value that genuinely cannot be controlled (e.g., wall-clock timestamp without an injected clock); otherwise tighten to equality.
+6. **Test helpers duplicating production methods.** For each non-trivial helper called from assertions, grep production code for an existing method computing the same thing. Duplication → the helper must be deleted and the production method made accessible.
+7. **Setup logic leaking into test body.** Grep `\.setup|\.prepare|\.configure|\.init\(` inside test method bodies (not in fixtures/before-blocks). Move into fixture/before-block.
+
+Then check by reading (LLM judgment, no grep):
 - Are the scenarios from the plan's TDD anchor actually covered?
 - Are error cases tested (not-found, invalid input, boundary conditions)?
 - Are test names descriptive — do they say what scenario is being tested?
-- If the change adds a new code path: is that path covered?
-- If mocking >3 dependencies in a unit test: should this be an integration test instead?
+- If a unit test mocks more than 3 dependencies: should this be an integration test?
 
-**FAIL if**: critical business logic path is completely untested, or tests only check
-that no exception was thrown.
-**WARN if**: test coverage is thin but not absent, or test names are unclear.
+**FAIL if**: violations of #1/#2/#4/#6 with no inline justification, critical business
+logic path is completely untested, or tests only check that no exception was thrown.
+**WARN if**: only #3/#5/#7 violations, or #1/#2/#4/#6 with one-line justifications,
+test coverage is thin, test names are unclear, or a unit test mocks >3 dependencies.
 
 ### 4.5 Error Handling
 
