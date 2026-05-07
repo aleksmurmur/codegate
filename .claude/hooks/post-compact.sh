@@ -35,6 +35,37 @@ SESSION_DIR="$CWD/.ai/sessions/$SESSION"
 STATE=$(cat "$SESSION_DIR/state" 2>/dev/null | tr -d '[:space:]' || echo "")
 [ -z "$STATE" ] && exit 0
 
+# /rewind reconciliation — if commits logged in audit.log are no longer reachable
+# from HEAD (Claude Code /rewind, manual git reset, etc.), revert state so the
+# user isn't trapped in a phase whose underlying commits are gone.
+AUDIT_LOG="$SESSION_DIR/audit.log"
+if [ -f "$AUDIT_LOG" ] && [ -d "$CWD/.git" ]; then
+  LOGGED_SHAS=$(grep -oE 'commit: [a-f0-9]{7,40}' "$AUDIT_LOG" 2>/dev/null | awk '{print $2}' | sort -u)
+  if [ -n "$LOGGED_SHAS" ]; then
+    MISSING=""
+    for SHA in $LOGGED_SHAS; do
+      git -C "$CWD" merge-base --is-ancestor "$SHA" HEAD 2>/dev/null || MISSING="$MISSING $SHA"
+    done
+    if [ -n "$MISSING" ]; then
+      case "$STATE" in
+        IMPLEMENTING|QUALITY_REVIEWED|PR_CREATED)
+          OLD_STATE="$STATE"
+          echo "PLAN_APPROVED" > "$SESSION_DIR/state"
+          STATE="PLAN_APPROVED"
+          TS=$(date '+%Y-%m-%dT%H:%M:%S')
+          echo "[$TS] /rewind detected — state reverted from $OLD_STATE to PLAN_APPROVED, missing commits:$MISSING" >> "$AUDIT_LOG"
+          echo "/REWIND DETECTED"
+          echo ""
+          echo "Commits logged in audit.log are no longer reachable from HEAD."
+          echo "Codegate state has been reverted from $OLD_STATE to PLAN_APPROVED."
+          echo "Missing commits:$MISSING"
+          echo ""
+          ;;
+      esac
+    fi
+  fi
+fi
+
 # Silent exit for completed sessions — nothing to recover
 [ "$STATE" = "PR_CREATED" ] && exit 0
 
