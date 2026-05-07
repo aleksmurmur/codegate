@@ -106,7 +106,15 @@ Steps:
    Session: {id}
    ```
 5. **Run baseline test suite**: run the full test suite now, before writing any code. Save the names of any failing tests to `.ai/sessions/{id}/test-baseline.txt`. If the suite is clean, write "CLEAN" to that file. This baseline is used by the quality gate to distinguish pre-existing failures from new ones introduced by this task.
-6. Implement following the plan exactly. Follow the TDD anchor — write the specified tests first, then implement. Mark checklist items `[x]` in PLAN.md as each is completed.
+6. Implement in small commits, one concept per commit. For each chunk in the plan (typically: one test file + the production code it exercises):
+   a. **Write the tests first.** Mark the corresponding test items `[x]` in PLAN.md.
+   b. **Confirm red (desirable, agent's discretion).** Run the new tests. They should fail. If you're confident they would fail without running (e.g., the symbol they reference doesn't exist yet), you may skip the run. If you do run them, note pass/fail in audit.log on one line: `[ts] red-check: <test-target> — <expected_fail|unexpectedly_passed>`.
+   c. **Commit the tests.** `git add -A && git commit -m "test: <description>"`. Append to audit.log: `[ts] commit: {sha} — test: <description>`.
+   d. **Write the production code** to make the tests pass. Mark the corresponding production items `[x]` in PLAN.md.
+   e. **Commit the implementation.** `git add -A && git commit -m "{type}: <description>"` where `{type}` matches the task (`feat`/`fix`/`refactor`). Append to audit.log.
+   f. **Optional refactor** (no behavior change). Commit: `git commit -m "refactor: <description>"`. Append to audit.log.
+
+   When tests cannot compile without minimal production stubs (typed languages — Kotlin, Go, Rust, etc.): include the minimal stubs in the test commit, and note in audit.log `[ts] test-commit-includes-stubs: <reason>`. Stubs must be plumbing only (signatures, empty methods that throw or return defaults) — never business logic.
 7. **When making a non-obvious decision** (choosing between approaches, deviating from a pattern, working around a gotcha): append to `decisions.md`:
    ```
    ## [timestamp] {Short title}
@@ -118,7 +126,7 @@ Steps:
 8. **If you discover something not in the plan that significantly affects scope**: STOP immediately. Explain what you found. Ask whether to update the plan before continuing. Do not silently expand scope.
 9. **Maximum 3 fix iterations**: if the quality gate or reviewer finds issues and you have already made 3 rounds of fixes without resolving them, stop and escalate to the user. Do not loop indefinitely.
 10. When done: append to audit log: `[timestamp] Implementation complete`.
-11. Say: "Implementation complete. Type `/cg-approve implementation` to commit and run the quality gate."
+11. Say: "Implementation complete. Type `/cg-approve implementation` to run the quality gate."
 12. **STOP. Do not proceed until user types `/cg-approve implementation`.**
 
 ---
@@ -128,9 +136,9 @@ Steps:
 **Entry**: user types `/cg-approve implementation`
 
 Steps:
-1. **Commit all implementation changes** (this is commit #1 for this task):
-   - Run `git add -A` then commit with message: `{type}: {short description from task.md}`
-   - If nothing to commit (already clean): skip, note in audit log
+1. **Commit any uncommitted leftover.** Phase 3 should have committed in chunks; this catches anything missed.
+   - Run `git status`. If clean, skip and append to audit.log: `[ts] phase-4-commit: nothing-to-commit`.
+   - If there are uncommitted changes: `git add -A && git commit -m "{type}: complete implementation"`. Append to audit.log.
 2. **Diff-coverage check** (mechanical, runs before the agent):
    - Compute base: `BASE=$(git merge-base main HEAD)`
    - Run: `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output .ai/sessions/{id}/coverage-report.md`
