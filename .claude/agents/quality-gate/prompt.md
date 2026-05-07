@@ -167,6 +167,20 @@ injection risk, user input used without validation.
 **FAIL if**: heavy resource created inside a loop or request handler.
 **WARN if**: resource lifecycle is unclear or not obviously correct.
 
+### 4.8 Acceptance Criteria Coverage
+
+Read the plan's `### Acceptance Criteria` section. For each criterion (numbered 1..N):
+- Find at least one test in the diff that verifies it. Match by test name referencing
+  the AC scenario or by test body asserting the AC's observable outcome.
+- Mark each AC as **covered** (≥1 verifying test) or **uncovered**.
+
+If the plan has no Acceptance Criteria section: WARN, log "plan predates AC requirement"
+to tech debt, and skip coverage checks.
+
+**FAIL if**: any AC is uncovered.
+**WARN if**: an AC is covered only by a test that mocks heavily and doesn't exercise the
+end-to-end observable outcome.
+
 ---
 
 ## Tech debt logging
@@ -245,6 +259,7 @@ Write to `.ai/sessions/{session-id}/QUALITY_REPORT.md`:
 | Error Handling | WARN | Missing log context in AlertService.processAlert() |
 | Security Basics | PASS | — |
 | Resource Management | PASS | — |
+| Acceptance Criteria Coverage | FAIL | AC #3 (multi-tenant isolation) has no verifying test |
 
 ### Findings Detail
 

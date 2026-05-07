@@ -73,6 +73,20 @@ Reference the actual architectural pattern observed (e.g., "follows the existing
 hexagonal structure — new domain interface in `domain/`, JPA implementation in
 `infrastructure/jpa/`").
 
+### Acceptance Criteria
+3–5 observable behaviors that must hold for this task to be done. Use
+Given/When/Then or must/must-not form. Each criterion must be:
+- **Observable from outside** the implementation (HTTP response, return value, persisted state, log line, UI element).
+- **Testable** — at least one test in the Checklist verifies it.
+- **Specific** — no "works correctly", "is fast enough"; name the actual outcome.
+
+Example:
+```
+1. Given a user with role=admin, when GET /api/sites?status=UP is called, then the response is 200 with only sites where current_status='UP'.
+2. Given no sites exist, when GET /api/sites is called, then the response is 200 with an empty array (not 404).
+3. Must-not: the endpoint must not return sites belonging to other tenants.
+```
+
 ### Checklist
 Numbered list of every file change. Format is strict — the integrity checker parses it:
 
@@ -206,3 +220,7 @@ Out of scope:
 7. **No uncited paths or symbols** — everything you name must come from a tool result
    you saw during this planning session (Glob, Grep, Read). If you didn't verify it,
    don't cite it. For new symbols, explicitly label them as new.
+
+8. **Acceptance Criteria are mandatory** — every plan must state 3–5 observable
+   behaviors. Each criterion must be verified by at least one test in the Checklist.
+   The quality gate fails the PR if any criterion is left uncovered.
