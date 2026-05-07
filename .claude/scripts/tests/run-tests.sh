@@ -42,11 +42,15 @@ check() {
     rm -rf "$tmpdir"
 }
 
-check "clean"         "$FIXTURES_DIR/clean.md"         0 "CLEAN"
-check "mirage"        "$FIXTURES_DIR/mirage.md"        1 "MIRAGES_FOUND"
-check "bullets"       "$FIXTURES_DIR/bullets.md"       0 "CLEAN"
-check "malformed"     "$FIXTURES_DIR/malformed.md"     1 "PARSE_FAILED"
-check "no-checklist"  "$FIXTURES_DIR/no-checklist.md"  1 "PARSE_FAILED"
+check "clean"                "$FIXTURES_DIR/clean.md"                0 "CLEAN"
+check "mirage"               "$FIXTURES_DIR/mirage.md"               1 "MIRAGES_FOUND"
+check "bullets"              "$FIXTURES_DIR/bullets.md"              0 "CLEAN"
+check "malformed"            "$FIXTURES_DIR/malformed.md"            1 "PARSE_FAILED"
+check "no-checklist"         "$FIXTURES_DIR/no-checklist.md"         1 "PARSE_FAILED"
+check "missing-ac"           "$FIXTURES_DIR/missing-ac.md"           1 "MIRAGES_FOUND"
+check "missing-commit-plan"  "$FIXTURES_DIR/missing-commit-plan.md"  1 "MIRAGES_FOUND"
+check "ac-too-few"           "$FIXTURES_DIR/ac-too-few.md"           1 "MIRAGES_FOUND"
+check "commit-plan-coverage" "$FIXTURES_DIR/commit-plan-coverage.md" 1 "MIRAGES_FOUND"
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

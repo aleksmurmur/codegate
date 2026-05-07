@@ -8,6 +8,8 @@ What it verifies:
 - Checklist items: paths to modify/delete must exist; paths to create must NOT exist.
 - Migration version numbers must not collide with existing migrations.
 - Symbols (backtick-wrapped class/method names) should appear somewhere in the repo.
+- Acceptance Criteria section exists with at least 3 items.
+- Commit Plan section exists and references every checklist item exactly once.
 
 What it does NOT verify:
 - Pattern consistency with CODEBASE_CONTEXT.md (that's reasoning — handled elsewhere).
@@ -50,6 +52,10 @@ LIQUIBASE_SIGNALS = re.compile(
 SYMBOL_IN_BACKTICKS = re.compile(
     r"`([A-Z][A-Za-z0-9_]+(?:\.[a-zA-Z_][A-Za-z0-9_]*)?(?:\(\))?)`"
 )
+ACCEPTANCE_HEADING = re.compile(r"^#+\s+Acceptance\s+Criteria\s*$", re.IGNORECASE)
+COMMIT_PLAN_HEADING = re.compile(r"^#+\s+Commit\s+Plan\s*$", re.IGNORECASE)
+AC_ITEM = re.compile(r"^\s*(?:\d+\.|\*|-)\s+\S")
+ITEMS_REF = re.compile(r"\bitems\s+(\d[\d,\s]*?)(?:\s*\(|\s*$)", re.IGNORECASE)
 
 
 def read_plan(path: Path) -> str:
@@ -139,6 +145,86 @@ def check_migration_collisions(items, tracked: set[str]) -> list[str]:
                 mirages.append(
                     f"migration V{version} already exists: {tracked_path} — use next free version"
                 )
+    return mirages
+
+
+def extract_section_lines(text: str, heading_regex) -> list[str]:
+    """Lines inside the section identified by heading_regex, skipping fenced blocks."""
+    lines: list[str] = []
+    in_section = False
+    in_fence = False
+    for line in text.splitlines():
+        if heading_regex.match(line):
+            in_section = True
+            continue
+        if in_section and line.startswith("#"):
+            break
+        if not in_section:
+            continue
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        lines.append(line)
+    return lines
+
+
+def validate_acceptance_criteria(text: str) -> list[str]:
+    if not any(ACCEPTANCE_HEADING.match(ln) for ln in text.splitlines()):
+        return [
+            "missing 'Acceptance Criteria' section — every plan must declare 3-5 observable behaviors"
+        ]
+    section = extract_section_lines(text, ACCEPTANCE_HEADING)
+    item_count = sum(1 for ln in section if AC_ITEM.match(ln))
+    if item_count < 3:
+        return [f"Acceptance Criteria has {item_count} items — at least 3 required"]
+    return []
+
+
+def validate_commit_plan(text: str, checklist_count: int) -> list[str]:
+    if not any(COMMIT_PLAN_HEADING.match(ln) for ln in text.splitlines()):
+        return [
+            "missing 'Commit Plan' section — every plan must list expected commits with items mapping"
+        ]
+    section = extract_section_lines(text, COMMIT_PLAN_HEADING)
+    items_per_commit: list[list[int]] = []
+    for ln in section:
+        m = ITEMS_REF.search(ln)
+        if not m:
+            continue
+        try:
+            nums = [int(x.strip()) for x in m.group(1).split(",") if x.strip()]
+        except ValueError:
+            continue
+        if nums:
+            items_per_commit.append(nums)
+
+    if not items_per_commit:
+        return ["Commit Plan section has no parseable 'items N, M, ...' references"]
+
+    coverage: dict[int, int] = {}
+    for nums in items_per_commit:
+        for n in nums:
+            coverage[n] = coverage.get(n, 0) + 1
+
+    expected = set(range(1, checklist_count + 1))
+    listed = set(coverage.keys())
+    mirages: list[str] = []
+
+    missing = sorted(expected - listed)
+    if missing:
+        mirages.append(f"Commit Plan misses checklist items: {missing}")
+
+    extra = sorted(listed - expected)
+    if extra:
+        mirages.append(f"Commit Plan references items not in the checklist: {extra}")
+
+    duplicated = sorted(n for n, c in coverage.items() if c > 1)
+    if duplicated:
+        mirages.append(
+            f"Commit Plan references items in multiple commits (must be exactly one): {duplicated}"
+        )
     return mirages
 
 
@@ -243,6 +329,8 @@ def main() -> None:
 
     if tool in ("flyway", "both"):
         mirages.extend(check_migration_collisions(items, tracked))
+    mirages.extend(validate_acceptance_criteria(text))
+    mirages.extend(validate_commit_plan(text, len(items)))
     warnings = check_symbols(text)
 
     verdict = "MIRAGES_FOUND" if mirages else "CLEAN"
