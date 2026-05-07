@@ -108,7 +108,10 @@ Steps:
 5. **Run baseline test suite**: run the full test suite now, before writing any code. Save the names of any failing tests to `.ai/sessions/{id}/test-baseline.txt`. If the suite is clean, write "CLEAN" to that file. This baseline is used by the quality gate to distinguish pre-existing failures from new ones introduced by this task.
 6. Implement in small commits, one concept per commit. Follow the plan's `### Commit Plan` section — each entry there is one commit. Typical chunk: one test file + the production code it exercises.
    a. **Write the tests first.** Mark the corresponding test items `[x]` in PLAN.md.
-   b. **Confirm red (desirable, agent's discretion).** Run the new tests. They should fail. If you're confident they would fail without running (e.g., the symbol they reference doesn't exist yet), you may skip the run. If you do run them, note pass/fail in audit.log on one line: `[ts] red-check: <test-target> — <expected_fail|unexpectedly_passed>`.
+   b. **Confirm red with a one-line prediction (desirable, agent's discretion).** If you choose to skip running (e.g., the test references a symbol that doesn't exist yet), append: `[ts] red-check: <test-target> — skipped:<reason>`. Otherwise:
+      - Before running, append: `[ts] red-check-predict: <test-target> — expecting "<substring>"`. The substring must come from a real fragment of the error you expect (assertion text, exception name) — not generic "fails".
+      - Run the tests, then append: `[ts] red-check-result: <test-target> — <matched|not_matched|test_passed|deferred:<reason>>`.
+      - `matched` → proceed. `not_matched` or `test_passed` → investigate before committing the test — it likely isn't exercising the intended path. `deferred` → only when running becomes infeasible mid-run (e.g., infra dropped); don't use as a default escape.
    c. **Commit the tests.** `git add -A && git commit -m "test: <description>"`. Append to audit.log: `[ts] commit: {sha} — test: <description>`.
    d. **Write the production code** to make the tests pass. Mark the corresponding production items `[x]` in PLAN.md.
    e. **Commit the implementation.** `git add -A && git commit -m "{type}: <description>"` where `{type}` matches the task (`feat`/`fix`/`refactor`). Append to audit.log.
