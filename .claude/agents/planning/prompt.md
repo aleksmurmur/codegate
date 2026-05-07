@@ -111,6 +111,30 @@ SiteRepositoryTest (src/test/.../SiteRepositoryTest.kt):
   - findByStatus with null status throws IllegalArgumentException
 ```
 
+### Commit Plan
+Ordered list of commits Phase 3 will produce. Each entry maps to checklist items by number.
+
+Format per line: `N. <prefix>: <description> — items <comma-separated numbers>`
+
+Use these prefixes:
+- `test:` — test-only commit
+- `feat:` / `fix:` / `refactor:` — production-code commit, matching task type
+- `refactor:` — optional cleanup commit (no behavior change)
+
+Rules:
+- Test commits precede the impl commits they pair with.
+- Bundle tightly-coupled checklist items into one commit; don't fragment trivially (e.g., a service + its DI wiring + its config = one impl commit).
+- Add `(includes compile stubs)` to a test commit if it must contain minimal production stubs for the test to compile (typed languages).
+- Every checklist item must appear in exactly one commit.
+
+Example:
+```
+1. test: add SiteRepository.findByStatus tests — items 4
+2. feat: implement SiteRepository.findByStatus — items 1, 2
+3. test: add MonitoringService.computeStatus tests — items 6
+4. feat: wire computeStatus into MonitoringService — items 3, 5
+```
+
 ### Database Changes
 If schema changes: list each migration with file name, what it adds/changes, and
 whether it is purely additive or modifies existing rows.
@@ -175,6 +199,10 @@ Out of scope:
 5. **Tests are implementation items** — they appear in the checklist with checkboxes,
    not as an afterthought. TDD anchor specifies which scenarios to write first.
 
-6. **No uncited paths or symbols** — everything you name must come from a tool result
+6. **Commit Plan is mandatory** — every plan must include the Commit Plan section. Each
+   checklist item must appear in exactly one commit. Test commits precede their paired
+   impl commits.
+
+7. **No uncited paths or symbols** — everything you name must come from a tool result
    you saw during this planning session (Glob, Grep, Read). If you didn't verify it,
    don't cite it. For new symbols, explicitly label them as new.
