@@ -28,7 +28,7 @@ if [ "$STATE" = "IMPLEMENTING" ]; then
   echo ""
   echo "  /cg-approve implementation"
   echo ""
-  echo "This will commit all changes and run the quality gate."
+  echo "This will run the quality gate (commits are made per chunk during Phase 3)."
   echo "Do NOT push manually — the quality gate must pass first."
   echo ""
 fi

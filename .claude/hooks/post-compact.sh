@@ -77,7 +77,7 @@ case "$STATE" in
         done
       else
         echo "  All checklist items appear complete."
-        echo "  Type /cg-approve implementation to commit and run the quality gate."
+        echo "  Type /cg-approve implementation to run the quality gate."
       fi
     fi
     ;;
