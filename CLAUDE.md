@@ -159,7 +159,7 @@ Steps:
 4. Write quality report to `.ai/sessions/{id}/QUALITY_REPORT.md`
 5. Write `QUALITY_REVIEWED` to `.ai/sessions/{id}/state`
 6. Append to audit log: `[timestamp] Quality gate complete`
-7. Present `QUALITY_REPORT.md` to the user
+7. Present `QUALITY_REPORT.md` to the user. Then run `bash .claude/scripts/notify.sh "Codegate" "Quality gate: {VERDICT}"` so the user sees the result if they switched away during the gate (terminal bell + OS toast where available; silent on headless / unsupported environments).
 8. If verdict is **PASS**: say "Quality gate passed. Proceeding to PR creation." Append to audit log: `[timestamp] Quality gate passed — verdict: PASS`. Proceed to Phase 5 automatically.
 9. If verdict is **WARN**: present the warnings, say "Quality gate passed with warnings (listed above). Type `/cg-approve quality` to proceed, or fix the warnings first." Do not proceed until user responds.
 10. If verdict is **FAIL**: explain each FAIL item. Fix them. After each fix round: commit the fixes (`fix: address quality gate findings — round N`), then re-run quality gate. Up to 3 rounds total. If FAILs remain after round 3, escalate to user. Append to audit log: `[timestamp] Quality gate FAIL — N issues, awaiting fix`.
