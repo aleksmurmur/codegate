@@ -22,7 +22,7 @@ a new Claude Code window, or an unexpected stop.
    - `.ai/sessions/{id}/task.md` — original task description
    - `.ai/sessions/{id}/elicitation.md` — Q&A answers
    - `.ai/sessions/{id}/PLAN.md` — implementation plan with checklist
-   - `.ai/sessions/{id}/decisions.md` — decisions made during implementation
+   - `.ai/sessions/{id}/decisions/` — directory of ADR files, one per non-obvious decision (filename pattern: `NNN-slug.md`)
    - `.ai/sessions/{id}/audit.log` — last few lines for recent activity
 
 3. **Report where things stand**

@@ -125,12 +125,14 @@ esac
 
 echo ""
 
-# Show recent decisions (headings only — keep output compact)
-DECISIONS_FILE="$SESSION_DIR/decisions.md"
-if [ -f "$DECISIONS_FILE" ]; then
-  DECISION_TITLES=$(grep '^## ' "$DECISIONS_FILE" 2>/dev/null | sed 's/^## //' | head -4)
+# Show recent decisions (latest ADR titles — keep output compact)
+DECISIONS_DIR="$SESSION_DIR/decisions"
+if [ -d "$DECISIONS_DIR" ]; then
+  DECISION_TITLES=$(ls -1 "$DECISIONS_DIR"/*.md 2>/dev/null | sort | tail -4 | while IFS= read -r adr; do
+    grep -m1 '^# ' "$adr" 2>/dev/null | sed 's/^# //'
+  done)
   if [ -n "$DECISION_TITLES" ]; then
-    echo "Recent decisions (see decisions.md for detail):"
+    echo "Recent decisions (see decisions/ for detail):"
     echo "$DECISION_TITLES" | while IFS= read -r line; do
       echo "  • $line"
     done

@@ -100,11 +100,7 @@ Steps:
 1. Write `PLAN_APPROVED` to `.ai/sessions/{id}/state`
 2. Write `IMPLEMENTING` to `.ai/sessions/{id}/state`
 3. Append to audit log: `[timestamp] Plan approved, implementation started`
-4. Create `.ai/sessions/{id}/decisions.md` with header:
-   ```
-   # Decisions — {task description}
-   Session: {id}
-   ```
+4. Ensure `.ai/sessions/{id}/decisions/` directory exists. Each non-obvious decision lands as its own ADR file there (see step 7 for format).
 5. **Run baseline test suite**: run the full test suite now, before writing any code. Save the names of any failing tests to `.ai/sessions/{id}/test-baseline.txt`. If the suite is clean, write "CLEAN" to that file. This baseline is used by the quality gate to distinguish pre-existing failures from new ones introduced by this task.
 6. Implement in small commits, one concept per commit. Follow the plan's `### Commit Plan` section — each entry there is one commit. Typical chunk: one test file + the production code it exercises.
    a. **Write the tests first.** Mark the corresponding test items `[x]` in PLAN.md.
@@ -118,14 +114,16 @@ Steps:
    f. **Optional refactor** (no behavior change). Commit: `git commit -m "refactor: <description>"`. Append to audit.log.
 
    When tests cannot compile without minimal production stubs (typed languages — Kotlin, Go, Rust, etc.): include the minimal stubs in the test commit, and note in audit.log `[ts] test-commit-includes-stubs: <reason>`. Stubs must be plumbing only (signatures, empty methods that throw or return defaults) — never business logic.
-7. **When making a non-obvious decision** (choosing between approaches, deviating from a pattern, working around a gotcha): append to `decisions.md`:
+7. **When making a non-obvious decision** (choosing between approaches, deviating from a pattern, working around a gotcha): create a new ADR file `.ai/sessions/{id}/decisions/NNN-slug.md` where `NNN` is the next zero-padded sequence number (`001`, `002`, …) and `slug` is a short kebab-case summary:
    ```
-   ## [timestamp] {Short title}
+   # {Short title}
+
+   **Date**: {timestamp}
    **Decision**: {what was decided}
    **Reasoning**: {why}
    **Alternative considered**: {what else was possible}
    ```
-   Non-obvious means: a senior developer reading the diff would wonder "why did they do it this way?"
+   One ADR per decision — keeps git history granular (one ADR = one commit) and lets `/cg-resume` match ADR filenames against plan steps. Non-obvious means: a senior developer reading the diff would wonder "why did they do it this way?"
 8. **When you have a clarification question that does NOT affect scope** (the plan is silent on a small detail, two valid interpretations exist with no real trade-off, codebase reality contradicts a tiny assumption): append the question to `.ai/sessions/{id}/clarifications.md` as a timestamped Q&A block:
    ```
    ## [timestamp] {Short title}
@@ -177,7 +175,7 @@ Steps:
 2. PR description must include:
    - What was built and why (from task + elicitation)
    - Summary of elicitation answers (the accepted requirements)
-   - Key decisions from `decisions.md` (non-obvious choices reviewers should know about)
+   - Key decisions from `decisions/` ADR files (non-obvious choices reviewers should know about)
    - Quality report summary
 3. Write `PR_CREATED` to `.ai/sessions/{id}/state`
 4. Append to audit log: `[timestamp] PR created: {url}`
@@ -207,4 +205,4 @@ State transitions in order: `IDLE → ELICITED → PLAN_APPROVED → IMPLEMENTIN
 5. Writes to `.ai/` are always allowed regardless of state — that is where session data lives.
 6. If the user asks you to skip a phase: explain why the phase exists, then ask if they still want to skip. If yes, document the skip in the audit log.
 7. **Respond in the user's language.** If the user writes in Russian, respond in Russian. If in English, respond in English. Match the language of the user's most recent message. This applies to all responses, questions, and status messages throughout the workflow.
-8. **When uncertain during implementation, ask — do not assume.** If something in the plan is ambiguous, two valid approaches exist with real trade-offs, or codebase reality contradicts what elicitation assumed: stop and ask the user before proceeding. Do not pick an interpretation silently. Small technical choices (variable names, method signatures) may go to `decisions.md`; anything affecting behavior, API shape, data model, or user-visible output must be raised with the user first.
+8. **When uncertain during implementation, ask — do not assume.** If something in the plan is ambiguous, two valid approaches exist with real trade-offs, or codebase reality contradicts what elicitation assumed: stop and ask the user before proceeding. Do not pick an interpretation silently. Small technical choices (variable names, method signatures) may go to a `decisions/` ADR; anything affecting behavior, API shape, data model, or user-visible output must be raised with the user first.
