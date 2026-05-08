@@ -28,6 +28,24 @@
             "command": "bash .claude/hooks/pre-push.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash(gh pr create*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-pr.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(glab mr create*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-pr.sh"
+          }
+        ]
       }
     ],
     "Stop": [
