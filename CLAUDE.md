@@ -126,11 +126,18 @@ Steps:
    **Alternative considered**: {what else was possible}
    ```
    Non-obvious means: a senior developer reading the diff would wonder "why did they do it this way?"
-8. **If you discover something not in the plan that significantly affects scope**: STOP immediately. Explain what you found. Ask whether to update the plan before continuing. Do not silently expand scope.
-9. **Maximum 3 fix iterations**: if the quality gate or reviewer finds issues and you have already made 3 rounds of fixes without resolving them, stop and escalate to the user. Do not loop indefinitely.
-10. When done: append to audit log: `[timestamp] Implementation complete`.
-11. Say: "Implementation complete. Type `/cg-approve implementation` to run the quality gate."
-12. **STOP. Do not proceed until user types `/cg-approve implementation`.**
+8. **When you have a clarification question that does NOT affect scope** (the plan is silent on a small detail, two valid interpretations exist with no real trade-off, codebase reality contradicts a tiny assumption): append the question to `.ai/sessions/{id}/clarifications.md` as a timestamped Q&A block:
+   ```
+   ## [timestamp] {Short title}
+   **Question**: {what's unclear}
+   **Why it matters**: {what depends on the answer}
+   ```
+   Present the question to the user and **STOP**. When the user answers, append `**Resolved**: {answer}` to the same block before continuing. Persisting the exchange survives compaction and lands the rationale in the PR narrative alongside elicitation answers.
+9. **If you discover something not in the plan that significantly affects scope**: STOP immediately. Explain what you found. Ask whether to update the plan before continuing. Do not silently expand scope.
+10. **Maximum 3 fix iterations**: if the quality gate or reviewer finds issues and you have already made 3 rounds of fixes without resolving them, stop and escalate to the user. Do not loop indefinitely.
+11. When done: append to audit log: `[timestamp] Implementation complete`.
+12. Say: "Implementation complete. Type `/cg-approve implementation` to run the quality gate."
+13. **STOP. Do not proceed until user types `/cg-approve implementation`.**
 
 ---
 
