@@ -144,6 +144,16 @@ would change what gets built or how it integrates. Cut:
 - Anything that would be resolved during planning
 - Nice-to-know questions that don't affect implementation decisions
 
+**Mandatory triggers cannot be cut.** If the checklist's `Design` or `Security` blocks
+fired, at least one question from each fired block must remain in the final list,
+regardless of the 5–8 target. These questions feed downstream gates (planning's
+Design Notes section, the security Acceptance Criteria, the quality-gate's
+architecture and security dimensions); cutting them creates rework loops later.
+
+If the cut leaves you with more than 8 questions because of mandatory triggers,
+that is acceptable — keep them. The 5–8 limit is a guideline against bloat, not
+a hard cap that overrides triggered concerns.
+
 ---
 
 ## How to write good questions

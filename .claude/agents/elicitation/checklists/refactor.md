@@ -37,3 +37,16 @@ Replace bracketed placeholders with actual names from CODEBASE_CONTEXT.md.
   migrate callers one by one, delete old) or done in one PR?
 - **If context shows the area has concurrency or transaction sensitivity**: Does the
   refactor preserve [transaction pattern / concurrency model from context]?
+
+## Design
+
+Trigger always — refactors are structural by definition; the design intent of the new
+shape must be explicit before any code moves.
+
+- **Always**: What is the target shape of the refactored area — which responsibilities
+  belong where, and what existing pattern (from CODEBASE_CONTEXT.md) does it align with
+  or diverge from?
+- **Always**: What alternatives to this refactor were considered, and why this shape
+  over those? (One sentence per alternative.)
+- **If the refactor introduces a new abstraction**: What concrete pain does the
+  abstraction relieve? (If you cannot name a pain, the abstraction is premature.)

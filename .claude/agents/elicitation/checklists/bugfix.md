@@ -40,3 +40,14 @@ Replace bracketed placeholders with actual names from CODEBASE_CONTEXT.md.
   domains or features could be affected by this change?
 - **If context shows a caching layer near the bug**: Does the fix require cache invalidation
   or a cache flush?
+
+## Security
+
+Trigger when the bug or affected code involves any of:
+auth, login, password, token, secret, payment, API key, file upload, user input,
+PII (email, phone, SSN, address), file path from user, outbound HTTP, raw SQL.
+
+- **If trigger fired**: Could this bug have leaked or mishandled sensitive data while it
+  was unfixed? Does the fix need to be paired with log redaction or data cleanup?
+- **If trigger fired**: After the fix, what must remain true — what input must be
+  validated, what data must not appear in logs, who must / must-not access the surface?

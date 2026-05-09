@@ -45,3 +45,16 @@ Replace bracketed placeholders with actual names from CODEBASE_CONTEXT.md.
 - **If context shows [migration tool] versioning**: Which identifier should this
   migration use (Flyway version number / Liquibase changeset id / equivalent)? Are
   there pending migrations in other branches?
+
+## Security
+
+Trigger when the migration touches columns or tables holding any of:
+auth credentials, password hashes, tokens, API keys, payment data, PII (email, phone,
+SSN, address, full name + DOB), session data, or audit logs.
+
+- **If trigger fired**: How is the affected data classified, and does the migration
+  preserve that classification (encryption at rest, restricted access, retention rules)?
+- **If trigger fired and migration includes a backfill**: Does the backfill or any
+  intermediate step write sensitive values to logs, dumps, or temporary tables?
+- **If migration drops or renames a column holding sensitive data**: Is there a data
+  destruction or anonymization step required for compliance?

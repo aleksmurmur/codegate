@@ -50,3 +50,27 @@ Replace bracketed placeholders with actual names from CODEBASE_CONTEXT.md.
 
 - **If context shows specific test patterns**: Should this be covered by [test type from
   context] or unit tests? Are there existing tests that need updating?
+
+## Design
+
+Trigger when the feature creates a new module / service / endpoint / scheduled job, or
+when CODEBASE_CONTEXT.md offers more than one plausible home for this functionality.
+
+- **If trigger fired**: How should the new functionality integrate with the existing
+  [closest domain]? Is there an alternative — extending an existing class, reusing an
+  existing service — that you considered or want considered?
+- **If trigger fired**: What are the explicit boundaries of this feature — what does it
+  own, and what should it deliberately NOT touch?
+
+## Security
+
+Trigger when the task description, elicitation context, or affected code mentions any of:
+auth, login, password, token, secret, payment, API key, file upload, user input,
+PII (email, phone, SSN, address), file path from user, outbound HTTP, raw SQL.
+
+- **If trigger fired**: What constraints must the input satisfy — format, length,
+  allowed characters, escaping or encoding requirements?
+- **If trigger fired**: Are there fields in the request, response, or persisted state
+  that must NOT appear in logs (tokens, secrets, PII)?
+- **If trigger fired**: Who is the realistic attacker for this surface — anonymous user,
+  authenticated low-privilege user, third-party caller, internal service?
