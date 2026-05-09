@@ -114,6 +114,53 @@ Example:
 3. Must-not: the endpoint must not return sites belonging to other tenants.
 ```
 
+**Security trigger.** If the task description, elicitation answers, or
+CODEBASE_CONTEXT.md mention any of: auth, login, password, token, secret, payment,
+API key, file upload, user input, PII (email, phone, SSN, address), file path from
+user, outbound HTTP, raw SQL — at least one Acceptance Criterion MUST be an
+explicit security criterion, written in the form:
+
+```
+Security: <what input must be validated | what data must not appear in logs |
+          who must / must-not access this | what redaction or constraint applies>
+```
+
+Quality gate dimension 4.6 reads these `Security:` criteria first and verifies
+the diff implements each one, with a corresponding test. Without an explicit
+security AC the quality gate falls back to heuristic detection, which is more
+likely to miss task-specific constraints.
+
+### Design Notes
+**Mandatory for `feature` and `refactor`.** Optional for `bugfix` and `migration`,
+but include if the change is non-trivial.
+
+In 2-3 sentences answer:
+- Where the new functionality (or refactored shape) sits in the system —
+  which domain, which layer, which existing module it lives next to.
+- The explicit boundaries — what this change owns, and what it deliberately
+  does NOT touch.
+- Which existing pattern from CODEBASE_CONTEXT.md it extends, or — if it
+  diverges — why.
+
+Optionally add a one-line "Alternatives considered" entry per realistic
+alternative (1-2 max), naming what was rejected and why. Skip if no real
+alternatives existed.
+
+Example:
+```
+The weekly digest sits in `notifications/` alongside per-alert emails. It owns
+aggregation and dispatch but not user preferences (those stay in `users/`).
+Extends the existing `EmailNotifier` pattern — same channel, new template.
+
+Alternatives considered:
+- Separate `digest/` module — rejected; aggregation logic is small and would
+  duplicate the existing scheduling and channel setup.
+```
+
+These notes are the input to quality gate dimension 4.2 (Architecture
+Boundaries). The gate verifies that the implementation respects the boundaries
+declared here; surprises in the diff against the declaration are flagged.
+
 ### Checklist
 Numbered list of every file change. Format is strict — the integrity checker parses it:
 
