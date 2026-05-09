@@ -27,6 +27,33 @@ Read CODEBASE_CONTEXT.md and the elicitation Q&A. Identify:
 - Which gotchas are relevant to this task
 - Any constraints surfaced in elicitation answers
 
+### Step 1.5 — Identify affected layers (scope filter)
+
+Before reading any source code, decide which layers this task actually touches.
+Common layers (generic — codegate is stack-agnostic):
+
+- persistence / migration (schema, DDL)
+- data-access (repository, DAO, ORM mapping)
+- business logic / service
+- API / route handler / controller
+- frontend logic / state management
+- frontend UI / styling / templates
+- build / CI / tooling
+- docs
+
+Derive the affected set from three sources, in this order:
+1. Task description — explicit verbs about what changes (e.g. "add endpoint" → API + service; "fix typo in README" → docs only).
+2. Acceptance Criteria implied by elicitation answers — every observable behavior maps to exactly one or two layers. A layer with no AC is not affected.
+3. CODEBASE_CONTEXT.md — if it lists project-specific layers (e.g. "we have a separate `notifications/` boundary"), include them.
+
+**Rule:** the Checklist and Tests-to-Write-First only contain items for affected
+layers. A pure CSS fix produces no service tests; a backend-only fix produces no
+frontend items. Do not add "while we're here" steps in untouched layers.
+
+If you are unsure whether a layer is affected, leave it out — scope creep is
+caught after the fact, but unwarranted scope is not. The user will surface the
+gap during plan review if a layer was wrongly excluded.
+
 ### Step 2 — Read the affected code
 
 Do not skip this. Read the actual source files in the affected area:
@@ -202,6 +229,8 @@ Out of scope:
 
 2. **Smallest change that works** — prefer extending an existing class over creating a
    new one. Prefer a new method over a new service. If a new file is needed, justify it.
+   Scope strictly to the affected layers identified in Step 1.5; do not add steps in
+   layers the task does not touch.
 
 3. **If schema changes are needed** — always include the migration file in the checklist.
    Check the existing migrations to get the correct next version number.
