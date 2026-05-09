@@ -120,6 +120,22 @@ The flow falls back to the markdown presentation only. The same fallback is
 taken automatically if `ExitPlanMode` isn't available (older Claude Code,
 headless runs, non-Claude-Code harnesses).
 
+## Optional integrations
+
+### TDD Guard (strict TDD enforcement)
+
+[`nizos/tdd-guard`](https://github.com/nizos/tdd-guard) is a hook-based tool
+that enforces strict TDD discipline in Claude Code: blocks implementation
+without a failing test, prevents over-implementation, prevents writing
+multiple tests at once. It is stack-agnostic (supports 9+ test frameworks)
+and orthogonal to codegate's phase machine — install per project if you
+want hard TDD enforcement on top of codegate's softer "test-first chunks"
+in Phase 3.
+
+Codegate does not bundle or require it. Pointing users at it here as the
+closest existing solution if you find Phase 3's red-check predictions and
+multi-persona testing-lens insufficient.
+
 ## Project structure after install
 
 ```
