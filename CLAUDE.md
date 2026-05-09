@@ -218,6 +218,7 @@ Steps:
 - `/cg-approve {quick|elicit|plan|implementation|quality}` — phase transitions. See `.claude/commands/cg-approve.md` for the state-by-state behaviour.
 - `/cg-status` — read `.ai/current-session`; report session ID, task, state, and next action. If no session: "No active session."
 - `/cg-explain` — read-only inspector: state + recent audit + checklist progress + diff so far. See `.claude/commands/cg-explain.md`. No side effects, no state advance.
+- `/cg-timeline [--since DURATION] [--full]` — cross-session chronological view across `.ai/sessions/*`. See `.claude/commands/cg-timeline.md`.
 - `/cg-debt` — list `.ai/tech-debt/*.md` with severity. If empty: "No tech debt logged."
 
 State transitions in order: `IDLE → ELICITED → PLAN_APPROVED → IMPLEMENTING → QUALITY_REVIEWED → PR_CREATED`. State file: `.ai/sessions/{id}/state`. Current-session pointer: `.ai/current-session`.

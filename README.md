@@ -76,6 +76,7 @@ Answer the elicitation questions, then follow the prompts.
 ```
 /cg-status   # show current session state and next action
 /cg-explain  # read-only: state + audit + checklist + diff so far
+/cg-timeline # cross-session chronological view (--since 7d, --full)
 /cg-debt     # list logged tech debt items
 /cg-resume   # resume after context compaction or window restart
 ```
