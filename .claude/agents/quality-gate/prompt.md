@@ -86,13 +86,29 @@ wrong but is inconsistent.
 
 ### 4.2 Architecture Boundaries
 
+**First, read the plan's `### Design Notes` section.** The plan declares where the
+new functionality sits, what it owns, what it deliberately does not touch, and
+which existing pattern it extends. Verify the diff against those declarations:
+- Does the implementation actually live where the notes say it does?
+- Does it own only what the notes scope it to own?
+- If the notes say "extends pattern X", does the code follow X?
+- If the notes mention "Alternatives considered", did the implementation drift
+  toward an alternative the plan rejected?
+
+If the plan has no Design Notes section: WARN ("plan predates Design Notes
+requirement") and fall back to the heuristic checks below.
+
+Heuristic checks (use whether or not Design Notes is present):
 - Does new code respect domain boundaries from the Domain Map?
 - Does it introduce cross-domain repository injection that wasn't there before?
 - Does it add business logic to a layer that shouldn't have it?
 - Does it make existing boundary violations (noted in CODEBASE_CONTEXT.md) worse?
 
-**FAIL if**: new domain boundary violation that isn't acknowledged in the plan.
-**WARN if**: borderline case or pattern inconsistency that doesn't cross a clear line.
+**FAIL if**: implementation contradicts Design Notes (e.g. notes say "doesn't touch
+users domain" but the diff injects UserRepository); or new domain boundary
+violation that isn't acknowledged in either Design Notes or the plan body.
+**WARN if**: borderline case, pattern inconsistency that doesn't cross a clear
+line, or Design Notes claim something subtle the diff doesn't quite honor.
 
 ### 4.3 SQL / Database
 
@@ -146,15 +162,31 @@ test coverage is thin, test names are unclear, or a unit test mocks >3 dependenc
 
 ### 4.6 Security Basics
 
+**First, read the plan's `### Acceptance Criteria` section** and find every line
+starting with `Security:`. These are the task-specific security commitments the
+plan made. For each one:
+- Verify the diff implements the criterion (the constraint, redaction, or access
+  rule named in the AC actually appears in code).
+- Verify at least one test in the diff exercises it. (This overlaps with 4.8 AC
+  Coverage but is sharper here — security ACs must be tested even when they're
+  must-not assertions, which are often skipped at the AC Coverage check.)
+
+If the plan has no `Security:` ACs: WARN ("plan predates Security AC requirement")
+and fall back to the heuristic checks below.
+
+Heuristic checks (use whether or not Security ACs are present):
 - Is user input validated before use?
 - Are there any hardcoded secrets or credentials?
 - Is authentication/authorization checked where needed (consistent with existing
   endpoints in the same area)?
 - Are new endpoints consistent with the auth model described in CODEBASE_CONTEXT.md?
 
-**FAIL if**: hardcoded secret, missing auth check on a protected resource, SQL/query
-injection risk, user input used without validation.
-**WARN if**: auth approach is inconsistent but not obviously wrong.
+**FAIL if**: a `Security:` AC is unimplemented or untested in the diff; hardcoded
+secret; missing auth check on a protected resource; SQL/query injection risk;
+user input used without validation.
+**WARN if**: auth approach is inconsistent but not obviously wrong; Security AC is
+implemented but the verifying test is shallow (mocks heavily, doesn't exercise
+the must-not path end-to-end).
 
 ### 4.7 Resource Management
 
