@@ -79,6 +79,21 @@ Answer the elicitation questions, then follow the prompts.
 /cg-resume   # resume after context compaction or window restart
 ```
 
+### Native Plan Mode (default on)
+
+After Phase 2 finishes and the integrity check is CLEAN, codegate presents the
+plan via Claude Code's native Plan Mode UI. The markdown presentation still
+happens, and `/cg-approve plan` remains the formal approval gate — Plan Mode is
+a richer preview, not a replacement.
+
+Disable per-project by creating an empty marker file:
+```
+touch .ai/plan-mode-disabled
+```
+The flow falls back to the markdown presentation only. The same fallback is
+taken automatically if `ExitPlanMode` isn't available (older Claude Code,
+headless runs, non-Claude-Code harnesses).
+
 ## Project structure after install
 
 ```

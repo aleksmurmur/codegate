@@ -78,6 +78,7 @@ Steps:
    - If `.ai/CODEBASE_CONTEXT.md` exists, run the pattern review sub-agent (Task tool with `.claude/agents/plan-review/prompt.md`, passing the path to PLAN.md, CODEBASE_CONTEXT.md, and `integrity-report.md`). The agent appends an advisory `## Pattern Review` section to `integrity-report.md`. If CODEBASE_CONTEXT.md is absent, skip this step.
    - Show any warnings from the script to the user (symbols not found, etc.)
    - Show any Pattern Review advisory findings to the user, prefixed with "Advisory (not blocking):"
+   - **Native Plan Mode display (optional, soft-fail)**: if the `ExitPlanMode` tool is available in this environment AND `.ai/plan-mode-disabled` does not exist, invoke `ExitPlanMode` with the contents of PLAN.md so the user can review the plan in Claude Code's native Plan Mode UI. Plan Mode is presentation only — `/cg-approve plan` remains the formal approval gate. If the user rejects (exits without approving) or asks for changes, re-dispatch the planning sub-agent with their feedback rather than asking for `/cg-approve plan`. If the tool is unavailable (older Claude Code, headless run, or invocation from a different harness): skip silently and continue with the markdown presentation step below.
    - Present the plan
    - Say: "Plan ready. Review it above, then type `/cg-approve plan` to begin implementation."
 8. **STOP. Do not write any source files until user types `/cg-approve plan`.**
