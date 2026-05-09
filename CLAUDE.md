@@ -154,7 +154,33 @@ Steps:
    - Exit **0 (CLEAN)**: continue to step 3.
    - Exit **1 (FAIL)**: do NOT run the quality-gate agent. Present the coverage report to the user. Say: "Coverage check failed — new production code isn't exercised by tests (details above). Add tests, commit, then run `/cg-approve implementation` again." Append to audit log: `[timestamp] Coverage check FAIL — N uncovered items`. STOP.
    - Exit **2 (script error)**: warn the user and continue to step 3; note in audit log.
-3. Run quality gate sub-agent: Task tool with `.claude/agents/quality-gate/prompt.md`, passing the git diff since the baseline commit, CODEBASE_CONTEXT.md, path to PLAN.md, path to `test-baseline.txt`, path to `coverage-report.md`, and path to `.ai/tech-debt/`
+3. Run quality gate. The flow branches on `.ai/multi-persona-qg-enabled` marker:
+
+   3a. **Default (marker absent) — single sub-agent**:
+       Task tool with `.claude/agents/quality-gate/prompt.md`, passing the git diff
+       since the baseline commit, CODEBASE_CONTEXT.md, path to PLAN.md, path to
+       `test-baseline.txt`, path to `coverage-report.md`, and path to `.ai/tech-debt/`.
+       The sub-agent writes QUALITY_REPORT.md.
+
+   3b. **Multi-persona (marker present)**:
+       In a SINGLE message dispatch three Task calls in parallel:
+         - `.claude/agents/quality-gate-security/prompt.md`
+         - `.claude/agents/quality-gate-arch-code/prompt.md`
+         - `.claude/agents/quality-gate-testing/prompt.md`
+       Each receives the same inputs as 3a. Each writes its findings to
+       `.ai/sessions/{id}/quality-findings-{security|arch-code|testing}.md`.
+       Parallel dispatch matters — sequential dispatch wastes wall-clock for
+       no benefit.
+
+       After all three return (or the runtime determines which finished),
+       dispatch synthesis as a separate Task call:
+       `.claude/agents/quality-gate-synthesis/prompt.md`, passing paths to
+       all three findings files plus PLAN.md and the diff. Synthesis writes
+       QUALITY_REPORT.md directly in the same format as the single-pass.
+
+       If any findings file is missing (a lens failed): synthesis notes the
+       absence in the report and proceeds with the available files; do not
+       block the gate on a single missing lens.
 4. Write quality report to `.ai/sessions/{id}/QUALITY_REPORT.md`
 5. Write `QUALITY_REVIEWED` to `.ai/sessions/{id}/state`
 6. Append to audit log: `[timestamp] Quality gate complete`

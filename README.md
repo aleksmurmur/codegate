@@ -79,6 +79,32 @@ Answer the elicitation questions, then follow the prompts.
 /cg-resume   # resume after context compaction or window restart
 ```
 
+### Multi-persona quality gate (opt-in)
+
+By default Phase 4 runs a single quality-gate sub-agent across all 9
+dimensions. For deeper review on critical features, opt in to the
+multi-persona path:
+
+```
+touch .ai/multi-persona-qg-enabled
+```
+
+Three specialized lenses run in parallel — security, architecture-and-code,
+testing — each producing its own findings file. A synthesis pass then reads
+all three, classifies every finding (DUPLICATE / CONTRADICTION / UNIQUE),
+surfaces emergent issues from combinations (e.g. "no input validation" +
+"endpoint became public" = exposed-input bug), and writes the final
+QUALITY_REPORT.md in the same format as single-pass.
+
+Cost: roughly 4× the token cost of single-pass quality gate. Use for
+sensitive features (auth, payments, migrations on PII) where the extra
+cost is justified — not for routine bugfixes.
+
+Disable: `rm .ai/multi-persona-qg-enabled`.
+
+The single-pass path remains default and is updated independently — most
+tasks don't need multi-persona.
+
 ### Native Plan Mode (default on)
 
 After Phase 2 finishes and the integrity check is CLEAN, codegate presents the
