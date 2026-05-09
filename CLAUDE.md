@@ -216,6 +216,7 @@ Steps:
 - `/cg-bugfix [description]` — task type `bugfix`. Begin Phase 1.
 - `/cg-refactor [description]` — task type `refactor`. Begin Phase 1.
 - `/cg-approve {quick|elicit|plan|implementation|quality}` — phase transitions. See `.claude/commands/cg-approve.md` for the state-by-state behaviour.
+- `/ok [phase]` — context-aware shortcut for `/cg-approve`. With no argument: reads session state and dispatches the right approval. With argument: identical to `/cg-approve <arg>`. See `.claude/commands/ok.md`. Refuses to override quality FAIL — long form required for that.
 - `/cg-status` — read `.ai/current-session`; report session ID, task, state, and next action. If no session: "No active session."
 - `/cg-explain` — read-only inspector: state + recent audit + checklist progress + diff so far. See `.claude/commands/cg-explain.md`. No side effects, no state advance.
 - `/cg-timeline [--since DURATION] [--full]` — cross-session chronological view across `.ai/sessions/*`. See `.claude/commands/cg-timeline.md`.

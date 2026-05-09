@@ -71,6 +71,12 @@ Answer the elicitation questions, then follow the prompts.
 /cg-approve quality         # override WARN-level quality issues
 ```
 
+**Shortcut**: `/ok` is a context-aware alias. With no argument it reads
+session state and runs the right `/cg-approve` automatically — five long
+forms collapse into one short command throughout the flow. With an
+argument (`/ok plan`) it behaves identically to the long form. Refuses
+to override quality `FAIL` — the long form is required for that, by design.
+
 ### Other commands
 
 ```
