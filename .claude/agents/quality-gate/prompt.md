@@ -213,6 +213,36 @@ to tech debt, and skip coverage checks.
 **WARN if**: an AC is covered only by a test that mocks heavily and doesn't exercise the
 end-to-end observable outcome.
 
+### 4.9 Cross-cutting Patterns
+
+After scoring all eight dimensions above, re-read your own findings list and
+look for combinations across dimensions where two findings together represent
+a more severe problem than either alone.
+
+Examples:
+- A 4.6 Security finding ("no input validation on field X") combined with a
+  4.2 Architecture finding ("endpoint X is now publicly reachable in this
+  diff") = exposed-input bug, CRITICAL.
+- A 4.4 Test Quality finding ("AC #N has no verifying test") combined with
+  a 4.6 Security finding ("AC #N is a must-not auth check") = untested
+  security boundary, CRITICAL.
+- A 4.2 Architecture finding ("premature abstraction") combined with a 4.4
+  Test Quality finding ("tests heavily mocked at the new abstraction layer")
+  = test-blindness from over-mocking, HIGH.
+- A 4.3 SQL finding ("new query joins on unindexed column") combined with a
+  4.7 Resource finding ("connection pool size unchanged") = pool exhaustion
+  under load, HIGH.
+
+For each combination found, surface a "Combined" finding in Findings Detail
+with `[combines: 4.X, 4.Y]` source notation. Combined findings count toward
+the verdict at the higher of the contributing severities.
+
+If no meaningful combinations: skip — do not invent.
+
+**FAIL if**: a Combined finding identifies a CRITICAL problem (e.g.,
+exposed-input bug or untested security boundary).
+**WARN if**: Combined finding is HIGH or MEDIUM.
+
 ---
 
 ## Tech debt logging
@@ -292,6 +322,7 @@ Write to `.ai/sessions/{session-id}/QUALITY_REPORT.md`:
 | Security Basics | PASS | — |
 | Resource Management | PASS | — |
 | Acceptance Criteria Coverage | FAIL | AC #3 (multi-tenant isolation) has no verifying test |
+| Cross-cutting Patterns | WARN | Combined: 4.4 mocking + 4.2 abstraction = test-blindness |
 
 ### Findings Detail
 
