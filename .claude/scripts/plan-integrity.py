@@ -10,6 +10,8 @@ What it verifies:
 - Symbols (backtick-wrapped class/method names) should appear somewhere in the repo.
 - Acceptance Criteria section exists with at least 3 items.
 - Commit Plan section exists and references every checklist item exactly once.
+- Design Notes section presence (soft warning).
+- Security ACs declared when sensitive markers appear in plan text (soft warning).
 
 What it does NOT verify:
 - Pattern consistency with CODEBASE_CONTEXT.md (that's reasoning — handled elsewhere).
@@ -54,8 +56,18 @@ SYMBOL_IN_BACKTICKS = re.compile(
 )
 ACCEPTANCE_HEADING = re.compile(r"^#+\s+Acceptance\s+Criteria\s*$", re.IGNORECASE)
 COMMIT_PLAN_HEADING = re.compile(r"^#+\s+Commit\s+Plan\s*$", re.IGNORECASE)
+DESIGN_NOTES_HEADING = re.compile(r"^#+\s+Design\s+Notes\s*$", re.IGNORECASE)
 AC_ITEM = re.compile(r"^\s*(?:\d+\.|\*|-)\s+\S")
 ITEMS_REF = re.compile(r"\bitems\s+(\d[\d,\s]*?)(?:\s*\(|\s*$)", re.IGNORECASE)
+SECURITY_TRIGGER = re.compile(
+    r"\b(auth|login|password|token|secret|payment|api[ -]?key|file upload|"
+    r"user input|PII|email address|phone number|SSN|file path.*from user|"
+    r"outbound HTTP|raw SQL)\b",
+    re.IGNORECASE,
+)
+SECURITY_AC_LINE = re.compile(
+    r"^\s*(?:\d+\.|\*|-)?\s*\**\s*Security\s*:", re.IGNORECASE
+)
 
 
 def read_plan(path: Path) -> str:
@@ -228,6 +240,38 @@ def validate_commit_plan(text: str, checklist_count: int) -> list[str]:
     return mirages
 
 
+def check_design_notes(text: str) -> list[str]:
+    """Return a soft warning if the plan lacks a Design Notes section.
+
+    The script does not know the task type, so it can't say "feature/refactor
+    must have one" — instead the warning hints that feature and refactor plans
+    require it, and bugfix/migration plans should include it for non-trivial
+    changes.
+    """
+    if any(DESIGN_NOTES_HEADING.match(ln) for ln in text.splitlines()):
+        return []
+    return [
+        "no 'Design Notes' section — required for feature and refactor plans, "
+        "recommended for non-trivial bugfix or migration plans"
+    ]
+
+
+def check_security_acs(text: str) -> list[str]:
+    """Return a soft warning if the plan triggers security markers but
+    declares no Security AC.
+    """
+    if not SECURITY_TRIGGER.search(text):
+        return []
+    section = extract_section_lines(text, ACCEPTANCE_HEADING)
+    if any(SECURITY_AC_LINE.search(ln) for ln in section):
+        return []
+    return [
+        "security-sensitive markers found in plan text, but Acceptance Criteria "
+        "has no `Security: ...` line — quality-gate 4.6 will fall back to "
+        "heuristic detection and may miss task-specific constraints"
+    ]
+
+
 def grep_symbol(symbol: str) -> bool:
     """Return True if `git grep` finds the symbol anywhere in tracked files."""
     try:
@@ -276,8 +320,11 @@ def write_report(
         lines.append("")
     if warnings:
         lines.append(f"## Warnings ({len(warnings)} — non-blocking)")
-        lines.append("Symbols mentioned in the plan that were not found in the repo.")
-        lines.append("May be intentional (new symbol being introduced) or may be a typo.")
+        lines.append(
+            "Soft signals — typos in cited symbols, missing optional sections, or "
+            "declared sections that look thin. Review and fix if applicable; the "
+            "plan is not blocked by these."
+        )
         lines.append("")
         lines.extend(f"- WARN: {w}" for w in warnings)
         lines.append("")
@@ -332,6 +379,8 @@ def main() -> None:
     mirages.extend(validate_acceptance_criteria(text))
     mirages.extend(validate_commit_plan(text, len(items)))
     warnings = check_symbols(text)
+    warnings.extend(check_design_notes(text))
+    warnings.extend(check_security_acs(text))
 
     verdict = "MIRAGES_FOUND" if mirages else "CLEAN"
     write_report(report_path, verdict, tool, verified, mirages, warnings)
