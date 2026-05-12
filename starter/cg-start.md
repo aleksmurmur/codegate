@@ -41,11 +41,13 @@ State machine (per design Section 4):
 - `adopt`   — codegate-shaped layout exists, but no manifest; migrate to
               managed mode (then run an update in the same pass).
 
-**Stage 0 status**: only `install` is implemented. If `MODE` is `update`
-or `adopt`, stop and tell the user:
+**Current implementation status**: `install` and `update` are wired.
+`adopt` lands in Stage 2. If `MODE=adopt`, stop and tell the user:
 
-> This release of codegate (Stage 0) only supports first-time install.
-> Update and adopt land in Stage 1+. Sorry.
+> This release of codegate only supports `install` and `update`. `adopt`
+> (migration of an existing copy-paste codegate setup into managed mode)
+> is not implemented yet. If you're sure this is a fresh install, delete
+> `CLAUDE.md` and `.claude/` and re-run. Otherwise wait for Stage 2.
 
 Do not attempt to update or adopt manually — `cg-start.md` is the contract.
 
