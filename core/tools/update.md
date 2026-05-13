@@ -387,26 +387,89 @@ wc -l "$MANIFEST"
 
 ---
 
-## 10. Cleanup + report
+## 10. Surface breaking changes
 
-`cg-start.md` removes `$TMPDIR`. You handle `$WORK`:
+Walk commits between baseline and HEAD looking for `BREAKING CHANGE`
+footers. Conventional commits says: a commit announces a breaking change
+by including a `BREAKING CHANGE:` paragraph in its message body. Authors
+of cg-core are expected to follow this discipline (see design Section 12).
 
 ```bash
+BREAKING_LIST="$WORK/breaking-list"; : > "$BREAKING_LIST"
+git -C "$TMPDIR" log "$BASELINE_SHA..$HEAD_SHA" --grep='BREAKING CHANGE' --format='%H' \
+  > "$BREAKING_LIST"
+NBREAKING=$(wc -l < "$BREAKING_LIST")
+echo "breaking commits: $NBREAKING"
+```
+
+If `$NBREAKING > 0`, render each one for the report. Strip trailing
+trailer-style lines (`Co-Authored-By:`, `Signed-off-by:`) from the
+breaking block — they're not part of the announcement.
+
+```bash
+BREAKING_REPORT="$WORK/breaking-report"; : > "$BREAKING_REPORT"
+if [ "$NBREAKING" -gt 0 ]; then
+  {
+    echo
+    echo "Breaking changes between $(echo "$BASELINE_SHA" | cut -c1-7) and $(echo "$HEAD_SHA" | cut -c1-7):"
+    while IFS= read -r SHA; do
+      SHORT=$(echo "$SHA" | cut -c1-7)
+      SUBJ=$(git -C "$TMPDIR" log -1 --format='%s' "$SHA")
+      echo
+      echo "  $SHORT — $SUBJ"
+      git -C "$TMPDIR" log -1 --format='%B' "$SHA" \
+        | sed -n '/^BREAKING CHANGE:/,$p' \
+        | sed '/^Co-Authored-By:/,$d' \
+        | sed '/^Signed-off-by:/,$d' \
+        | sed 's/^/    /'
+    done < "$BREAKING_LIST"
+  } > "$BREAKING_REPORT"
+fi
+```
+
+If `core/MIGRATIONS.md` exists at HEAD AND there are breaking commits,
+add one trailing line pointing the user there. The file is an optional
+escape hatch for migrations too complex to fit in a commit footer
+(design Section 12) — for v1, just tell the user to read it; do not
+attempt to parse or excerpt.
+
+```bash
+if [ "$NBREAKING" -gt 0 ] && [ -f "$TMPDIR/core/MIGRATIONS.md" ]; then
+  echo "" >> "$BREAKING_REPORT"
+  echo "  See core/MIGRATIONS.md in cg-core for additional migration notes." >> "$BREAKING_REPORT"
+fi
+```
+
+---
+
+## 11. Cleanup + report
+
+`cg-start.md` removes `$TMPDIR`. You handle `$WORK` AFTER you've
+captured the breaking report (it lives inside `$WORK`):
+
+```bash
+# Capture everything we still need BEFORE deleting $WORK — $CONFLICTS and
+# $BREAKING_REPORT both live inside it.
+BREAKING_TEXT=
+[ -s "$BREAKING_REPORT" ] && BREAKING_TEXT=$(cat "$BREAKING_REPORT")
+NCONFLICTS=$(wc -l < "$CONFLICTS" 2>/dev/null || echo 0)
 rm -rf "$WORK"
 ```
 
-Single-line summary to the user:
+Single-line summary to the user, plus any breaking block:
 
-```
-codegate updated $(echo "$BASELINE_SHA" | cut -c1-7) → $(echo "$HEAD_SHA" | cut -c1-7).
-  upstream taken: $STATS_UPSTREAM, local kept: $STATS_KEPT, merged: $STATS_MERGED, added: $STATS_ADDED, deleted: $STATS_DELETED, conflicts resolved: $(wc -l < "$CONFLICTS")
+```bash
+echo "codegate updated $(echo "$BASELINE_SHA" | cut -c1-7) → $(echo "$HEAD_SHA" | cut -c1-7)."
+echo "  upstream taken: $STATS_UPSTREAM, local kept: $STATS_KEPT, merged: $STATS_MERGED, added: $STATS_ADDED, deleted: $STATS_DELETED, conflicts resolved: $NCONFLICTS"
+[ -n "$BREAKING_TEXT" ] && printf '%s\n' "$BREAKING_TEXT"
 ```
 
 If anything in step 5 needed the user's input, surface it in a second
 line. If anything in step 6 looked off semantically, surface in a third
 line.
 
-Do not dump the file list unless asked.
+Do not dump the full file list unless asked. The breaking block is the
+exception — always print it in full when present, regardless of verbosity.
 
 ---
 
@@ -417,7 +480,7 @@ Do not dump the file list unless asked.
 - Step 8 has rollback. Even partial apply restores.
 - If the manifest is corrupt at step 1 — abort, do not "guess" the
   baseline. User should re-run `/cg-start` after manually fixing or
-  deleting the manifest (which would re-enter `adopt` once Stage 2 ships).
+  deleting the manifest (which would re-enter `adopt` mode).
 - If a stack rename happened in cg-core (stack no longer at the recorded
   path) — abort. Multi-stack switching is Section 20.3, out of scope for
   Stage 1.
