@@ -13,42 +13,81 @@ project root (no `../` escapes).
 
 ## 1. Detect the stack
 
-Stage 0 supports one stack: `kotlin-spring` (Kotlin/JVM backend, Spring
-Boot or Ktor). Future stages add android-compose, react-frontend, etc.
+Each stack overlay lives at `$TMPDIR/core/stacks/<name>/` and declares its
+detection signals in its own `stack-manifest.yml`. The `detect:` block
+is a list of `"<file> = <substring>"` entries — when the file exists in
+the project AND contains the literal substring, that's +1 signal for
+that stack. The stack with the most signals wins.
 
-Run these checks (each is a yes-signal for `kotlin-spring`):
+The bash below evaluates every available stack and records its score.
+Counter is kept in a plain variable inside a `while … done < file` loop
+(no pipe-into-while, which loses the counter in a subshell):
 
 ```bash
-SIGNALS=0
-for f in build.gradle.kts build.gradle; do
-  [ -f "$f" ] && grep -qE "org\.springframework\.boot|io\.ktor\.plugin" "$f" && SIGNALS=$((SIGNALS+1))
+SCORES="$TMPDIR/.cg-stack-scores"; : > "$SCORES"
+ENTRIES="$TMPDIR/.cg-detect-entries"
+
+for SM in "$TMPDIR"/core/stacks/*/stack-manifest.yml; do
+  NAME=$(awk '/^name:[[:space:]]/{print $2; exit}' "$SM")
+
+  # Dump every `  - "<file> = <substring>"` line from the `detect:` block.
+  awk '
+    /^detect:[[:space:]]*$/ { in_detect=1; next }
+    in_detect && /^[^[:space:]#]/ { in_detect=0 }
+    in_detect && /^[[:space:]]+-[[:space:]]+/ {
+      sub(/^[[:space:]]+-[[:space:]]+/, "")
+      sub(/^"/, ""); sub(/"$/, "")
+      print
+    }
+  ' "$SM" > "$ENTRIES"
+
+  SCORE=0
+  while IFS= read -r ENTRY; do
+    [ -z "$ENTRY" ] && continue
+    FILE="${ENTRY%% = *}"
+    NEEDLE="${ENTRY#* = }"
+    if [ -f "$FILE" ] && grep -Fq "$NEEDLE" "$FILE" 2>/dev/null; then
+      SCORE=$((SCORE + 1))
+    fi
+  done < "$ENTRIES"
+
+  printf '%s\t%s\n' "$SCORE" "$NAME" >> "$SCORES"
 done
-[ -f pom.xml ] && grep -q "spring-boot-starter" pom.xml && SIGNALS=$((SIGNALS+1))
-echo "kotlin-spring signals: $SIGNALS"
+
+sort -rn "$SCORES" | head -5
+rm -f "$ENTRIES"
 ```
 
-Decision:
+The `$SCORES` file now has `<score>\t<name>` per line, sorted descending.
+Read the top row's score and name.
 
-- `SIGNALS >= 1` → `STACK=kotlin-spring`. Proceed silently.
-- `SIGNALS = 0` → no automatic match. Ask the user once:
+Decision tree:
 
-  > Codegate currently only ships a kotlin-spring stack overlay. This
-  > project doesn't look like Kotlin/Spring/Ktor. Choose:
-  >
-  > 1. Install with `kotlin-spring` overlay anyway (fine if it's a
-  >    JVM project; some prompts will mention Spring/JPA where they
-  >    don't apply).
-  > 2. Abort. Re-run `/cg-start` once a matching stack overlay exists.
-  >
-  > (Option 3 — install shared-only, no stack overlay — is intentionally
-  > omitted: codebase-intelligence and quality-gate prompts live in the
-  > stack layer, so a stackless install would be incomplete.)
+1. **User passed an explicit hint** (`$ARGUMENTS` contains
+   `stack=<name>` or a bare stack name that matches one in
+   `core/stacks/`). Trust it, skip heuristics. This is the escape hatch
+   for projects where automatic detection misfires.
 
-  Wait for the user's choice. If they pick (1), set `STACK=kotlin-spring`.
-  If (2), stop, no files written.
+2. **Single winner, score > 0, no tie.** Use it silently. Set `STACK=<name>`.
 
-If the user passed a hint in `$ARGUMENTS` like `stack=android-compose` or
-`use kotlin-spring`, treat it as authoritative — skip the heuristic.
+3. **Multiple stacks tied at the top with score > 0.** Read each tied
+   stack's `description:` field from its manifest and the project's
+   build files yourself. Pick the one that fits best. If you're not
+   confident, list the tied options to the user with their descriptions
+   and ask. Do not arbitrarily pick alphabetical.
+
+4. **All stacks score 0.** No automatic match. Read each stack's
+   `description:` and the project's top-level files (build files,
+   `package.json`, `pyproject.toml`, source directories) and pick by
+   judgment. If unsure, ask the user once, listing names + descriptions.
+
+5. **Cg-core ships zero stacks.** Abort with a clear error — this would
+   mean the cg-core checkout is broken.
+
+When you decide on `$STACK`, also note the score and reason in your
+final user-facing line. E.g., `stack=kotlin-backend (auto, 4 signals)`
+or `stack=react-frontend (your hint)` or `stack=kotlin-backend (chosen
+from 2 tied candidates: kotlin-backend, kotlin-multiplatform)`.
 
 ---
 

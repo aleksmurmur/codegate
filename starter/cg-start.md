@@ -102,7 +102,7 @@ re-clone, so there's nothing to preserve.
 
 Tell the user one short line. Examples:
 
-- `codegate installed for stack=kotlin-spring (49 files). Run /cg-context to seed .ai/CODEBASE_CONTEXT.md.`
+- `codegate installed for stack=kotlin-backend (auto, 4 signals; 49 files). Run /cg-context to seed .ai/CODEBASE_CONTEXT.md.`
 - `codegate updated to ab40225. 4 files changed cleanly. 0 conflicts.`
 - `codegate adopted from sha 311abfb, then updated to ab40225. 7 files changed. 1 BREAKING CHANGE — see report above.`
 

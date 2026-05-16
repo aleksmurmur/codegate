@@ -1,0 +1,39 @@
+name: kotlin-backend
+description: |
+  Kotlin/JVM backend — covers Spring Boot, Ktor, and plain JVM services.
+  The codebase-intelligence prompt detects which framework is actually in
+  use and adapts; this overlay is shared across all three.
+
+# Detection signals (used by core/tools/install.md and core/tools/adopt.md).
+# Each entry is "<relative-path> = <substring>". When the file exists AND
+# contains the literal substring (case-sensitive), that's +1 signal for
+# this stack. The stack with the most signals wins. Ties or zero matches
+# fall back to agent judgment — see install.md / adopt.md for that flow.
+detect:
+  # Direct Gradle plugin declarations
+  - "build.gradle.kts = org.springframework.boot"
+  - "build.gradle.kts = io.ktor.plugin"
+  - "build.gradle = org.springframework.boot"
+  - "build.gradle = io.ktor.plugin"
+  # Gradle version-catalog references (alias(libs.plugins.ktor.plugin) etc.)
+  - "build.gradle.kts = libs.plugins.ktor"
+  - "build.gradle.kts = libs.plugins.spring"
+  - "build.gradle = libs.plugins.ktor"
+  - "build.gradle = libs.plugins.spring"
+  # Gradle version catalog itself
+  - "gradle/libs.versions.toml = ktor"
+  - "gradle/libs.versions.toml = spring-boot"
+  # Maven
+  - "pom.xml = spring-boot-starter"
+  - "pom.xml = ktor-server"
+
+overrides:
+  - .claude/agents/codebase-intelligence/CODEBASE_CONTEXT.template.md
+  - .claude/agents/codebase-intelligence/linters.md
+  - .claude/agents/codebase-intelligence/prompt.md
+  - .claude/agents/codebase-intelligence/tech-debt.template.md
+  - .claude/agents/elicitation/checklists/feature.md
+  - .claude/agents/quality-gate/prompt.md
+  - .claude/agents/quality-gate-arch-code/prompt.md
+  - .claude/agents/quality-gate-security/prompt.md
+  - .claude/scripts/diff-coverage.py

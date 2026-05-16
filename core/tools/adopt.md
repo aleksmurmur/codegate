@@ -13,24 +13,68 @@ Project root = current working directory. `$TMPDIR` is the cg-core clone.
 
 ## 1. Detect the stack
 
-Same heuristic as `install.md` step 1: scan `build.gradle.kts`,
-`build.gradle`, `pom.xml` for Spring Boot / Ktor markers; on no match,
-fall back to asking the user (with the same "only kotlin-spring exists
-in Stage 1" caveat). Store result in `STACK`.
+Walk every stack overlay in `$TMPDIR/core/stacks/`, read its
+`stack-manifest.yml`, evaluate the `detect:` block (each entry is
+`"<file> = <substring>"` — file must exist in the project AND contain
+the substring for +1 signal):
 
-Hint: if the existing local `.claude/agents/codebase-intelligence/`
-prompt mentions Spring/JPA/Ktor terms, that's an additional signal —
-but build-file detection takes precedence.
+```bash
+WORK=$(mktemp -d /tmp/cg-adopt-XXXXXX)
+SCORES="$WORK/stack-scores"; : > "$SCORES"
+ENTRIES="$WORK/detect-entries"
+
+for SM in "$TMPDIR"/core/stacks/*/stack-manifest.yml; do
+  NAME=$(awk '/^name:[[:space:]]/{print $2; exit}' "$SM")
+  awk '
+    /^detect:[[:space:]]*$/ { in_detect=1; next }
+    in_detect && /^[^[:space:]#]/ { in_detect=0 }
+    in_detect && /^[[:space:]]+-[[:space:]]+/ {
+      sub(/^[[:space:]]+-[[:space:]]+/, "")
+      sub(/^"/, ""); sub(/"$/, "")
+      print
+    }
+  ' "$SM" > "$ENTRIES"
+
+  SCORE=0
+  while IFS= read -r ENTRY; do
+    [ -z "$ENTRY" ] && continue
+    FILE="${ENTRY%% = *}"; NEEDLE="${ENTRY#* = }"
+    if [ -f "$FILE" ] && grep -Fq "$NEEDLE" "$FILE" 2>/dev/null; then
+      SCORE=$((SCORE + 1))
+    fi
+  done < "$ENTRIES"
+  printf '%s\t%s\n' "$SCORE" "$NAME" >> "$SCORES"
+done
+
+sort -rn "$SCORES" | head -5
+rm -f "$ENTRIES"
+```
+
+Decision tree — same as `install.md` step 1:
+
+1. **Explicit `$ARGUMENTS` hint** → trust it.
+2. **Single winner, score > 0** → use silently.
+3. **Tied winners with score > 0** → read each manifest's
+   `description:` and decide; ask user only if not confident.
+4. **All scores 0** → degraded detection. For adopt specifically you
+   have an extra signal: read the existing local
+   `.claude/agents/codebase-intelligence/prompt.md` (if present) — it
+   often contains stack-specific language (Spring/JPA/Ktor, Compose,
+   React, Django) that survives from the original copy-paste install.
+   Use that plus project files to pick. Ask only if still unclear.
+5. **Zero stacks shipped in cg-core** → abort.
+
+Store result in `$STACK`.
 
 ---
 
 ## 2. Collect local codegate-shaped files
 
 Hash everything in the project that looks like managed codegate content,
-skipping codegate's own bookkeeping and gitignored locals.
+skipping codegate's own bookkeeping and gitignored locals. `$WORK` was
+already created in step 1.
 
 ```bash
-WORK=$(mktemp -d /tmp/cg-adopt-XXXXXX)
 : > "$WORK/local-hashes"
 
 # Root-level installable docs
