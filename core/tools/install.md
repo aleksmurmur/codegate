@@ -30,13 +30,12 @@ ENTRIES="$TMPDIR/.cg-detect-entries"
 for SM in "$TMPDIR"/core/stacks/*/stack-manifest.yml; do
   NAME=$(awk '/^name:[[:space:]]/{print $2; exit}' "$SM")
 
-  # Dump every `  - "<file> = <substring>"` line from the `detect:` block.
+  # Dump each `  - <entry>` line from the `detect:` block (raw, with quotes).
   awk '
     /^detect:[[:space:]]*$/ { in_detect=1; next }
     in_detect && /^[^[:space:]#]/ { in_detect=0 }
     in_detect && /^[[:space:]]+-[[:space:]]+/ {
       sub(/^[[:space:]]+-[[:space:]]+/, "")
-      sub(/^"/, ""); sub(/"$/, "")
       print
     }
   ' "$SM" > "$ENTRIES"
@@ -44,6 +43,10 @@ for SM in "$TMPDIR"/core/stacks/*/stack-manifest.yml; do
   SCORE=0
   while IFS= read -r ENTRY; do
     [ -z "$ENTRY" ] && continue
+    # Strip surrounding YAML quotes (either " or '), then un-escape \" -> ".
+    ENTRY="${ENTRY#[\"\']}"
+    ENTRY="${ENTRY%[\"\']}"
+    ENTRY="${ENTRY//\\\"/\"}"
     FILE="${ENTRY%% = *}"
     NEEDLE="${ENTRY#* = }"
     if [ -f "$FILE" ] && grep -Fq "$NEEDLE" "$FILE" 2>/dev/null; then

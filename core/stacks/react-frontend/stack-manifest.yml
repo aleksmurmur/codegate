@@ -1,0 +1,38 @@
+name: react-frontend
+description: |
+  React SPA (Vite / CRA / generic React). Covers React 17+ with hooks,
+  TypeScript or JavaScript, common router/state/server-state libraries.
+  This overlay is for client-side React apps. Next.js fullstack and
+  React Native get separate overlays (Stage 4+).
+
+# Detection signals — each entry is "<relative-path> = <substring>".
+# (Using single-quoted YAML strings so embedded " is literal.)
+# When the file exists AND contains the literal substring (case-sensitive)
+# it's +1 signal. Highest scoring stack wins. See install.md / adopt.md.
+detect:
+  # Direct React dependency in package.json
+  - 'package.json = "react":'
+  - 'package.json = "react-dom":'
+  # Common SPA build tools — strengthen confidence this is plain React, not Next
+  - 'package.json = "vite":'
+  - 'vite.config.ts = react'
+  - 'vite.config.js = react'
+  - 'package.json = react-scripts'
+  # Testing tooling typical for React SPAs
+  - 'package.json = "@testing-library/react":'
+  - 'package.json = "vitest":'
+  - 'package.json = "jest":'
+  # ESLint react plugin
+  - 'package.json = "eslint-plugin-react":'
+  - 'package.json = "eslint-plugin-react-hooks":'
+
+overrides:
+  - .claude/agents/codebase-intelligence/CODEBASE_CONTEXT.template.md
+  - .claude/agents/codebase-intelligence/linters.md
+  - .claude/agents/codebase-intelligence/prompt.md
+  - .claude/agents/codebase-intelligence/tech-debt.template.md
+  - .claude/agents/elicitation/checklists/feature.md
+  - .claude/agents/quality-gate/prompt.md
+  - .claude/agents/quality-gate-arch-code/prompt.md
+  - .claude/agents/quality-gate-security/prompt.md
+  - .claude/scripts/diff-coverage.py

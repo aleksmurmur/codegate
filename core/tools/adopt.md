@@ -30,7 +30,6 @@ for SM in "$TMPDIR"/core/stacks/*/stack-manifest.yml; do
     in_detect && /^[^[:space:]#]/ { in_detect=0 }
     in_detect && /^[[:space:]]+-[[:space:]]+/ {
       sub(/^[[:space:]]+-[[:space:]]+/, "")
-      sub(/^"/, ""); sub(/"$/, "")
       print
     }
   ' "$SM" > "$ENTRIES"
@@ -38,6 +37,9 @@ for SM in "$TMPDIR"/core/stacks/*/stack-manifest.yml; do
   SCORE=0
   while IFS= read -r ENTRY; do
     [ -z "$ENTRY" ] && continue
+    ENTRY="${ENTRY#[\"\']}"
+    ENTRY="${ENTRY%[\"\']}"
+    ENTRY="${ENTRY//\\\"/\"}"
     FILE="${ENTRY%% = *}"; NEEDLE="${ENTRY#* = }"
     if [ -f "$FILE" ] && grep -Fq "$NEEDLE" "$FILE" 2>/dev/null; then
       SCORE=$((SCORE + 1))
