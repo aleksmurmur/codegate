@@ -19,6 +19,60 @@ Every task goes through five phases in order. You cannot skip phases.
 
 ---
 
+## Session mode
+
+Every task session has a mode, written to `.ai/sessions/{id}/mode` by
+the slash-command that started it:
+
+- **`interactive`** (default) — the agent stops at every phase boundary and
+  waits for `/cg-approve {phase}` (or `/ok`). The classic workflow.
+- **`fast`** — the agent auto-proceeds through phase boundaries. The
+  user still gets to drive when their input is irreplaceable: elicitation
+  Q&A, mid-implementation clarifications, and end-of-gate decisions on
+  non-auto-fixable findings.
+
+The mode is set by passing `--fast` in `$ARGUMENTS` to `/cg-feature`,
+`/cg-bugfix`, or `/cg-refactor`. It is **per session**; an interactive
+session does not become fast mid-flight (start a fresh one).
+
+### What changes between modes
+
+| Boundary | interactive | fast |
+|---|---|---|
+| Elicitation has questions → answers recorded | wait for `/cg-approve elicit` | auto-proceed to Phase 2 |
+| Elicitation returns cosmetic fast-path proposal | wait for `/cg-approve quick` or `/cg-approve elicit` | auto-proceed via the `quick` path (implementation only) |
+| Plan ready, integrity CLEAN | wait for `/cg-approve plan` | auto-proceed to Phase 3 (after Pattern Review advisory is printed) |
+| Plan integrity MIRAGES_FOUND or PARSE_FAILED | STOP, ask user | STOP, ask user — same; a bad plan blocks both modes |
+| Implementation complete | wait for `/cg-approve implementation` | auto-proceed to Phase 4 |
+| QG verdict PASS | auto-proceed to Phase 5 | auto-proceed to Phase 5 — same |
+| QG verdict WARN | wait for `/cg-approve quality` | auto-proceed to Phase 5 |
+| QG verdict FAIL, fixable | up to 3 fix rounds, then escalate | up to 3 fix rounds, then escalate — same |
+| QG verdict FAIL, **cannot-override** (XSS, hardcoded secret, untested Security AC) | STOP, escalate | STOP, escalate — same |
+| Mid-implementation clarifications.md question | STOP, ask user | STOP, ask user — same; user input is irreplaceable |
+| Scope drift discovered mid-implementation | STOP, ask user | STOP, ask user — same |
+
+### How phases read the mode
+
+Inside any phase step, when the rule "STOP and wait for /cg-approve X"
+appears, first check the mode:
+
+```bash
+MODE=$(cat .ai/sessions/{id}/mode 2>/dev/null || echo interactive)
+```
+
+If `MODE=fast`: append `[ts] fast-mode-auto-proceed: <phase>` to the
+audit log and continue with the next phase's entry steps. Do NOT wait.
+
+If `MODE=interactive`: stop and wait as usual.
+
+The phase-end messages below ("Type `/cg-approve X` to proceed") are
+written for interactive mode. In fast mode, the agent should still
+present the artifact (plan, quality report, etc.) so the user can read
+it after the fact, but not say "type /cg-approve" — say "auto-proceeding
+to <next phase>" instead.
+
+---
+
 ## Phase 1: Elicitation
 
 **Entry**: user runs `/cg-feature [description]`, `/cg-bugfix [description]`, or `/cg-refactor [description]`.
@@ -38,14 +92,16 @@ Steps:
    - Write the mini-plan section of the proposal to `.ai/sessions/{id}/PLAN.md`
    - Append to audit log: `[timestamp] Fast-path proposed — classification: cosmetic`
    - Present the proposal to the user verbatim
-   - Say: "This change looks cosmetic. Type `/cg-approve quick` to skip elicitation and planning and go straight to implementation, or `/cg-approve elicit` to run the full workflow anyway."
-   - **STOP. Wait for `/cg-approve quick` or `/cg-approve elicit`.**
+   - **Mode check** (`cat .ai/sessions/{id}/mode`):
+     - `interactive`: say "This change looks cosmetic. Type `/cg-approve quick` to skip elicitation and planning and go straight to implementation, or `/cg-approve elicit` to run the full workflow anyway." **STOP. Wait for `/cg-approve quick` or `/cg-approve elicit`.**
+     - `fast`: append `[ts] fast-mode-auto-proceed: phase-1-cosmetic via quick` to audit log. Treat as if the user typed `/cg-approve quick` — proceed directly to Phase 3 (implementation) without Phase 2 planning.
 
    **If the agent returns a question list** (normal flow):
    - Present the questions to the user. Ask them all at once, not one by one.
-   - Wait for answers. Record Q&A in `.ai/sessions/{id}/elicitation.md`
-   - Say: "Elicitation complete. Review the answers above, then type `/cg-approve elicit` to proceed to planning."
-   - **STOP. Do not proceed until user types `/cg-approve elicit`.**
+   - **Always wait for answers, regardless of mode** — elicitation Q&A is the one user touchpoint fast mode never skips. Record Q&A in `.ai/sessions/{id}/elicitation.md`.
+   - **Mode check**:
+     - `interactive`: say "Elicitation complete. Review the answers above, then type `/cg-approve elicit` to proceed to planning." **STOP. Do not proceed until user types `/cg-approve elicit`.**
+     - `fast`: append `[ts] fast-mode-auto-proceed: phase-1` to audit log. Say "Elicitation complete (answers above). Auto-proceeding to planning." Proceed directly to Phase 2 entry steps.
 
 ---
 
@@ -80,8 +136,9 @@ Steps:
    - Show any Pattern Review advisory findings to the user, prefixed with "Advisory (not blocking):"
    - **Native Plan Mode display (optional, soft-fail)**: if the `ExitPlanMode` tool is available in this environment AND `.ai/plan-mode-disabled` does not exist, invoke `ExitPlanMode` with the contents of PLAN.md so the user can review the plan in Claude Code's native Plan Mode UI. Plan Mode is presentation only — `/cg-approve plan` remains the formal approval gate. If the user rejects (exits without approving) or asks for changes, re-dispatch the planning sub-agent with their feedback rather than asking for `/cg-approve plan`. If the tool is unavailable (older Claude Code, headless run, or invocation from a different harness): skip silently and continue with the markdown presentation step below.
    - Present the plan
-   - Say: "Plan ready. Review it above, then type `/cg-approve plan` to begin implementation."
-8. **STOP. Do not write any source files until user types `/cg-approve plan`.**
+   - **Mode check** (`cat .ai/sessions/{id}/mode`):
+     - `interactive`: say "Plan ready. Review it above, then type `/cg-approve plan` to begin implementation." **STOP. Do not write any source files until user types `/cg-approve plan`.**
+     - `fast`: append `[ts] fast-mode-auto-proceed: phase-2` to audit log. Say "Plan ready (above). Auto-proceeding to implementation." Proceed directly to Phase 3 entry steps. (Note: a MIRAGES_FOUND or PARSE_FAILED plan stops in both modes — see step 6.)
 
 The plan must include:
 - Numbered checklist of files to change/create (exact paths)
@@ -155,8 +212,9 @@ Steps:
 9. **If you discover something not in the plan that significantly affects scope**: STOP immediately. Explain what you found. Ask whether to update the plan before continuing. Do not silently expand scope.
 10. **Maximum 3 fix iterations**: if the quality gate or reviewer finds issues and you have already made 3 rounds of fixes without resolving them, stop and escalate to the user. Do not loop indefinitely.
 11. When done: append to audit log: `[timestamp] Implementation complete`.
-12. Say: "Implementation complete. Type `/cg-approve implementation` to run the quality gate."
-13. **STOP. Do not proceed until user types `/cg-approve implementation`.**
+12. **Mode check** (`cat .ai/sessions/{id}/mode`):
+    - `interactive`: say "Implementation complete. Type `/cg-approve implementation` to run the quality gate." **STOP. Do not proceed until user types `/cg-approve implementation`.**
+    - `fast`: append `[ts] fast-mode-auto-proceed: phase-3` to audit log. Say "Implementation complete. Auto-proceeding to quality gate." Proceed directly to Phase 4 entry steps.
 
 ---
 
@@ -221,11 +279,14 @@ Steps:
 5. Write `QUALITY_REVIEWED` to `.ai/sessions/{id}/state`
 6. Append to audit log: `[timestamp] Quality gate complete`
 7. Present `QUALITY_REPORT.md` to the user. Then run `bash .claude/scripts/notify.sh "Codegate" "Quality gate: {VERDICT}"` so the user sees the result if they switched away during the gate (terminal bell + OS toast where available; silent on headless / unsupported environments).
-8. If verdict is **PASS**: say "Quality gate passed. Proceeding to PR creation." Append to audit log: `[timestamp] Quality gate passed — verdict: PASS`. Proceed to Phase 5 automatically.
-9. If verdict is **WARN**: present the warnings, say "Quality gate passed with warnings (listed above). Type `/cg-approve quality` to proceed, or fix the warnings first." Do not proceed until user responds.
-10. If verdict is **FAIL**: explain each FAIL item. Fix them. After each fix round: commit the fixes (`fix: address quality gate findings — round N`), then re-run quality gate. Up to 3 rounds total. If FAILs remain after round 3, escalate to user. Append to audit log: `[timestamp] Quality gate FAIL — N issues, awaiting fix`.
+8. If verdict is **PASS**: say "Quality gate passed. Proceeding to PR creation." Append to audit log: `[timestamp] Quality gate passed — verdict: PASS`. Proceed to Phase 5 automatically. (Same in both modes.)
+9. If verdict is **WARN**: present the warnings.
+   - **Mode check** (`cat .ai/sessions/{id}/mode`):
+     - `interactive`: say "Quality gate passed with warnings (listed above). Type `/cg-approve quality` to proceed, or fix the warnings first." Do not proceed until user responds.
+     - `fast`: append `[ts] fast-mode-auto-proceed: phase-4-warn` to audit log. Say "Quality gate passed with warnings (listed above). Auto-proceeding to PR creation." Proceed to Phase 5.
+10. If verdict is **FAIL**: explain each FAIL item. Fix them. After each fix round: commit the fixes (`fix: address quality gate findings — round N`), then re-run quality gate. Up to 3 rounds total. If FAILs remain after round 3, escalate to user. Append to audit log: `[timestamp] Quality gate FAIL — N issues, awaiting fix`. (Same loop in both modes.)
    - If user explicitly overrides with `/cg-approve quality`: append `[timestamp] Quality gate override by user — FAIL items accepted`. Then proceed to Phase 5.
-   - Critical SQL and security FAILs cannot be overridden.
+   - Critical SQL and security FAILs cannot be overridden. **Even in fast mode** — XSS, hardcoded secret, untested Security AC, and similar cannot-override findings always escalate to the user.
 
 ---
 

@@ -13,6 +13,15 @@ Otherwise, infer the phase from session state and dispatch:
      `/cg-refactor`."
    - Stop.
 
+1a. Read `.ai/sessions/{id}/mode` (default `interactive` if missing).
+    If `mode=fast`, this session auto-proceeds and `/ok` is a no-op.
+    Say: "Session is in fast mode — phases auto-proceed; no approval
+    needed. Use `/cg-status` to see the current phase." Stop.
+    (Exception: if `state=QUALITY_REVIEWED` AND QUALITY_REPORT.md
+    verdict is FAIL AND the user explicitly wants to override, they
+    must use the long form `/cg-approve quality` — `/ok` will not
+    override FAILs, in either mode.)
+
 2. Read:
    - `.ai/sessions/{id}/state` — current phase
    - Existence of `.ai/sessions/{id}/elicitation.md`
