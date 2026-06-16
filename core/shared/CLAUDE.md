@@ -102,6 +102,26 @@ Steps:
 2. Write `IMPLEMENTING` to `.ai/sessions/{id}/state`
 3. Append to audit log: `[timestamp] Plan approved, implementation started`
 4. Ensure `.ai/sessions/{id}/decisions/` directory exists. Each non-obvious decision lands as its own ADR file there (see step 7 for format).
+4a. **Backfill ADRs for elicitation-surfaced trade-offs.** Read
+    `.ai/sessions/{id}/elicitation.md`. Any question where the user
+    explicitly picked one approach over another with non-trivial
+    consequences is a non-obvious decision and gets its own ADR — even
+    though it was made *before* implementation. Typical triggers:
+    - "Use library X instead of the existing convention Y" (e.g.,
+      react-hook-form + zod when the project's existing forms use
+      useState; or kotlinx.serialization when Jackson is the convention).
+    - "Add a new dependency to do Z" (the user weighed adding the dep
+      vs writing inline; capture the rationale).
+    - "Diverge from the established pattern for this case because <reason>".
+    - "Defer scope X to a follow-up" (an explicit non-goal worth recording).
+    Skip elicitation answers that are just clarifications of unambiguous
+    behavior (e.g., "what should happen on empty list — return [] vs
+    null" with no broader trade-off).
+    For each qualifying answer, write an ADR using the format in step 7:
+    Decision is the choice, Reasoning quotes the user's stated rationale
+    from elicitation, Alternative considered is the option not taken.
+    These are written BEFORE the baseline test run in step 5 — if a
+    deviation is being formalized, the ADR should pre-date any code.
 5. **Run baseline test suite**: run the full test suite now, before writing any code. Save the names of any failing tests to `.ai/sessions/{id}/test-baseline.txt`. If the suite is clean, write "CLEAN" to that file. This baseline is used by the quality gate to distinguish pre-existing failures from new ones introduced by this task.
 6. Implement in small commits, one concept per commit. Follow the plan's `### Commit Plan` section — each entry there is one commit. Typical chunk: one test file + the production code it exercises.
    a. **Write the tests first.** Mark the corresponding test items `[x]` in PLAN.md.
