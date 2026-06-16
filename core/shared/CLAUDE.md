@@ -73,6 +73,77 @@ to <next phase>" instead.
 
 ---
 
+## Debug mode
+
+Independent of `mode` (fast / interactive). Toggled by the presence of
+the marker file `.ai/cg-debug-mode` (sibling of `.ai/sessions/`). Manage
+it via `/cg-debug on` / `/cg-debug off` / `/cg-debug` (status), or
+`touch .ai/cg-debug-mode` / `rm .ai/cg-debug-mode` directly.
+
+**Purpose**: collect first-hand observations about how the flow itself
+performs on a real task — what felt right, what was friction, what
+the agent wished it had. Intended for running a real feature with
+the explicit goal of evaluating codegate itself.
+
+**Effect**: when the marker exists, at the end of each phase the agent
+appends a structured block to `.ai/sessions/{id}/flow-feedback.md`.
+The block has four sections, each a short bulleted list (1–4 lines):
+
+```markdown
+## Phase N — {Name} ({timestamp})
+
+**Worked well**:
+- {observation}
+
+**Friction**:
+- {observation}
+
+**Could improve**:
+- {observation}
+
+**Missing in flow**:
+- {observation}
+```
+
+Empty sections may be written as `- (none observed)` rather than
+skipped — the structure tells the reader what was looked at vs not.
+
+At the end of Phase 5, the agent additionally writes a session-summary
+block aggregating top items across phases:
+
+```markdown
+---
+
+## Session summary ({timestamp})
+
+**Top wins**:
+- {3–5 bullets, biggest pluses of the run}
+
+**Top pain points**:
+- {3–5 bullets, biggest frictions}
+
+**Suggested flow improvements (ranked)**:
+1. {concrete change to a runbook step / prompt / script}
+2. ...
+
+**Things missing from the flow**:
+- {capabilities or guardrails the agent wished existed}
+```
+
+**Tone rule**: observations should be specific and actionable, not
+abstract. Bad: "elicitation was slow". Good: "elicitation produced 9
+questions for a 1-file change — could classify as cosmetic earlier".
+
+**Honesty rule**: if a phase went smoothly, say `- (no friction observed)`
+rather than padding. Negative signal is more valuable than filler.
+
+The marker is project-level and persists across sessions; the
+flow-feedback file is per-session and accumulates as the session runs.
+Sessions started while the marker is absent get no flow-feedback file
+at all.
+
+---
+
 ## Phase 1: Elicitation
 
 **Entry**: user runs `/cg-feature [description]`, `/cg-bugfix [description]`, or `/cg-refactor [description]`.
@@ -92,6 +163,7 @@ Steps:
    - Write the mini-plan section of the proposal to `.ai/sessions/{id}/PLAN.md`
    - Append to audit log: `[timestamp] Fast-path proposed — classification: cosmetic`
    - Present the proposal to the user verbatim
+   - **Debug-mode hook**: if `.ai/cg-debug-mode` exists, append a `## Phase 1 — Elicitation` block to `.ai/sessions/{id}/flow-feedback.md` per §Debug mode format (cosmetic classification: was it justified, did the elicitation prompt see signals that should have surfaced earlier).
    - **Mode check** (`cat .ai/sessions/{id}/mode`):
      - `interactive`: say "This change looks cosmetic. Type `/cg-approve quick` to skip elicitation and planning and go straight to implementation, or `/cg-approve elicit` to run the full workflow anyway." **STOP. Wait for `/cg-approve quick` or `/cg-approve elicit`.**
      - `fast`: append `[ts] fast-mode-auto-proceed: phase-1-cosmetic via quick` to audit log. Treat as if the user typed `/cg-approve quick` — proceed directly to Phase 3 (implementation) without Phase 2 planning.
@@ -99,6 +171,7 @@ Steps:
    **If the agent returns a question list** (normal flow):
    - Present the questions to the user. Ask them all at once, not one by one.
    - **Always wait for answers, regardless of mode** — elicitation Q&A is the one user touchpoint fast mode never skips. Record Q&A in `.ai/sessions/{id}/elicitation.md`.
+   - **Debug-mode hook**: if `.ai/cg-debug-mode` exists, append a `## Phase 1 — Elicitation` block to `.ai/sessions/{id}/flow-feedback.md` per §Debug mode format (question count vs task size, which questions surfaced real ambiguity vs filler, anything the elicitation checklist should have asked but didn't).
    - **Mode check**:
      - `interactive`: say "Elicitation complete. Review the answers above, then type `/cg-approve elicit` to proceed to planning." **STOP. Do not proceed until user types `/cg-approve elicit`.**
      - `fast`: append `[ts] fast-mode-auto-proceed: phase-1` to audit log. Say "Elicitation complete (answers above). Auto-proceeding to planning." Proceed directly to Phase 2 entry steps.
@@ -136,6 +209,7 @@ Steps:
    - Show any Pattern Review advisory findings to the user, prefixed with "Advisory (not blocking):"
    - **Native Plan Mode display (optional, soft-fail)**: if the `ExitPlanMode` tool is available in this environment AND `.ai/plan-mode-disabled` does not exist, invoke `ExitPlanMode` with the contents of PLAN.md so the user can review the plan in Claude Code's native Plan Mode UI. Plan Mode is presentation only — `/cg-approve plan` remains the formal approval gate. If the user rejects (exits without approving) or asks for changes, re-dispatch the planning sub-agent with their feedback rather than asking for `/cg-approve plan`. If the tool is unavailable (older Claude Code, headless run, or invocation from a different harness): skip silently and continue with the markdown presentation step below.
    - Present the plan
+   - **Debug-mode hook**: if `.ai/cg-debug-mode` exists, append a `## Phase 2 — Planning` block to `.ai/sessions/{id}/flow-feedback.md` per §Debug mode format (plan size vs task complexity, integrity script catches vs misses, pattern review advisory usefulness, anything the planning sub-agent over- or under-thought).
    - **Mode check** (`cat .ai/sessions/{id}/mode`):
      - `interactive`: say "Plan ready. Review it above, then type `/cg-approve plan` to begin implementation." **STOP. Do not write any source files until user types `/cg-approve plan`.**
      - `fast`: append `[ts] fast-mode-auto-proceed: phase-2` to audit log. Say "Plan ready (above). Auto-proceeding to implementation." Proceed directly to Phase 3 entry steps. (Note: a MIRAGES_FOUND or PARSE_FAILED plan stops in both modes — see step 6.)
@@ -212,6 +286,7 @@ Steps:
 9. **If you discover something not in the plan that significantly affects scope**: STOP immediately. Explain what you found. Ask whether to update the plan before continuing. Do not silently expand scope.
 10. **Maximum 3 fix iterations**: if the quality gate or reviewer finds issues and you have already made 3 rounds of fixes without resolving them, stop and escalate to the user. Do not loop indefinitely.
 11. When done: append to audit log: `[timestamp] Implementation complete`.
+11a. **Debug-mode hook**: if `.ai/cg-debug-mode` exists, append a `## Phase 3 — Implementation` block to `.ai/sessions/{id}/flow-feedback.md` per §Debug mode format (commit chunking matched plan or drifted, red-check discipline helpful or noise, ADRs generated or missed, scope drift vs surfaced clarifications, anything the agent had to invent because the plan was silent).
 12. **Mode check** (`cat .ai/sessions/{id}/mode`):
     - `interactive`: say "Implementation complete. Type `/cg-approve implementation` to run the quality gate." **STOP. Do not proceed until user types `/cg-approve implementation`.**
     - `fast`: append `[ts] fast-mode-auto-proceed: phase-3` to audit log. Say "Implementation complete. Auto-proceeding to quality gate." Proceed directly to Phase 4 entry steps.
@@ -279,6 +354,7 @@ Steps:
 5. Write `QUALITY_REVIEWED` to `.ai/sessions/{id}/state`
 6. Append to audit log: `[timestamp] Quality gate complete`
 7. Present `QUALITY_REPORT.md` to the user. Then run `bash .claude/scripts/notify.sh "Codegate" "Quality gate: {VERDICT}"` so the user sees the result if they switched away during the gate (terminal bell + OS toast where available; silent on headless / unsupported environments).
+7a. **Debug-mode hook**: if `.ai/cg-debug-mode` exists, append a `## Phase 4 — Quality Gate` block to `.ai/sessions/{id}/flow-feedback.md` per §Debug mode format (which dimensions caught real issues vs which produced noise, false positives, false negatives the agent noticed itself, coverage refresh effectiveness, lens overlap or gaps in the multi-persona case, total wall-clock time vs perceived value).
 8. If verdict is **PASS**: say "Quality gate passed. Proceeding to PR creation." Append to audit log: `[timestamp] Quality gate passed — verdict: PASS`. Proceed to Phase 5 automatically. (Same in both modes.)
 9. If verdict is **WARN**: present the warnings.
    - **Mode check** (`cat .ai/sessions/{id}/mode`):
@@ -303,6 +379,9 @@ Steps:
    - Quality report summary
 3. Write `PR_CREATED` to `.ai/sessions/{id}/state`
 4. Append to audit log: `[timestamp] PR created: {url}`
+5. **Debug-mode hook**: if `.ai/cg-debug-mode` exists:
+   - First append a `## Phase 5 — PR Creation` block to `.ai/sessions/{id}/flow-feedback.md` per §Debug mode format (PR description completeness, sub-agent took the right inputs, anything the PR creator had to guess).
+   - Then append the **session summary** block per §Debug mode format. Read the four prior Phase blocks already in `flow-feedback.md` and aggregate: top 3–5 wins, top 3–5 pain points, ranked concrete suggested improvements, gaps the agent encountered. Tell the user one line: "Flow feedback recorded at `.ai/sessions/{id}/flow-feedback.md`."
 
 ---
 
@@ -318,6 +397,7 @@ Steps:
 - `/cg-explain` — read-only inspector: state + recent audit + checklist progress + diff so far. See `.claude/commands/cg-explain.md`. No side effects, no state advance.
 - `/cg-timeline [--since DURATION] [--full]` — cross-session chronological view across `.ai/sessions/*`. See `.claude/commands/cg-timeline.md`.
 - `/cg-debt` — list `.ai/tech-debt/*.md` with severity. If empty: "No tech debt logged."
+- `/cg-debug [on|off]` — toggle the project-level `.ai/cg-debug-mode` marker. With no argument: report current status. See `.claude/commands/cg-debug.md` and §Debug mode.
 
 State transitions in order: `IDLE → ELICITED → PLAN_APPROVED → IMPLEMENTING → QUALITY_REVIEWED → PR_CREATED`. State file: `.ai/sessions/{id}/state`. Current-session pointer: `.ai/current-session`.
 
