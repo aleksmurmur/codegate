@@ -150,6 +150,22 @@ Steps:
    - If there are uncommitted changes: `git add -A && git commit -m "{type}: complete implementation"`. Append to audit.log.
 2. **Diff-coverage check** (mechanical, runs before the agent):
    - Compute base: `BASE=$(git merge-base main HEAD)`
+   - **Refresh coverage data first.** `diff-coverage.py` reads existing
+     coverage reports; if none exist it falls back to a weak grep symbol
+     check. To get real coverage, detect the project's coverage command
+     and run it now:
+     - `package.json` with `vitest` in deps → `npx vitest run --coverage`
+       (or `npm test -- --run --coverage`). Emits `coverage/coverage-final.json`.
+     - `package.json` with `jest` in deps → `npx jest --coverage`. Emits
+       `coverage/coverage-final.json` (Istanbul default) or `coverage/lcov.info`.
+     - `build.gradle*` with JaCoCo → `./gradlew test jacocoTestReport`. Emits
+       `build/reports/jacoco/test/jacocoTestReport.xml`.
+     - `pom.xml` with `jacoco-maven-plugin` → `mvn test`.
+     - No coverage tool detected (or detection ambiguous): skip this sub-step.
+       `diff-coverage.py` will fall through to grep and report `Mode: grep`;
+       treat that report as informational, not authoritative — flag it in
+       the audit so the user knows coverage was not actually measured.
+     Append: `[ts] coverage-refresh: <command|skipped:reason>`.
    - Run: `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output .ai/sessions/{id}/coverage-report.md`
    - Exit **0 (CLEAN)**: continue to step 3.
    - Exit **1 (FAIL)**: do NOT run the quality-gate agent. Present the coverage report to the user. Say: "Coverage check failed — new production code isn't exercised by tests (details above). Add tests, commit, then run `/cg-approve implementation` again." Append to audit log: `[timestamp] Coverage check FAIL — N uncovered items`. STOP.

@@ -351,6 +351,11 @@ SYMBOL_DEFS = [
     re.compile(r"\bconst\s+(\w+)\s*(?::\s*[^=]+)?=\s*(?:async\s+)?(?:\([^)]*\)|\w+)\s*=>"),
     # React component pattern: const Foo: FC = ...
     re.compile(r"\bexport\s+const\s+([A-Z]\w+)\s*:\s*(?:FC|React\.FC|FunctionComponent)"),
+    # Catch-all for exported value bindings: zod schemas (z.object(...)),
+    # constants, computed values, forwardRef/memo wrappers, anything else.
+    # The arrow-only patterns above miss these.
+    re.compile(r"\bexport\s+const\s+(\w+)\s*[:=]"),
+    re.compile(r"\bexport\s+let\s+(\w+)\s*[:=]"),
     # Class declarations
     re.compile(r"\bexport\s+class\s+(\w+)\b"),
     re.compile(r"\bclass\s+(\w+)\s*(?:extends|\{)"),
