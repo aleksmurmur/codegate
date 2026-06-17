@@ -24,16 +24,25 @@ Every task goes through five phases in order. You cannot skip phases.
 Every task session has a mode, written to `.ai/sessions/{id}/mode` by
 the slash-command that started it:
 
-- **`interactive`** (default) — the agent stops at every phase boundary and
-  waits for `/cg-approve {phase}` (or `/ok`). The classic workflow.
-- **`fast`** — the agent auto-proceeds through phase boundaries. The
-  user still gets to drive when their input is irreplaceable: elicitation
-  Q&A, mid-implementation clarifications, and end-of-gate decisions on
-  non-auto-fixable findings.
+- **`fast`** (default) — the agent auto-proceeds through phase boundaries.
+  The user still gets to drive when their input is irreplaceable:
+  elicitation Q&A, mid-implementation clarifications, scope-drift
+  decisions, and end-of-gate decisions on non-auto-fixable findings.
+- **`interactive`** — the agent stops at every phase boundary and waits
+  for `/cg-approve {phase}` (or `/ok`). Opt in when you want to inspect
+  each artifact before the next phase starts.
 
-The mode is set by passing `--fast` in `$ARGUMENTS` to `/cg-feature`,
-`/cg-bugfix`, or `/cg-refactor`. It is **per session**; an interactive
-session does not become fast mid-flight (start a fresh one).
+The mode is set by passing `--interactive` in `$ARGUMENTS` to
+`/cg-feature`, `/cg-bugfix`, or `/cg-refactor`. With no flag (or with
+the legacy `--fast` alias), the session is fast. It is **per session**;
+a fast session does not become interactive mid-flight (start a fresh
+one).
+
+**Backwards compatibility**: sessions started before the mode mechanism
+existed don't have a mode file. When the file is missing, treat as
+`interactive` — the historical default — to avoid surprising any
+in-flight pre-flag sessions. Brand-new sessions started by the current
+slash commands always write the file explicitly.
 
 ### What changes between modes
 

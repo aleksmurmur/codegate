@@ -2,10 +2,14 @@ Start a new bug fix task session. Task type: `bugfix`. Raw arguments: $ARGUMENTS
 
 ## Mode parsing (before anything else)
 
-Inspect `$ARGUMENTS` for a `--fast` token. If present:
-- Strip it from the description (the remaining text is the task).
-- Remember `MODE=fast` for step 6 below.
-Otherwise: `MODE=interactive`.
+Default mode is **fast**. Inspect `$ARGUMENTS` for mode flags:
+
+- `--interactive` → MODE=interactive (opt into per-phase approval gates).
+- `--fast` → MODE=fast (legacy alias for the default).
+- Neither → MODE=fast.
+- Both → `--interactive` wins.
+
+Strip the flag(s) from the description.
 
 ## Pre-elicitation observability
 

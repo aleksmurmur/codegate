@@ -2,15 +2,24 @@ Start a new feature task session. Task type: `feature`. Raw arguments: $ARGUMENT
 
 ## Mode parsing (before anything else)
 
-Inspect `$ARGUMENTS` for a `--fast` token. If present:
-- Strip it from the description (the remaining text is the task).
-- Remember `MODE=fast` for step 6 below.
-Otherwise: `MODE=interactive`.
+Default mode is **fast** (auto-proceed through phase boundaries). Inspect
+`$ARGUMENTS` for mode flags:
+
+- `--interactive` present → MODE=interactive. The user has explicitly
+  opted into per-phase approval gates.
+- `--fast` present (legacy alias; default anyway) → MODE=fast. No-op
+  semantically, but recognize it so muscle-memory typing isn't an error.
+- Neither flag → MODE=fast (default).
+- Both flags present → `--interactive` wins (the more specific intent).
+
+Strip whichever flag(s) appear from the description; the remaining text
+is the task.
 
 Examples:
-- `/cg-feature add a login button` → task=`add a login button`, MODE=interactive
-- `/cg-feature --fast add a login button` → task=`add a login button`, MODE=fast
-- `/cg-feature add a login button --fast` → task=`add a login button`, MODE=fast
+- `/cg-feature add a login button` → task=`add a login button`, MODE=fast
+- `/cg-feature --interactive add a login button` → MODE=interactive
+- `/cg-feature add a login button --fast` → task=`add a login button`, MODE=fast (explicit but default)
+- `/cg-feature --interactive --fast …` → MODE=interactive
 
 ## Flow
 
