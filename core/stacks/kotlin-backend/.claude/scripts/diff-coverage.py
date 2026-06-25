@@ -14,6 +14,12 @@ v0 supports:
 Additional formats (Istanbul, coverage.py, go cover) slot in as small adders
 alongside parse_jacoco().
 
+Scope: the diff is computed against committed history (``base..HEAD``), not the
+working tree. Uncommitted edits and reverts are invisible to this check. Commit
+before running, and after changing a file to address an uncovered line, commit
+that change before re-running — otherwise the report still reflects the previous
+commit, not your working tree.
+
 Usage:
     diff-coverage.py --base <commit> --output <path>
 

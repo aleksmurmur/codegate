@@ -12,6 +12,12 @@ v0 supports:
     - lcov.info (coverage/lcov.info) — older convention; some tools still emit it
     - grep-based symbol fallback (TypeScript / JavaScript)
 
+Scope: the diff is computed against committed history (``base..HEAD``), not the
+working tree. Uncommitted edits and reverts are invisible to this check. Commit
+before running, and after changing a file to address an uncovered line, commit
+that change before re-running — otherwise the report still reflects the previous
+commit, not your working tree.
+
 Usage:
     diff-coverage.py --base <commit> --output <path>
 

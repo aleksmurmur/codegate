@@ -269,9 +269,9 @@ Steps:
       - Before running, append: `[ts] red-check-predict: <test-target> — expecting "<substring>"`. The substring must come from a real fragment of the error you expect (assertion text, exception name) — not generic "fails".
       - Run the tests, then append: `[ts] red-check-result: <test-target> — <matched|not_matched|test_passed|deferred:<reason>>`.
       - `matched` → proceed. `not_matched` or `test_passed` → investigate before committing the test — it likely isn't exercising the intended path. `deferred` → only when running becomes infeasible mid-run (e.g., infra dropped); don't use as a default escape.
-   c. **Commit the tests.** `git add -A && git commit -m "test: <description>"`. Append to audit.log: `[ts] commit: {sha} — test: <description>`.
+   c. **Commit the tests.** Stage only the test files from this chunk's checklist by explicit path — never `git add -A` or `git add .`. The working tree may hold unrelated untracked files (other tickets' docs, `.mcp.json`, `.ai/audit`, editor scratch) that must not enter this branch's history. `git add <test-paths> && git commit -m "test: <description>"`. Append to audit.log: `[ts] commit: {sha} — test: <description>`.
    d. **Write the production code** to make the tests pass. Mark the corresponding production items `[x]` in PLAN.md.
-   e. **Commit the implementation.** `git add -A && git commit -m "{type}: <description>"` where `{type}` matches the task (`feat`/`fix`/`refactor`). Append to audit.log.
+   e. **Commit the implementation.** Stage only this chunk's production files by explicit path (same rule as c — no `git add -A`/`git add .`): `git add <prod-paths> && git commit -m "{type}: <description>"` where `{type}` matches the task (`feat`/`fix`/`refactor`). Append to audit.log.
    f. **Optional refactor** (no behavior change). Commit: `git commit -m "refactor: <description>"`. Append to audit.log.
 
    When tests cannot compile without minimal production stubs (typed languages — Kotlin, Go, Rust, etc.): include the minimal stubs in the test commit, and note in audit.log `[ts] test-commit-includes-stubs: <reason>`. Stubs must be plumbing only (signatures, empty methods that throw or return defaults) — never business logic.
@@ -309,7 +309,7 @@ Steps:
 Steps:
 1. **Commit any uncommitted leftover.** Phase 3 should have committed in chunks; this catches anything missed.
    - Run `git status`. If clean, skip and append to audit.log: `[ts] phase-4-commit: nothing-to-commit`.
-   - If there are uncommitted changes: `git add -A && git commit -m "{type}: complete implementation"`. Append to audit.log.
+   - If there are uncommitted changes: stage only this task's files — `git add -u` for modifications to already-tracked files, plus any new files from the plan checklist by explicit path. Do not `git add -A`/`git add .` (unrelated untracked files must stay out of the branch). Then `git commit -m "{type}: complete implementation"`. Append to audit.log.
 2. **Diff-coverage check** (mechanical, runs before the agent):
    - Compute base: `BASE=$(git merge-base main HEAD)`
    - **Refresh coverage data first.** `diff-coverage.py` reads existing
@@ -329,6 +329,7 @@ Steps:
        the audit so the user knows coverage was not actually measured.
      Append: `[ts] coverage-refresh: <command|skipped:reason>`.
    - Run: `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output .ai/sessions/{id}/coverage-report.md`
+   - **Note**: diff-coverage diffs committed history (`$BASE..HEAD`), not the working tree. If you revert or edit a file to address a finding, commit that change before re-running — otherwise the report reflects the last commit, not your working tree, and the "fixed → re-run" loop will look stuck.
    - Exit **0 (CLEAN)**: continue to step 3.
    - Exit **1 (FAIL)**: do NOT run the quality-gate agent. Present the coverage report to the user. Say: "Coverage check failed — new production code isn't exercised by tests (details above). Add tests, commit, then run `/cg-approve implementation` again." Append to audit log: `[timestamp] Coverage check FAIL — N uncovered items`. STOP.
    - Exit **2 (script error)**: warn the user and continue to step 3; note in audit log.
