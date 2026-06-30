@@ -201,14 +201,23 @@ def find_jacoco_report() -> Path | None:
     return None
 
 
-def parse_jacoco(xml_path: Path) -> dict[str, set[int]]:
-    """Return {source_relative_path: {covered_line_numbers}} from a JaCoCo XML
-    report. Lines with ci > 0 (at least one covered instruction) count as
-    covered.
+def parse_jacoco(xml_path: Path) -> tuple[dict[str, set[int]], dict[str, set[int]]]:
+    """Return (covered, executable) maps {source_relative_path: {line numbers}}.
+
+    `covered`    = lines with ci > 0 (at least one covered instruction).
+    `executable` = every line JaCoCo emits a `<line>` for, i.e. every line that
+                   carries bytecode.
+
+    Lines absent from `executable` are non-executable — declarations, function
+    signatures, interface/data-class/sealed bodies, `private set`, `companion`,
+    `const`, pure punctuation. JaCoCo never marks them covered, so counting them
+    as "uncovered" is a false positive. Callers must restrict the coverage check
+    to lines present in `executable`.
     """
     import xml.etree.ElementTree as ET
 
     covered: dict[str, set[int]] = {}
+    executable: dict[str, set[int]] = {}
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
@@ -217,18 +226,22 @@ def parse_jacoco(xml_path: Path) -> dict[str, set[int]]:
         for sourcefile in package.iter("sourcefile"):
             fname = sourcefile.get("name", "")
             key = f"{pkg_name}/{fname}" if pkg_name else fname
-            lines: set[int] = set()
+            cov: set[int] = set()
+            exe: set[int] = set()
             for line in sourcefile.iter("line"):
                 try:
                     nr = int(line.get("nr", "0"))
                     ci = int(line.get("ci", "0"))
                 except ValueError:
                     continue
+                exe.add(nr)
                 if ci > 0:
-                    lines.add(nr)
-            if lines:
-                covered[key] = lines
-    return covered
+                    cov.add(nr)
+            if exe:
+                executable[key] = exe
+            if cov:
+                covered[key] = cov
+    return covered, executable
 
 
 def match_jacoco_path(diff_path: str, covered_map: dict[str, set[int]]) -> set[int]:
@@ -340,16 +353,24 @@ def main() -> None:
 
     if jacoco is not None:
         try:
-            covered_map = parse_jacoco(jacoco)
+            covered_map, executable_map = parse_jacoco(jacoco)
         except Exception as e:
             print(f"warn: could not parse JaCoCo report: {e}", file=sys.stderr)
-            covered_map = {}
+            covered_map, executable_map = {}, {}
         uncovered: list[str] = []
         touched_lines = 0
         covered_lines = 0
         for path, lines in added.items():
             project_cov = match_jacoco_path(path, covered_map)
+            project_exe = match_jacoco_path(path, executable_map)
             for nr, text in lines.items():
+                # Skip non-executable lines (declarations, signatures, etc.): JaCoCo
+                # emits no bytecode for them, so they can never be "covered". Only
+                # count lines JaCoCo recognizes as executable. (When executable data
+                # is missing entirely — parse error — project_exe is empty and we fall
+                # back to counting every line, the original conservative behavior.)
+                if project_exe and nr not in project_exe:
+                    continue
                 touched_lines += 1
                 if nr in project_cov:
                     covered_lines += 1
