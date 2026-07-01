@@ -360,9 +360,15 @@ def main() -> None:
         uncovered: list[str] = []
         touched_lines = 0
         covered_lines = 0
+        # A populated report means JaCoCo ran. A production file absent from it was
+        # excluded from instrumentation (e.g. the build's jacoco config drops
+        # `**/api/**/dto/**` and serializer stubs) — not measurable, so don't count it.
+        report_has_data = bool(executable_map)
         for path, lines in added.items():
             project_cov = match_jacoco_path(path, covered_map)
             project_exe = match_jacoco_path(path, executable_map)
+            if report_has_data and not project_exe:
+                continue
             for nr, text in lines.items():
                 # Skip non-executable lines (declarations, signatures, etc.): JaCoCo
                 # emits no bytecode for them, so they can never be "covered". Only
