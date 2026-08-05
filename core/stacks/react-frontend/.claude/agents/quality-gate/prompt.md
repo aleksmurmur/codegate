@@ -251,6 +251,11 @@ fall back to the heuristic checks below.
 
 Heuristic checks (use whether or not Security ACs are present):
 
+- **Sibling consistency.** When the diff adds a route, api call, or handler to an
+  existing module, read the whole file and compare it against its siblings: the auth
+  wrapper, the loader guard, the attached header, the `credentials` option. Missing
+  something every sibling has is a FAIL — usually a sign the server-side check was
+  assumed rather than confirmed.
 - **`dangerouslySetInnerHTML`**: present in new code? Each use is a FAIL unless the
   content is provably trusted (constant string, already-sanitized HTML from a trusted
   source). User-derived input via `dangerouslySetInnerHTML` is an XSS bug.

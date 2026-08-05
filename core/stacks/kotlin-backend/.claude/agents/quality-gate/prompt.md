@@ -200,8 +200,17 @@ and fall back to the heuristic checks below.
 Heuristic checks (use whether or not Security ACs are present):
 - Is user input validated before use?
 - Are there any hardcoded secrets or credentials?
-- Is authentication/authorization checked where needed (consistent with existing
-  endpoints in the same area)?
+- **Sibling consistency.** When the diff adds a method or route to an existing class,
+  read the whole file and compare the new member's prologue — annotations, guard calls,
+  registration wrapper — against its siblings'. Omitting something every sibling has is
+  a FAIL, and the diff owes the explanation rather than you owing an exploit.
+- **Is the shared guard actually a guard?** Follow the annotation to its declaration
+  before crediting it: an action that defaults to permitted, or a role every user
+  holds, makes a protective-looking line decoration. Copying a sibling's annotation
+  without its guard call, and copying both where the annotation was never sufficient,
+  are separate failures.
+- Is an id taken from the path scoped to the caller's tenant, or only checked for
+  existence?
 - Are new endpoints consistent with the auth model described in CODEBASE_CONTEXT.md?
 
 **FAIL if**: a `Security:` AC is unimplemented or untested in the diff; hardcoded

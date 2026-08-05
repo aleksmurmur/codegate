@@ -54,13 +54,33 @@ query string, file upload, message queue, CLI arg, environment variable):
 
 ### C. Authentication and authorization
 
-- New endpoints — is auth required? Match against existing endpoints in the
-  same area.
-- Per-resource ownership — when a user requests a resource by id, is "user
-  owns this resource" verified, or only "user is authenticated"?
-- Privilege escalation — does the diff let users perform actions they
-  previously couldn't (new admin path, new role, new method on an existing
-  controller)?
+**Sibling consistency — run this first; it is close to mechanical.** When the diff
+adds a member to an existing class or module — a method, a route, a handler — read
+the whole file (you were given it) and compare the new member's prologue against
+its siblings': the annotations they carry, the guard calls they open with, the
+wrapper they are registered through. A new member that omits something every
+sibling has is a finding at **HIGH** by default. You do not have to construct the
+exploit to report it: the burden is on the diff to explain the asymmetry.
+
+**Then check that the guard the siblings share is actually a guard.** An
+annotation is not authorization until you have read what it resolves to. Follow
+it to its declaration: an action whose default is *permitted*, a role every
+authenticated user holds, a filter registered only for a different path — each
+turns a line that looks protective into decoration. Read the declaration, not the
+call site.
+
+The two halves fail independently, and the second is the quieter one. Copying a
+sibling's annotation but not its guard call is the first. Copying both, where the
+annotation alone was never sufficient, is the second — and the diff then looks
+*more* protected than the code around it.
+
+- Per-resource ownership — when a user requests a resource by id, is "this user
+  owns this resource" verified, or only "this user is authenticated"?
+- Tenant / organisation scoping — is an id taken from the path checked against
+  the caller's tenant, or only against existence?
+- Privilege escalation — does the diff let users perform actions they previously
+  couldn't (new admin path, new role, new method on an existing controller),
+  including relaxing or removing a restriction that applies to themselves?
 
 ### D. Secrets and sensitive data
 

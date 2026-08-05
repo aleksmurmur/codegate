@@ -69,6 +69,19 @@ This is the most common web-frontend vulnerability. Check every change:
 
 ### C. Authentication and session handling
 
+**Sibling consistency — run this first.** When the diff adds a member to an
+existing module — a route to the route table, a call to the api client, a handler
+to a slice — read the whole file (you were given it) and compare the new member
+against its siblings: the auth wrapper the other routes are registered through,
+the loader guard they declare, the header the other calls attach, the
+`credentials` option the other fetches set. A new member missing something every
+sibling has is a finding at **HIGH** by default; the diff owes the explanation.
+
+A client-side guard is not itself a security control — the server is. Report the
+asymmetry regardless: a route rendered without the guard its siblings use leaks
+whatever it fetches before the server refuses, and it is usually a symptom that
+the server-side check was assumed rather than confirmed.
+
 - **Token storage**: new auth tokens placed in `localStorage` are XSS-readable.
   `sessionStorage` is no better. HttpOnly cookies are safer but require backend
   cooperation. If the project's CODEBASE_CONTEXT.md says HttpOnly cookies are
