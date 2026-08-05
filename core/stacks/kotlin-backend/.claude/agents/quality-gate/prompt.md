@@ -110,6 +110,23 @@ Heuristic checks (use whether or not Design Notes is present):
 - Does it add business logic to a layer that shouldn't have it?
 - Does it make existing boundary violations (noted in CODEBASE_CONTEXT.md) worse?
 
+**Then ask whether the new thing should exist at all.** Verifying the diff against
+the plan's Design Notes makes the plan both the specification and the yardstick —
+a plan that declared "new component" makes any faithful new component conform.
+So for every new unit in the diff, search for an existing one that already carries
+that responsibility, before accepting it as new. Duplication of existing machinery
+is invisible in a diff by construction: only one of the two copies is in it.
+
+Search by the new unit's public names, by the domain nouns in its own name, and by
+the collaborators it takes — whoever already holds those collaborators is the most
+likely existing owner. State what you searched.
+
+**FAIL if**: the diff adds a second implementation of resolution, traversal,
+caching, or validation that an existing unit in the same area already performs.
+Two copies of one rule drift, and the drift surfaces later as two code paths
+disagreeing. On task type `refactor` this does not apply — the prior
+implementation is the thing being replaced; check instead that it is removed.
+
 **FAIL if**: implementation contradicts Design Notes (e.g. notes say "doesn't touch
 users domain" but the diff injects UserRepository); or new domain boundary
 violation that isn't acknowledged in either Design Notes or the plan body.

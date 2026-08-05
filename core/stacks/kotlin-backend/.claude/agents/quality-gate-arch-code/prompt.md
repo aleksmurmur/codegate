@@ -72,12 +72,42 @@ top of Section 1 and run heuristic checks 1.5–1.7 only.
   code actually follow that pattern, or did it diverge?
 - New pattern introduced without explanation in Design Notes?
 
-### 1.4 Alternatives drift
+**Then challenge the declaration itself.** For checks 1.1-1.2 the plan is both the
+specification and the yardstick. That works while the plan is right, and fails
+silently when it is not: a plan that declared "new component" makes any faithful
+new component conform, so the gate confirms the plan was implemented rather than
+asking whether it should have been. A declaration in Design Notes is evidence
+that a decision was recorded, not that the alternative was examined.
 
-- If Design Notes listed rejected alternatives, did the implementation drift
-  toward one of them in practice?
-- Example: notes say "rejected separate digest module" but the diff creates
-  `digest/` as a sibling directory.
+So for every *new* unit the plan declared, ask whether something existing already
+carries that responsibility — see 1.4, which is where that search belongs.
+
+### 1.4 Prior implementation — does this already exist?
+
+For every new class, module, or component in the diff, search for an existing
+implementation of the same capability before accepting it as new. Duplication of
+existing machinery is invisible in a diff by construction: only one of the two
+copies is in it. You were given the touched files and the repo — use them.
+
+Search protocol. Do all three, and state what you searched:
+
+- the new type's public method names;
+- the domain nouns in its own name (`RecordEditWindowPolicy` -> the domain term,
+  plus `window`, `policy`);
+- the types it collaborates with — whoever already holds those collaborators is
+  the most likely existing owner of the behaviour.
+
+A second implementation of resolution, traversal, caching, or validation that a
+service in the same package already performs is **HIGH**, not MEDIUM. Two copies
+of one rule drift, and the drift surfaces as the read path and the write path
+disagreeing — which reads as a bug in a feature, long after the duplication is
+cheap to undo.
+
+If Design Notes listed rejected alternatives, also check the implementation did
+not quietly drift back toward one of them.
+
+On task type `refactor` the prior implementation is the thing being replaced:
+verify it is actually being removed, and do not report it as duplication.
 
 ### 1.5 Premature / missing abstractions
 
@@ -127,9 +157,6 @@ top of Section 1 and run heuristic checks 1.5–1.7 only.
   `getUsers2`).
 - Method names are verbs, class names are nouns.
 - No abbreviations except universally understood ones (`url`, `id`).
-- Test names describe scenario, not method-under-test mechanics (this
-  overlaps with testing lens's check F — flag if egregious, otherwise
-  defer to testing).
 
 ### 2.3 Function size and cohesion
 
@@ -239,7 +266,7 @@ Write to `.ai/sessions/{session-id}/quality-findings-arch-code.md`:
 ### 1.1 Placement — {clean | not applicable | N findings}
 ### 1.2 Boundaries — {clean | not applicable | N findings}
 ### 1.3 Pattern extension — {clean | not applicable | N findings}
-### 1.4 Alternatives drift — {clean | not applicable | N findings}
+### 1.4 Prior implementation — {clean | not applicable | N findings}
 ### 1.5 Premature / missing abstractions — {clean | not applicable | N findings}
 ### 1.6 Cascade impact — {N cascades listed}
 ### 1.7 Refactor improvement — {clean | not applicable | N findings}

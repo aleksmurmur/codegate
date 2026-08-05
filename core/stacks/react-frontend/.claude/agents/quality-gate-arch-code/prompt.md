@@ -81,12 +81,42 @@ top of Section 1 and run heuristic checks 1.5–1.7 only.
   uses Zustand for client state and the diff adds a fresh React Context provider
   for the same scope.
 
-### 1.4 Alternatives drift
+**Then challenge the declaration itself.** For checks 1.1-1.2 the plan is both the
+specification and the yardstick. That works while the plan is right, and fails
+silently when it is not: a plan that declared "new component" makes any faithful
+new component conform, so the gate confirms the plan was implemented rather than
+asking whether it should have been. A declaration in Design Notes is evidence
+that a decision was recorded, not that the alternative was examined.
 
-- If Design Notes listed rejected alternatives, did the implementation drift
-  toward one of them in practice?
-- Example: notes say "rejected: putting search state in URL", but the diff
-  uses `useSearchParams` for the search field.
+So for every *new* unit the plan declared, ask whether something existing already
+carries that responsibility — see 1.4, which is where that search belongs.
+
+### 1.4 Prior implementation — does this already exist?
+
+For every new hook, component, context, or util in the diff, search for an
+existing one covering the same capability before accepting it as new. Duplication
+of existing machinery is invisible in a diff by construction: only one of the two
+copies is in it. You were given the touched files and the repo — use them.
+
+Search protocol. Do all three, and state what you searched:
+
+- the new unit's exported name and its verbs (`useSiteFilters` -> `filter`,
+  `useSite*`, `*Filters`);
+- the domain nouns it operates on;
+- the libraries and stores it reaches for — a new hook wrapping the same query
+  client, store slice, or form library as an existing one usually belongs beside
+  it rather than next to it.
+
+A second implementation of fetching, caching, form state, or permission
+resolution that an existing hook already performs is **HIGH**, not MEDIUM: the
+copies drift, and the drift surfaces as two screens disagreeing about the same
+data.
+
+If Design Notes listed rejected alternatives, also check the implementation did
+not quietly drift back toward one of them.
+
+On task type `refactor` the prior implementation is the thing being replaced:
+verify it is actually being removed, and do not report it as duplication.
 
 ### 1.5 Premature / missing abstractions
 
@@ -304,7 +334,7 @@ Write to `.ai/sessions/{session-id}/quality-findings-arch-code.md`:
 ### 1.1 Placement — {clean | not applicable | N findings}
 ### 1.2 Boundaries — {clean | not applicable | N findings}
 ### 1.3 Pattern extension — {clean | not applicable | N findings}
-### 1.4 Alternatives drift — {clean | not applicable | N findings}
+### 1.4 Prior implementation — {clean | not applicable | N findings}
 ### 1.5 Premature / missing abstractions — {clean | not applicable | N findings}
 ### 1.6 Cascade impact — {N cascades listed}
 ### 1.7 Refactor improvement — {clean | not applicable | N findings}
