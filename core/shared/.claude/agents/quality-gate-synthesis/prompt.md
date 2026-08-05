@@ -39,10 +39,30 @@ For each finding, assign **exactly one** classification:
 - **DUPLICATE** — another lens raised the same finding (same root cause,
   same location, paraphrased title or shared underlying defect). Keep one
   copy; merge sources as `[sources: lens-a, lens-b, ...]`.
+- **ENUMERATION** — two or more findings share a root cause at *different*
+  locations. Same missing guard on three endpoints; the same unhandled state
+  in four reducers; the same ungated entry point found three times. Collapse
+  them into ONE finding whose subject is the incomplete list, not the three
+  instances, and name every known instance underneath it.
 - **CONTRADICTION** — two lenses disagree about the same code. Don't bury
   it. State both positions, choose the primary using the precedence rules
   below, and write a one-sentence rationale for the call.
 - **UNIQUE** — only one lens raised it. Keep as-is, with `[sources: lens-X]`.
+
+ENUMERATION is the classification most often missed, and missing it is
+expensive. Three instances of one root cause reported separately get patched
+separately, each patch looks like progress, and nobody asks how the list of
+places was assembled in the first place — so the fourth instance, the one no
+lens happened to look at, ships. When you collapse findings this way, the fix
+instruction must say so: **derive the complete list mechanically** (grep every
+caller, enumerate every route, list every subclass) and fix the derivation,
+rather than fixing the instances that were found. State explicitly that the
+enumeration itself is unverified until that is done.
+
+Note that ENUMERATION and DUPLICATE differ by location, not by lens. Two
+lenses reporting one defect at one location is DUPLICATE. One lens reporting
+one defect at three locations is ENUMERATION — a single lens can produce it
+alone, so check for it even when the other lenses were unavailable.
 
 Precedence for contradictions:
 - On **security questions**: security > arch-code > testing.
@@ -89,6 +109,10 @@ move on. Don't invent.
 For DUPLICATE / UNIQUE: use the higher severity reported by contributing
 lenses.
 
+For ENUMERATION: use the higher severity of the contributing instances, then
+escalate one tier. An incomplete enumeration is worse than any one instance of
+it, because the instances nobody found are still in production.
+
 For CONTRADICTION: use the severity from the precedence-winning lens.
 
 For SURFACE: use the rule from Step 3.
@@ -133,6 +157,7 @@ consumers (PR creator, audit log) parse the file shape, not the lens path.
 ## Classification
 
 - {n} DUPLICATE entries merged
+- {n} ENUMERATION entries collapsed ({m} instances)
 - {n} CONTRADICTION entries resolved
 - {n} UNIQUE entries
 - {n} SURFACE combinations
@@ -242,5 +267,9 @@ finding.
   Findings — none."
 - **Hiding contradictions.** If lenses disagree, surface the disagreement
   in the report. Don't silently pick a side.
+- **Reporting an enumeration as N findings.** Three findings with one root
+  cause at three locations are one ENUMERATION finding, not three UNIQUEs.
+  Listing them separately produces three local patches and leaves the
+  incomplete list — the actual defect — untouched.
 - **Verdict inflation.** If all findings are LOW, the verdict is PASS.
   Don't escalate to WARN to look thorough.
