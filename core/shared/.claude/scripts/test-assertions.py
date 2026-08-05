@@ -81,22 +81,37 @@ INDENT = "indent"
 class Language:
     name: str
     style: str
+    # Declarations that MAY begin a test — checked against `marker` below.
     starts: tuple[re.Pattern[str], ...]
+    # Declarations that begin a test on their own (DSL blocks that name a case).
+    self_evident: tuple[re.Pattern[str], ...] = ()
+    # When set, a `starts` match counts only if this appears on the declaration
+    # line or in the annotations/comments immediately above it.
+    marker: re.Pattern[str] | None = None
     line_comment: tuple[str, ...] = ("//",)
     block_comment: tuple[tuple[str, str], ...] = (("/*", "*/"),)
     quotes: tuple[str, ...] = ('"', "'", "`")
 
 
-# Kotlin/Java/Scala/Groovy: `fun name(`, `void name(`, and the xUnit-style
-# lambda blocks used by Kotest / Spek / JUnit5 @Nested DSLs.
+# Kotlin/Java/Scala/Groovy. A bare `fun name(` is NOT enough: test classes are
+# full of private fixture builders that legitimately assert nothing, and
+# flagging those is how a check earns the right to be ignored. Require a
+# @Test-family annotation — or one of the DSL forms, which name a case in a
+# string literal and so are self-evidently tests.
 JVM = Language(
     name="jvm",
     style=BRACE,
     starts=(
         re.compile(r"^\s*(?:@\w[\w.]*(?:\([^)]*\))?\s*)*(?:\w+\s+)*fun\s+(?:`[^`]+`|\w+)\s*\("),
         re.compile(r"^\s*(?:public|private|protected|static|final|\s)*void\s+\w+\s*\([^;]*\)\s*\{"),
+    ),
+    self_evident=(
         re.compile(r"""^\s*(?:it|test|should|describe|context|given|when|then)\s*\(\s*['"]"""),
         re.compile(r"""^\s*['"].*['"]\s*(?:should|-)\s*\{"""),
+    ),
+    marker=re.compile(
+        r"@(?:Test|ParameterizedTest|RepeatedTest|TestFactory|TestTemplate|"
+        r"ValueSource|MethodSource|CsvSource|EnumSource)\b"
     ),
 )
 
@@ -129,6 +144,7 @@ RUST = Language(
     name="rust",
     style=BRACE,
     starts=(re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+\w+\s*\("),),
+    marker=re.compile(r"#\[(?:\w+::)?(?:test|tokio::test|rstest)\b"),
     quotes=('"',),
 )
 
@@ -313,6 +329,36 @@ def indent_body(lines: list[str], start: int) -> tuple[int, int]:
     return start, len(lines) - 1
 
 
+ANNOTATION_OR_COMMENT = re.compile(r"^\s*(?:@|#\[|//|/\*|\*|$)")
+
+
+def starts_a_test(lines: list[str], idx: int, lang: Language) -> bool:
+    """Whether line `idx` begins a test function.
+
+    A `starts` match alone is not enough for languages that mark tests with an
+    annotation: test classes are full of private fixture builders, and flagging
+    those as assertionless tests is how a check earns the right to be ignored.
+    Look at the declaration line and walk up through the annotations, comments
+    and blank lines directly above it.
+    """
+    line = lines[idx]
+    if any(p.search(line) for p in lang.self_evident):
+        return True
+    if not any(p.search(line) for p in lang.starts):
+        return False
+    if lang.marker is None:
+        return True
+    if lang.marker.search(line):
+        return True
+    for prev in range(idx - 1, -1, -1):
+        candidate = lines[prev]
+        if not ANNOTATION_OR_COMMENT.match(candidate):
+            return False
+        if lang.marker.search(candidate):
+            return True
+    return False
+
+
 def function_name(line: str) -> str:
     m = re.search(r"(?:fun|def|func|void|fn)\s+(`[^`]+`|\w+)", line)
     if m:
@@ -361,7 +407,7 @@ def examine(path: str, added: set[int], report: Report) -> None:
 
     found_any = False
     for idx, line in enumerate(lines):
-        if not any(p.search(line) for p in lang.starts):
+        if not starts_a_test(lines, idx, lang):
             continue
         span = (
             indent_body(lines, idx)

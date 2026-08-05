@@ -77,6 +77,9 @@ expect_line "ts: toEqual is clean"                   "computes" no
 expect_line "python: bare assert is clean"           "test_bare_assert" no
 expect_line "go: t.Errorf is clean"                  "TestErrorf" no
 
+# Fixture helpers are not tests — an unannotated `fun` must not be reported.
+expect_line "kotlin: private fixture helper ignored" "makeThing" no
+
 # Lexer — braces inside strings and comments must not truncate the body.
 expect_line "kotlin: braces in literals are ignored" "braces in strings" no
 

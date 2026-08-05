@@ -25,4 +25,8 @@ class FooTest {
         // } neither is this {
         assertEquals("} not a closing brace {", s)
     }
+
+    // A private fixture builder — asserts nothing by design, and must not be
+    // reported. Test classes are full of these.
+    private fun makeThing(id: Int): Thing = repository.save(Thing(id = id))
 }
