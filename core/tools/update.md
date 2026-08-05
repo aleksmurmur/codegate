@@ -188,19 +188,35 @@ while IFS= read -r p; do
     LOCAL_FILE="$WORK/local.$$.$RANDOM"
     cp "./$p" "$LOCAL_FILE"
 
+    # Normalize line endings across all three inputs before merging.
+    # `git show` always emits LF, while the working trees of both the project
+    # and the cg-core clone go through the platform's `core.autocrlf`. On
+    # Windows that makes base LF and the other two CRLF, so `git merge-file`
+    # sees every line as changed on both sides and reports the whole file as
+    # one conflict — for every locally-modified file, every update. Merge on
+    # LF, then restore CRLF if that is what the project's copy used.
+    LOCAL_CRLF=no
+    grep -qU $'\r$' "$LOCAL_FILE" 2>/dev/null && LOCAL_CRLF=yes
+    for f in "$LOCAL_FILE" "$BASE_FILE"; do
+      sed -i 's/\r$//' "$f"
+    done
+    UPSTREAM_LF="$WORK/upstream-lf.$$.$RANDOM"
+    sed 's/\r$//' "$UPSTREAM_FILE" > "$UPSTREAM_LF"
+
     # mechanical merge first
-    if git merge-file -p "$LOCAL_FILE" "$BASE_FILE" "$UPSTREAM_FILE" > "$STAGING/$p" 2>/dev/null; then
+    if git merge-file -p "$LOCAL_FILE" "$BASE_FILE" "$UPSTREAM_LF" > "$STAGING/$p" 2>/dev/null; then
+      [ "$LOCAL_CRLF" = yes ] && sed -i 's/$/\r/' "$STAGING/$p"
       [ -x "$UPSTREAM_FILE" ] && chmod +x "$STAGING/$p"
       STATS_MERGED=$((STATS_MERGED+1))
     else
       # mechanical merge produced conflict markers; staging file may already
       # have them. Defer to agent-driven resolve in step 5.
       printf '%s\n' "$p" >> "$CONFLICTS"
-      # keep $LOCAL_FILE / $BASE_FILE / $UPSTREAM_FILE around for step 5
-      printf 'local\t%s\tbase\t%s\tupstream\t%s\n' "$LOCAL_FILE" "$BASE_FILE" "$UPSTREAM_FILE" \
-        >> "$WORK/conflict-meta-$p.txt" 2>/dev/null \
-        || { mkdir -p "$WORK/conflict-meta"; printf '%s\t%s\t%s\n' "$LOCAL_FILE" "$BASE_FILE" "$UPSTREAM_FILE" \
-               > "$WORK/conflict-meta/$(echo "$p" | tr '/' '_').tsv"; }
+      # Keep the three LF-normalized inputs for step 5, plus whether the
+      # project's copy was CRLF so the resolution can be written back in kind.
+      mkdir -p "$WORK/conflict-meta"
+      printf '%s\t%s\t%s\t%s\n' "$LOCAL_FILE" "$BASE_FILE" "$UPSTREAM_LF" "$LOCAL_CRLF" \
+        > "$WORK/conflict-meta/$(echo "$p" | tr '/' '_').tsv"
     fi
 
     # Special files: even if mechanical merge succeeded, route CLAUDE.md /
@@ -224,7 +240,12 @@ For each path in `$WORK/conflicts`, read three versions and decide.
 
 The conflict-meta file for path `<p>` is at
 `$WORK/conflict-meta/$(echo "<p>" | tr '/' '_').tsv` and contains a single
-TAB-separated line: `local-file \t base-file \t upstream-file`.
+TAB-separated line: `local-file \t base-file \t upstream-file \t local-was-crlf`.
+
+All three are already normalized to LF, so a diff between them shows intent
+rather than line endings. If `local-was-crlf` is `yes`, convert the resolved
+content back before writing it to staging (`sed -i 's/$/\r/'`) — otherwise the
+whole file will read as modified on the project's next update.
 
 Per-path procedure (design Section 10):
 
