@@ -53,6 +53,21 @@ class FooTest {
         assertEquals(2, service.doThing(2))
     }
 
+    @Test
+    fun `raw string spanning lines with a stray brace`() {
+        val body = """
+            {"a": 1}
+            this line has a stray } inside the raw string
+        """
+        assertEquals(1, service.parse(body))
+    }
+
+    @Test
+    fun `nested block comment does not overrun the body`() {
+        /* outer /* inner } */ still commented { */
+        assertEquals(3, service.doThing(3))
+    }
+
     // A private fixture builder — asserts nothing by design, and must not be
     // reported. Test classes are full of these.
     private fun makeThing(id: Int): Thing = repository.save(Thing(id = id))

@@ -38,7 +38,7 @@ import argparse
 import re
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 # --- Which files are tests ---------------------------------------------------
@@ -91,6 +91,13 @@ class Language:
     line_comment: tuple[str, ...] = ("//",)
     block_comment: tuple[tuple[str, str], ...] = (("/*", "*/"),)
     quotes: tuple[str, ...] = ('"', "'", "`")
+    # Delimiters whose literal may span lines (Kotlin/Python triple quotes, JS
+    # and Go backticks). Carried across lines like a block comment. Ordinary
+    # quotes are deliberately NOT carried: a single unbalanced one would eat the
+    # rest of the file, which is worse than the brace it was meant to hide.
+    multiline_quotes: tuple[str, ...] = ()
+    # Kotlin and Scala allow `/* /* */ */`; Java and Groovy do not.
+    nested_block_comments: bool = False
 
 
 # Kotlin/Java/Scala/Groovy. A bare `fun name(` is NOT enough: test classes are
@@ -113,7 +120,12 @@ JVM = Language(
         r"@(?:Test|ParameterizedTest|RepeatedTest|TestFactory|TestTemplate|"
         r"ValueSource|MethodSource|CsvSource|EnumSource)\b"
     ),
+    multiline_quotes=('"""',),
 )
+
+# Kotlin and Scala nest block comments; Java and Groovy do not, and pretending
+# they do would swallow every line after the first `*/`.
+KOTLIN = replace(JVM, name="kotlin", nested_block_comments=True)
 
 JS = Language(
     name="js",
@@ -122,6 +134,7 @@ JS = Language(
         re.compile(r"""^\s*(?:it|test)(?:\.\w+)*\s*\(\s*['"`]"""),
         re.compile(r"""^\s*(?:it|test)(?:\.\w+)*\s*\(\s*$"""),
     ),
+    multiline_quotes=("`",),
 )
 
 PY = Language(
@@ -131,6 +144,7 @@ PY = Language(
     line_comment=("#",),
     block_comment=(),
     quotes=('"', "'"),
+    multiline_quotes=('"""', "'''"),
 )
 
 GO = Language(
@@ -138,6 +152,7 @@ GO = Language(
     style=BRACE,
     starts=(re.compile(r"^func\s+(?:Test|Benchmark|Fuzz|Example)\w*\s*\("),),
     quotes=('"', "`"),
+    multiline_quotes=("`",),
 )
 
 RUST = Language(
@@ -149,7 +164,8 @@ RUST = Language(
 )
 
 LANGUAGES: dict[str, Language] = {
-    ".kt": JVM, ".kts": JVM, ".java": JVM, ".scala": JVM, ".groovy": JVM,
+    ".kt": KOTLIN, ".kts": KOTLIN, ".scala": KOTLIN,
+    ".java": JVM, ".groovy": JVM,
     ".ts": JS, ".tsx": JS, ".js": JS, ".jsx": JS, ".mjs": JS, ".cjs": JS,
     ".py": PY,
     ".go": GO,
@@ -271,26 +287,48 @@ def added_lines_by_file(base: str) -> dict[str, set[int]]:
 # --- Body extraction ---------------------------------------------------------
 
 
-def strip_noise(line: str, lang: Language, block: str | None = None) -> tuple[str, str | None]:
+# Carried state for a region that may span lines: (opener, closer, depth).
+# Depth is only ever > 1 for languages whose block comments nest.
+Region = tuple[str, str, int]
+
+
+def strip_noise(
+    line: str, lang: Language, block: Region | None = None
+) -> tuple[str, Region | None]:
     """Remove string literals and comments so braces inside them don't count.
 
-    `block` is the closer being waited for when the previous line ended inside a
-    block comment; the return carries it forward. Without that state a `{` or `}`
-    on an interior line of a `/* ... */` comment is counted as real code, which
-    truncates the extracted body — reporting a test that does assert as one that
-    does not.
+    `block` is the multi-line region still open when the previous line ended —
+    a block comment or a triple-quoted / backtick string — and the return carries
+    it forward. Without that state, a `{` or `}` on an interior line of such a
+    region is counted as real code, which truncates the extracted body and
+    reports a test that does assert as one that does not.
+
+    Ordinary single- and double-quoted strings are line-scoped on purpose: one
+    unbalanced quote would otherwise swallow the rest of the file, which is a
+    worse failure than the brace it was meant to hide.
     """
     out: list[str] = []
     i = 0
     quote: str | None = None
     while i < len(line):
         if block is not None:
-            end = line.find(block, i)
-            if end == -1:
+            opener, closer, depth = block
+            close_at = line.find(closer, i)
+            open_at = (
+                line.find(opener, i)
+                if lang.nested_block_comments and opener != closer
+                else -1
+            )
+            if close_at == -1 and open_at == -1:
                 return "".join(out), block
-            i = end + len(block)
-            block = None
+            if open_at != -1 and (close_at == -1 or open_at < close_at):
+                block = (opener, closer, depth + 1)
+                i = open_at + len(opener)
+                continue
+            i = close_at + len(closer)
+            block = None if depth == 1 else (opener, closer, depth - 1)
             continue
+
         ch = line[i]
         if quote:
             if ch == "\\":
@@ -300,32 +338,43 @@ def strip_noise(line: str, lang: Language, block: str | None = None) -> tuple[st
                 quote = None
             i += 1
             continue
+
+        # Multi-line-capable literals first: `"""` also starts with `"`.
+        entered = False
+        for q in lang.multiline_quotes:
+            if line.startswith(q, i):
+                block = (q, q, 1)
+                i += len(q)
+                entered = True
+                break
+        if entered:
+            continue
+
         if ch in lang.quotes:
             quote = ch
             i += 1
             continue
         if any(line.startswith(c, i) for c in lang.line_comment):
             break
-        matched_block = False
+
         for opener, closer in lang.block_comment:
             if line.startswith(opener, i):
-                end = line.find(closer, i + len(opener))
-                if end == -1:
-                    return "".join(out), closer
-                i = end + len(closer)
-                matched_block = True
+                block = (opener, closer, 1)
+                i += len(opener)
+                entered = True
                 break
-        if matched_block:
+        if entered:
             continue
+
         out.append(ch)
         i += 1
     return "".join(out), block
 
 
 def clean_lines(lines: list[str], lang: Language) -> list[str]:
-    """Strip strings and comments file-wide, carrying block-comment state."""
+    """Strip strings and comments file-wide, carrying multi-line region state."""
     cleaned: list[str] = []
-    block: str | None = None
+    block: Region | None = None
     for line in lines:
         text, block = strip_noise(line, lang, block)
         cleaned.append(text)

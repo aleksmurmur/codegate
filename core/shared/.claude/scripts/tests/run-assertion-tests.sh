@@ -86,6 +86,8 @@ expect_line "kotlin: private fixture helper ignored" "makeThing" no
 expect_line "kotlin: braces in literals are ignored" "braces in strings" no
 expect_line "kotlin: stray } in block comment ignored" "unbalanced closing brace" no
 expect_line "kotlin: stray { in block comment ignored" "unbalanced opening brace" no
+expect_line "kotlin: multi-line raw string ignored"   "raw string spanning lines" no
+expect_line "kotlin: nested block comment ignored"    "nested block comment" no
 
 # Scope — a weak test the diff never touched is not this task's problem.
 expect_line "untouched weak test is not reported"    "untouched by the diff" no
