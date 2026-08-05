@@ -6,7 +6,7 @@
 # `work/` are new; files in both exercise the "only functions touched by this
 # diff are examined" rule.
 #
-#   .claude/scripts/tests/run-assertion-tests.sh
+#   core/tests/run-assertion-tests.sh          (from the cg-core checkout)
 #
 # Exits 0 if all assertions hold, 1 otherwise.
 
@@ -14,7 +14,7 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 FIXTURES="$SCRIPT_DIR/assertion-fixtures"
-SCRIPT="$(cd "$SCRIPT_DIR/.." && pwd)/test-assertions.py"
+SCRIPT="$(cd "$SCRIPT_DIR/../shared/.claude/scripts" && pwd)/test-assertions.py"
 PASS=0
 FAIL=0
 

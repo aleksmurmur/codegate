@@ -168,6 +168,8 @@ your-project/
 │   │   ├── test-assertions.py         # mechanical no-op-assertion check (Phase 4)
 │   │   └── diff-coverage.py           # mechanical coverage check (Phase 4)
 │   └── agents/                        # sub-agent prompts
+│                                      # (cg-core's own test suites live in
+│                                      #  core/tests/ and are NOT installed)
 │       ├── codebase-intelligence/     # /cg-context
 │       ├── elicitation/               # Phase 1 (incl. fast-path triage)
 │       ├── planning/                  # Phase 2

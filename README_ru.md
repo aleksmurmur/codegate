@@ -108,6 +108,8 @@ your-project/
 │   │   ├── test-assertions.py         # проверка «тест хоть что-то утверждает» (Фаза 4)
 │   │   └── diff-coverage.py           # проверка покрытия (Фаза 4)
 │   └── agents/                        # промпты суб-агентов
+│                                      # (собственные тесты cg-core лежат в
+│                                      #  core/tests/ и в проект НЕ ставятся)
 │       ├── codebase-intelligence/     # /cg-context
 │       ├── elicitation/               # Фаза 1 (включая триаж косметики)
 │       ├── planning/                  # Фаза 2

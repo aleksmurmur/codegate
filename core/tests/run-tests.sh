@@ -1,11 +1,14 @@
 #!/bin/bash
 # Fixture tests for plan-integrity.py.
-# Must be run from the PROJECT root — that is where this script ships to, and
-# the fixtures reference files codegate installs into every project (CLAUDE.md,
-# .claude/settings.json, .claude/scripts/...). Running it from cg-core fails:
-# those paths do not exist there.
 #
-#   .claude/scripts/tests/run-tests.sh
+# The script under test verifies that paths cited by a plan exist, checking
+# against the current repo. That made the fixtures depend on wherever they
+# happened to run: aimed at cg-core they broke in every installed project, and
+# aimed at a project they broke in cg-core — both happened, on the same day.
+# So the harness builds its own throwaway repo containing exactly the paths the
+# fixtures cite, and runs there. The fixtures are now host-independent.
+#
+#   core/tests/run-tests.sh          (from the cg-core checkout)
 #
 # Exits 0 if all assertions hold, 1 otherwise.
 
@@ -13,9 +16,30 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 FIXTURES_DIR="$SCRIPT_DIR/fixtures"
-SCRIPT="$(cd "$SCRIPT_DIR/.." && pwd)/plan-integrity.py"
+SCRIPT="$(cd "$SCRIPT_DIR/../shared/.claude/scripts" && pwd)/plan-integrity.py"
 PASS=0
 FAIL=0
+
+[ -f "$SCRIPT" ] || { echo "ERROR: plan-integrity.py not found at $SCRIPT"; exit 2; }
+
+# --- a repo shaped like a codegate-installed project --------------------------
+REPO=$(mktemp -d)
+trap 'rm -rf "$REPO"' EXIT
+
+mkdir -p "$REPO/.claude/scripts/tests" "$REPO/src"
+# CLAUDE.md carries the word `Checklist`, which the create-collision fixture
+# expects `git grep -w` to find.
+printf '# Project\n\n## Checklist\n\nPlans list their files here.\n' > "$REPO/CLAUDE.md"
+printf '# Readme\n' > "$REPO/README.md"
+printf '{}\n' > "$REPO/.claude/settings.json"
+printf '# placeholder\n' > "$REPO/.claude/scripts/plan-integrity.py"
+printf '# placeholder\n' > "$REPO/.claude/scripts/tests/run-tests.sh"
+
+git -C "$REPO" init -q .
+git -C "$REPO" config user.email codegate@test
+git -C "$REPO" config user.name codegate
+git -C "$REPO" add -A >/dev/null
+git -C "$REPO" commit -qm "installed project"
 
 # check <name> <fixture> <want_exit> <want_verdict> [report_substring]
 # The optional 5th argument must appear in integrity-report.md — used for
@@ -27,19 +51,17 @@ check() {
     local want_verdict="$4"
     local want_report="${5:-}"
 
-    local tmpdir
-    tmpdir=$(mktemp -d)
-    cp "$fixture" "$tmpdir/PLAN.md"
+    cp "$fixture" "$REPO/PLAN.md"
 
-    python3 "$SCRIPT" "$tmpdir/PLAN.md" >/dev/null 2>&1
+    ( cd "$REPO" && python3 "$SCRIPT" "$REPO/PLAN.md" ) >/dev/null 2>&1
     local got_exit=$?
     local got_verdict
-    got_verdict=$(grep -m1 '^\*\*Status\*\*' "$tmpdir/integrity-report.md" 2>/dev/null \
+    got_verdict=$(grep -m1 '^\*\*Status\*\*' "$REPO/integrity-report.md" 2>/dev/null \
                   | sed 's/.*: //')
 
     local report_ok="yes"
     if [ -n "$want_report" ]; then
-        grep -qF -- "$want_report" "$tmpdir/integrity-report.md" 2>/dev/null || report_ok="no"
+        grep -qF -- "$want_report" "$REPO/integrity-report.md" 2>/dev/null || report_ok="no"
     fi
 
     if [ "$got_exit" = "$want_exit" ] && [ "$got_verdict" = "$want_verdict" ] \
@@ -52,7 +74,7 @@ check() {
              "report_match=$report_ok)"
         FAIL=$((FAIL + 1))
     fi
-    rm -rf "$tmpdir"
+    rm -f "$REPO/PLAN.md" "$REPO/integrity-report.md"
 }
 
 check "clean"                "$FIXTURES_DIR/clean.md"                0 "CLEAN"
