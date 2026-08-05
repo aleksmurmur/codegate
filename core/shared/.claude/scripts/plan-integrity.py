@@ -105,7 +105,7 @@ def extract_checklist(text: str):
 def git_ls_files() -> set[str]:
     try:
         out = subprocess.check_output(
-            ["git", "ls-files"], text=True, stderr=subprocess.DEVNULL
+            ["git", "ls-files"], text=True, encoding="utf-8", errors="replace", stderr=subprocess.DEVNULL
         )
         return set(out.splitlines())
     except (subprocess.CalledProcessError, FileNotFoundError):
@@ -306,7 +306,7 @@ def grep_symbol_locations(symbol: str, limit: int = 3) -> list[str]:
         out = subprocess.check_output(
             ["git", "grep", "-n", "-w", "--", symbol],
             stderr=subprocess.DEVNULL,
-            text=True,
+            text=True, encoding="utf-8", errors="replace",
         )
     except (subprocess.CalledProcessError, FileNotFoundError):
         return []

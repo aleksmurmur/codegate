@@ -61,6 +61,7 @@ expect_exit 1
 
 # Blocking tier — asserts nothing at all, or only that nothing threw.
 expect_line "kotlin: no-throw only is blocking"      "no throw only" yes
+expect_line "kotlin: expression-body no-throw blocks" "expression body whose only assertion" yes
 expect_line "kotlin: empty assertion is blocking"    "asserts nothing" yes
 expect_line "ts: .not.toThrow() is blocking"         "does not throw" yes
 expect_line "python: no assert is blocking"          "test_no_assert" yes
@@ -81,6 +82,8 @@ expect_line "kotlin: mockmvc andExpect is clean"      "mockmvc andExpect" no
 
 # Fixture helpers are not tests — an unannotated `fun` must not be reported.
 expect_line "kotlin: private fixture helper ignored" "makeThing" no
+expect_line "kotlin: empty disabled stub not reported" "empty disabled stub" no
+expect_line "kotlin: helper-delegated assertion clean" "delegated to a same-file helper" no
 
 # Lexer — braces inside strings and comments must not truncate the body.
 expect_line "kotlin: braces in literals are ignored" "braces in strings" no

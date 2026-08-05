@@ -156,7 +156,7 @@ class Hunk:
 def run_git(*args: str) -> str:
     try:
         return subprocess.check_output(
-            ["git", *args], text=True, stderr=subprocess.DEVNULL
+            ["git", *args], text=True, encoding="utf-8", errors="replace", stderr=subprocess.DEVNULL
         )
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"error: git command failed: git {' '.join(args)}", file=sys.stderr)
@@ -381,7 +381,7 @@ def extract_new_symbols(added: dict[str, dict[int, str]]) -> set[str]:
 
 def list_test_files() -> list[str]:
     try:
-        out = subprocess.check_output(["git", "ls-files"], text=True)
+        out = subprocess.check_output(["git", "ls-files"], text=True, encoding="utf-8", errors="replace")
     except subprocess.CalledProcessError:
         return []
     return [p for p in out.splitlines() if is_test_path(p)]

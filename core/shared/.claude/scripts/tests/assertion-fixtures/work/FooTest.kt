@@ -68,6 +68,23 @@ class FooTest {
         assertEquals(3, service.doThing(3))
     }
 
+    @Test
+    @Disabled("intentionally empty stub")
+    fun `empty disabled stub is not a finding`() {
+    }
+
+    @Test
+    fun `assertion delegated to a same-file helper`() {
+        payExpectingStatus(1, badRequest = true)
+    }
+
+    private fun payExpectingStatus(id: Int, badRequest: Boolean) {
+        pay(id).andExpect { status { if (badRequest) isBadRequest() else isOk() } }
+    }
+
+    @Test
+    fun `expression body whose only assertion is no-throw`() = assertDoesNotThrow { service.doThing(9) }
+
     // A private fixture builder — asserts nothing by design, and must not be
     // reported. Test classes are full of these.
     private fun makeThing(id: Int): Thing = repository.save(Thing(id = id))

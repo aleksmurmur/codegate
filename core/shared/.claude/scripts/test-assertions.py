@@ -43,6 +43,14 @@ from pathlib import Path
 
 # --- Which files are tests ---------------------------------------------------
 
+# Tooling, vendored code and build output. `.claude/` matters most: codegate
+# ships its own deliberately-weak fixtures under a `tests/` path, and reporting
+# those on every run would bury the project's real findings.
+EXCLUDED_PREFIXES = (
+    ".ai/", ".claude/", ".git/", ".github/", ".idea/",
+    "build/", "dist/", "out/", "target/", "vendor/", "node_modules/",
+)
+
 TEST_PATH_MARKERS = ("/test/", "/tests/", "/__tests__/", "/spec/")
 TEST_FILENAME_PATTERNS = [
     re.compile(r".*Test\.(kt|kts|java|scala|groovy)$"),
@@ -61,6 +69,8 @@ TEST_FILENAME_PATTERNS = [
 
 
 def is_test_path(path: str) -> bool:
+    if any(path.startswith(prefix) for prefix in EXCLUDED_PREFIXES):
+        return False
     if any(marker in f"/{path}" for marker in TEST_PATH_MARKERS):
         return True
     return any(p.match(path) for p in TEST_FILENAME_PATTERNS)
@@ -215,6 +225,12 @@ ASSERTION = re.compile(
     r"\bt\.(?:Error|Errorf|Fatal|Fatalf)\s*\(|"
     # pytest's context-manager form
     r"\bpytest\.raises\s*\(|"
+    # Assertion-shaped helper names: `awaitStatus(...)`, `expectStatus(...)`,
+    # `verifyBalance(...)`, `ensureRefunded(...)`. Helpers in a base class or a
+    # shared module cannot be followed, and this check blocks the gate — so when
+    # a call names itself an assertion, believe it. Over-matching costs a missed
+    # weak test; under-matching blocks correct code, which is worse.
+    r"\b(?:await|ensure|require|verify|expect|assert|check|should)[A-Z]\w*\s*\(|"
     # Statement-shaped: Python's bare `assert x == 1`, Rust's `assert!`
     r"^\s*assert\b(?!\s*\()|"
     # Matcher tails that carry the comparison
@@ -249,11 +265,22 @@ class Report:
 
 
 def run_git(*args: str) -> str:
+    # Decode as UTF-8 explicitly. `text=True` alone uses the locale codec, and on
+    # a Windows box with a non-UTF-8 code page any non-ASCII byte in a diff kills
+    # subprocess's reader thread; stdout then comes back None and the caller dies
+    # with an unhandled error — exit 1, which the flow reads as a real FAIL.
     result = subprocess.run(
-        ["git", *args], capture_output=True, text=True, check=False
+        ["git", *args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
     )
     if result.returncode != 0:
-        raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
+        raise RuntimeError(f"git {' '.join(args)} failed: {(result.stderr or '').strip()}")
+    if result.stdout is None:
+        raise RuntimeError(f"git {' '.join(args)} produced no readable output")
     return result.stdout
 
 
@@ -454,12 +481,12 @@ def function_name(line: str) -> str:
 # --- Classification ----------------------------------------------------------
 
 
-def classify(body_lines: list[str]) -> tuple[str, str] | None:
-    """Return (tier, reason) when the body is weak, else None.
+CALLEE = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
+HELPER_DEPTH = 2
 
-    Each line gets at most one tier, weakest pattern first. A body is weak only
-    when NO line reached the discriminating tier.
-    """
+
+def scan_tiers(body_lines: list[str]) -> tuple[bool, bool, bool]:
+    """(has_discriminating, has_no_throw, has_existence) over one body."""
     no_throw = existence = False
     for line in body_lines:
         if NO_THROW.search(line):
@@ -467,7 +494,41 @@ def classify(body_lines: list[str]) -> tuple[str, str] | None:
         elif EXISTENCE.search(line):
             existence = True
         elif ASSERTION.search(line):
-            return None
+            return True, no_throw, existence
+    return False, no_throw, existence
+
+
+def classify(
+    body_lines: list[str],
+    helpers: dict[str, list[str]] | None = None,
+    depth: int = HELPER_DEPTH,
+    seen: set[str] | None = None,
+) -> tuple[str, str] | None:
+    """Return (tier, reason) when the body is weak, else None.
+
+    Each line gets at most one tier, weakest pattern first; a body is weak only
+    when no line reached the discriminating tier.
+
+    Tests routinely delegate their assertion to a helper in the same file —
+    `postExecutorPayment(..., expectStatus = 409)` whose body does the
+    `andExpect`. Reporting those as assertionless is the single largest source
+    of false positives, so calls are followed into same-file functions, bounded
+    by depth and a visited set. Cross-file helpers remain out of reach; that is
+    a known limit, not something to guess about.
+    """
+    discriminating, no_throw, existence = scan_tiers(body_lines)
+    if discriminating:
+        return None
+
+    if helpers and depth > 0:
+        seen = set() if seen is None else seen
+        for line in body_lines:
+            for name in CALLEE.findall(line):
+                if name in seen or name not in helpers:
+                    continue
+                seen.add(name)
+                if classify(helpers[name], helpers, depth - 1, seen) is None:
+                    return None
 
     if no_throw:
         return "FAIL", "only asserts that nothing was thrown"
@@ -491,15 +552,46 @@ def examine(path: str, added: set[int], report: Report) -> None:
 
     cleaned = clean_lines(lines, lang)
 
+    def body_of(start: int) -> tuple[int, int] | None:
+        return (
+            indent_body(lines, start)
+            if lang.style == INDENT
+            else brace_body(cleaned, start)
+        )
+
+    def body_lines(span: tuple[int, int]) -> list[str]:
+        """Body text with the declaration's own header removed.
+
+        Two things depend on getting this exactly right. A backtick-quoted
+        Kotlin test name is stripped as a string literal, leaving `fun (` on the
+        declaration line — which matches "makes a call" and turns an empty
+        @Disabled stub into a finding. And an expression-bodied test
+        (`fun x() = assertDoesNotThrow { ... }`) carries its only assertion on
+        that same line, so cutting at the opening brace would hide it and
+        mislabel a correct finding.
+
+        Cut after the parameter list's closing paren, and keep the remainder.
+        """
+        first, last = span
+        head = cleaned[first]
+        paren = head.find(")")
+        return ([head[paren + 1 :]] if paren != -1 else []) + cleaned[first + 1 : last + 1]
+
+    # Every declaration in the file, test or not — tests delegate their
+    # assertions to same-file helpers and those calls have to be followed.
+    helpers: dict[str, list[str]] = {}
+    for idx, line in enumerate(lines):
+        if not any(p.search(line) for p in lang.starts):
+            continue
+        span = body_of(idx)
+        if span is not None:
+            helpers.setdefault(function_name(line), body_lines(span))
+
     found_any = False
     for idx, line in enumerate(lines):
         if not starts_a_test(lines, idx, lang):
             continue
-        span = (
-            indent_body(lines, idx)
-            if lang.style == INDENT
-            else brace_body(cleaned, idx)
-        )
+        span = body_of(idx)
         if span is None:
             continue
         found_any = True
@@ -508,7 +600,7 @@ def examine(path: str, added: set[int], report: Report) -> None:
         if not touched:
             continue
         report.examined += 1
-        verdict = classify(cleaned[first : last + 1])
+        verdict = classify(body_lines(span), helpers)
         if verdict:
             tier, reason = verdict
             report.findings.append(
