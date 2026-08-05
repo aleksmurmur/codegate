@@ -310,7 +310,13 @@ Steps:
 1. **Commit any uncommitted leftover.** Phase 3 should have committed in chunks; this catches anything missed.
    - Run `git status`. If clean, skip and append to audit.log: `[ts] phase-4-commit: nothing-to-commit`.
    - If there are uncommitted changes: stage only this task's files — `git add -u` for modifications to already-tracked files, plus any new files from the plan checklist by explicit path. Do not `git add -A`/`git add .` (unrelated untracked files must stay out of the branch). Then `git commit -m "{type}: complete implementation"`. Append to audit.log.
-2. **Diff-coverage check** (mechanical, runs before the agent):
+2. **Mechanical pre-gate checks.** Two of them, both running before the quality-gate
+   agent, both reading committed history rather than the working tree. Coverage answers
+   "did this line run"; assertions answer "would anything have noticed if it were
+   wrong". A test whose body is `assertDoesNotThrow { ... }` passes the first and
+   fails the second, which is the whole reason the second exists.
+
+   2a. **Diff coverage**:
    - Compute base: `BASE=$(git merge-base main HEAD)`
    - **Refresh coverage data first.** `diff-coverage.py` reads existing
      coverage reports; if none exist it falls back to a weak grep symbol
@@ -330,8 +336,19 @@ Steps:
      Append: `[ts] coverage-refresh: <command|skipped:reason>`.
    - Run: `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output .ai/sessions/{id}/coverage-report.md`
    - **Note**: diff-coverage diffs committed history (`$BASE..HEAD`), not the working tree. If you revert or edit a file to address a finding, commit that change before re-running — otherwise the report reflects the last commit, not your working tree, and the "fixed → re-run" loop will look stuck.
-   - Exit **0 (CLEAN)**: continue to step 3.
+   - Exit **0 (CLEAN)**: continue to 2b.
    - Exit **1 (FAIL)**: do NOT run the quality-gate agent. Present the coverage report to the user. Say: "Coverage check failed — new production code isn't exercised by tests (details above). Add tests, commit, then run `/cg-approve implementation` again." Append to audit log: `[timestamp] Coverage check FAIL — N uncovered items`. STOP.
+   - Exit **2 (script error)**: warn the user and continue to 2b; note in audit log.
+
+   2b. **Test assertions**:
+   - Run: `python3 .claude/scripts/test-assertions.py --base "$BASE" --output .ai/sessions/{id}/assertion-report.md`
+   - The script examines only test functions containing a line this diff added, and
+     abstains (reporting the file as `unparsed`) rather than guessing when it cannot
+     delimit a language's test functions. Both are deliberate: it should be quiet
+     enough that a finding means something.
+   - Exit **0 (CLEAN)**: continue to step 3. The report may still list advisory
+     existence-only findings — pass them to the gate as context, do not block on them.
+   - Exit **1 (FAIL)**: do NOT run the quality-gate agent. Present the report to the user. Say: "Assertion check failed — tests touched by this diff assert nothing that could fail (details above). They would pass with the code under test replaced by a stub. Add real assertions, commit, then run `/cg-approve implementation` again." Append to audit log: `[timestamp] Assertion check FAIL — N tests assert nothing`. STOP.
    - Exit **2 (script error)**: warn the user and continue to step 3; note in audit log.
 3. Run quality gate. The flow branches on `.ai/multi-persona-qg-enabled` marker.
 

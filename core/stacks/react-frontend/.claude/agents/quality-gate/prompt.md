@@ -21,6 +21,8 @@ was clean.
 - Path to `CODEBASE_CONTEXT.md`
 - Path to the session's `PLAN.md` (for scope context and smoke commands)
 - Path to the session's `test-baseline.txt` (pre-implementation test run snapshot)
+- Path to `coverage-report.md`
+- Path to `assertion-report.md` (the mechanical no-op-assertion check already ran; its blocking findings are resolved, its advisory findings are yours to weigh)
 - Path to `.ai/tech-debt/` directory (for logging complex issues)
 
 ---
@@ -181,7 +183,7 @@ results before assigning a verdict.
 1. **Loose assertions on deterministic values.** Grep `toBeTruthy|toBeDefined|toContain\(` in changed test files. Each match must be either replaced with an exact-equality assertion (test value is deterministic) or justified inline (truly opaque, e.g., a generated id from the server with no retrieval API).
 2. **Calculated expected values.** Grep arithmetic operators (`+`, `-`, `*`, `/`) inside assertion call arguments. Tests must compare against literal constants — no arithmetic deriving the expected value at runtime.
 3. **Sleep-based waits.** Grep `setTimeout\(|sleep\(|await new Promise.*resolve.*setTimeout` in changed test files. Each match should be replaced with `findBy*` / `waitFor` / `act`; an inline comment justifying the sleep is required otherwise.
-4. **No-op assertions.** Read each new `test`/`it` body. If it calls a hook/component but asserts nothing observable (no `expect(...)` on rendered output, returned value, or mock call), the test only checks no-throw — flag it.
+4. **Assertions that cannot discriminate.** `test-assertions.py` already ran and blocked the mechanical cases (no assertion at all, or only `.not.toThrow()`). Read `assertion-report.md` first — its advisory section lists tests asserting only `toBeDefined`/`toBeTruthy`/`toBeInTheDocument`, its `unparsed` section lists files it declined to judge. Then do what a regex cannot: a render test that asserts a static label rather than the behaviour under test, an `expect` on a mock the test itself configured, and above all — **would this test still pass if the production change in this diff were reverted?** Name the line each test would catch a regression in. If you cannot name one, flag it.
 5. **Snapshot abuse.** Grep `toMatchSnapshot\(` in changed test files. Each new snapshot must be justified (rare cases where the structure is the contract). For typical render output, snapshots are FAIL-worthy — they erode under refactors and rarely catch the right bugs.
 6. **Test IDs over accessible queries.** Grep `getByTestId|queryByTestId|findByTestId` in changed test files. Each should be `getByRole` / `getByLabelText` / `getByText` unless the element genuinely has no accessible name (rare).
 7. **Implementation details in tests.** Grep `\.state\(|setState\(|\.instance\(\)|wrapper\.find\(` in changed test files. These imply Enzyme-style internals testing or breaking the public-API contract.

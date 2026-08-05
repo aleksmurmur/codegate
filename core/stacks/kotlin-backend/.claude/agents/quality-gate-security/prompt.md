@@ -19,6 +19,7 @@ findings alongside the others and produces the final QUALITY_REPORT.md.
 - Path to the session's `PLAN.md` (focus on `Security:` lines in Acceptance Criteria)
 - Path to the session's `test-baseline.txt`
 - Path to `coverage-report.md`
+- Path to `assertion-report.md` (the mechanical no-op-assertion check already ran; its blocking findings are resolved, its advisory findings are yours to weigh)
 - Path to `.ai/tech-debt/` directory
 
 ---

@@ -18,6 +18,7 @@ findings alongside the others and produces the final QUALITY_REPORT.md.
 - Path to the session's `PLAN.md` (Acceptance Criteria, Tests-to-Write-First)
 - Path to the session's `test-baseline.txt`
 - Path to `coverage-report.md`
+- Path to `assertion-report.md` (the mechanical no-op-assertion check already ran; its blocking findings are resolved, its advisory findings are yours to weigh)
 - Path to `.ai/tech-debt/` directory
 
 ---
@@ -41,10 +42,18 @@ context here.
 3. **Sleep-based waits.** Grep `sleep\(|Thread\.sleep|time\.sleep|setTimeout|delay\(`
    in changed test files. Each match should be replaced with polling/wait-for;
    an inline comment justifying the sleep is required otherwise.
-4. **No-op assertions.** Read each new test method body in the diff. If it
-   makes a call but asserts nothing on returned state (no `assert*`/
-   `expect*`/`should*` on a value or side effect), the test only checks
-   no-throw — flag it.
+4. **Assertions that cannot discriminate.** `test-assertions.py` already ran and
+   blocked the mechanical cases — a test with no assertion at all, or only a
+   no-throw one. Read `assertion-report.md` first: its advisory section lists
+   tests asserting only existence, and its `unparsed` section lists files the
+   script declined to judge. Those two lists are your starting point, not your
+   whole job. What a regex cannot see, and you must: an assertion that is real
+   but tautological (`assertEquals(x, x)`, comparing a value to itself through
+   a mock), an assertion on a mock's arguments where the mock is the thing being
+   tested, and — the one that matters most — **a test that would still pass if
+   the production change in this diff were reverted.** For each new test, name
+   the line of production code it would catch a regression in. If you cannot,
+   flag it.
 5. **Range assertions hiding non-determinism.** Grep
    `isBetween|isGreaterThan|isLessThan|isAfter|isBefore` inside assertion
    calls. Each match must point to a value that genuinely cannot be

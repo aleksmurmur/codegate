@@ -20,6 +20,8 @@ was clean.
 - Path to `CODEBASE_CONTEXT.md`
 - Path to the session's `PLAN.md` (for scope context and smoke commands)
 - Path to the session's `test-baseline.txt` (pre-implementation test run snapshot)
+- Path to `coverage-report.md`
+- Path to `assertion-report.md` (the mechanical no-op-assertion check already ran; its blocking findings are resolved, its advisory findings are yours to weigh)
 - Path to `.ai/tech-debt/` directory (for logging complex issues)
 
 ---
@@ -138,7 +140,7 @@ results before assigning a verdict.
 1. **Loose assertions on deterministic values.** Grep `isNotNull|isNotEmpty|isNotBlank|contains(` in changed test files. Each match must be either replaced with an exact-equality assertion (test value is deterministic) or justified inline (truly opaque, e.g., DB-generated UUID with no retrieval API).
 2. **Calculated expected values.** Grep arithmetic operators (`+`, `-`, `*`, `/`) inside assertion call arguments. Tests must compare against literal constants — no arithmetic deriving the expected value at runtime.
 3. **Sleep-based waits.** Grep `sleep\(|Thread\.sleep|time\.sleep|setTimeout|delay\(` in changed test files. Each match should be replaced with polling/wait-for; an inline comment justifying the sleep is required otherwise.
-4. **No-op assertions.** Read each new test method body in the diff. If it makes a call but asserts nothing on returned state (no `assert*`/`expect*`/`should*` on a value or side effect), the test only checks no-throw — flag it.
+4. **Assertions that cannot discriminate.** `test-assertions.py` already ran and blocked the mechanical cases (no assertion at all, or only no-throw). Read `assertion-report.md` first — its advisory section lists existence-only tests, its `unparsed` section lists files it declined to judge. Then do what a regex cannot: spot assertions that are real but tautological (`assertEquals(x, x)`, asserting on a mock's own return), and above all ask of each new test — **would it still pass if the production change in this diff were reverted?** Name the line of production code each test would catch a regression in. If you cannot name one, flag it.
 5. **Range assertions hiding non-determinism.** Grep `isBetween|isGreaterThan|isLessThan|isAfter|isBefore` inside assertion calls. Each match must point to a value that genuinely cannot be controlled (e.g., wall-clock timestamp without an injected clock); otherwise tighten to equality.
 6. **Test helpers duplicating production methods.** For each non-trivial helper called from assertions, grep production code for an existing method computing the same thing. Duplication → the helper must be deleted and the production method made accessible.
 7. **Setup logic leaking into test body.** Grep `\.setup|\.prepare|\.configure|\.init\(` inside test method bodies (not in fixtures/before-blocks). Move into fixture/before-block.
