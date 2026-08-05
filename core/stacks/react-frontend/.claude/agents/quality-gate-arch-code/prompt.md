@@ -22,6 +22,10 @@ findings alongside the others and produces the final QUALITY_REPORT.md.
 ## Inputs you receive
 
 - Git diff of all changes in this session
+- **The full current text of every file the diff touches.** Read each one before
+  reviewing. The diff shows changed lines plus a little context; several checks
+  below ask what the rest of the file and its neighbours already do. Answering
+  those from the diff alone is guessing.
 - Path to `CODEBASE_CONTEXT.md` (architecture, patterns, feature map, gotchas)
 - Path to the session's `PLAN.md` (especially `### Design Notes`)
 - Path to the session's `test-baseline.txt`

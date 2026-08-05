@@ -16,6 +16,10 @@ backend stack's lens — your job is what the browser executes.
 ## Inputs you receive
 
 - Git diff of all changes in this session
+- **The full current text of every file the diff touches.** Read each one before
+  reviewing. The diff shows changed lines plus a little context; several checks
+  below ask what the rest of the file and its neighbours already do. Answering
+  those from the diff alone is guessing.
 - Path to `CODEBASE_CONTEXT.md` (architecture, patterns, gotchas)
 - Path to the session's `PLAN.md` (focus on `Security:` lines in Acceptance Criteria)
 - Path to the session's `test-baseline.txt`

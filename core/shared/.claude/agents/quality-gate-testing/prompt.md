@@ -11,6 +11,9 @@ findings alongside the others and produces the final QUALITY_REPORT.md.
 ## Inputs you receive
 
 - Git diff of all changes in this session (focus on test files)
+- **The full current text of every file the diff touches.** Read each one before
+  reviewing — whether an assertion discriminates cannot be judged from changed
+  lines alone.
 - Path to `CODEBASE_CONTEXT.md`
 - Path to the session's `PLAN.md` (Acceptance Criteria, Tests-to-Write-First)
 - Path to the session's `test-baseline.txt`

@@ -333,13 +333,23 @@ Steps:
    - Exit **0 (CLEAN)**: continue to step 3.
    - Exit **1 (FAIL)**: do NOT run the quality-gate agent. Present the coverage report to the user. Say: "Coverage check failed — new production code isn't exercised by tests (details above). Add tests, commit, then run `/cg-approve implementation` again." Append to audit log: `[timestamp] Coverage check FAIL — N uncovered items`. STOP.
    - Exit **2 (script error)**: warn the user and continue to step 3; note in audit log.
-3. Run quality gate. The flow branches on `.ai/multi-persona-qg-enabled` marker:
+3. Run quality gate. The flow branches on `.ai/multi-persona-qg-enabled` marker.
+
+   **Inputs common to both branches.** Alongside the diff, pass the list of files the
+   diff touches, and tell the agent to read each of them in full before reviewing.
+   A unified diff shows changed lines plus a few lines of context; the defects that
+   are hardest to catch do not live there. A new method that omits a guard every
+   sibling applies, a second copy of machinery that already exists elsewhere, a
+   declaration three files away that makes an annotation permissive — all are
+   invisible in a diff and obvious in the file. Reading the touched files is the
+   floor, not the ceiling: when a check asks whether something already exists or
+   how siblings behave, follow the symbol out of the file.
 
    3a. **Default (marker absent) — single sub-agent**:
        Task tool with `.claude/agents/quality-gate/prompt.md`, passing the git diff
-       since the baseline commit, CODEBASE_CONTEXT.md, path to PLAN.md, path to
-       `test-baseline.txt`, path to `coverage-report.md`, and path to `.ai/tech-debt/`.
-       The sub-agent writes QUALITY_REPORT.md.
+       since the baseline commit, the list of files the diff touches, CODEBASE_CONTEXT.md,
+       path to PLAN.md, path to `test-baseline.txt`, path to `coverage-report.md`, and
+       path to `.ai/tech-debt/`. The sub-agent writes QUALITY_REPORT.md.
 
    3b. **Multi-persona (marker present)**:
        In a SINGLE message dispatch three Task calls in parallel:

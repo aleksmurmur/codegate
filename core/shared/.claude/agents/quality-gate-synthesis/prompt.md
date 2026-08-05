@@ -16,7 +16,8 @@ produce findings.
 - `quality-findings-arch-code.md`
 - `quality-findings-testing.md`
 - Path to `PLAN.md` (for cross-references)
-- Git diff (for cross-references when classifying)
+- Git diff, plus the list of files it touches (for cross-references when
+  classifying — open a file when two findings might share one root cause)
 
 If any findings file is missing or empty: note `**{lens} unavailable**` in the
 report header and proceed using only the available files. Do not fail the
