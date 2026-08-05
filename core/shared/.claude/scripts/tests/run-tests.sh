@@ -1,7 +1,9 @@
 #!/bin/bash
 # Fixture tests for plan-integrity.py.
-# Must be run from the repo root so `git ls-files` and file-existence checks
-# resolve against the codegate repo that the fixtures reference.
+# Must be run from the PROJECT root — that is where this script ships to, and
+# the fixtures reference files codegate installs into every project (CLAUDE.md,
+# .claude/settings.json, .claude/scripts/...). Running it from cg-core fails:
+# those paths do not exist there.
 #
 #   .claude/scripts/tests/run-tests.sh
 #

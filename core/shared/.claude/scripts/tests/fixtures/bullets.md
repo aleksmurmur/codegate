@@ -11,12 +11,12 @@ leading indent.
 
 ## Checklist
 
-- [ ] 1. Modify core/shared/CLAUDE.md — dash bullet
-* [ ] 2. Modify README.md — asterisk bullet
-[ ] 3 Modify core/shared/.claude/scripts/plan-integrity.py — no period after number
-  [ ] 4. Modify core/shared/.claude/settings.json — leading indent
+- [ ] 1. Modify CLAUDE.md — dash bullet
+* [ ] 2. Modify .claude/settings.json — asterisk bullet
+[ ] 3 Modify .claude/scripts/plan-integrity.py — no period after number
+  [ ] 4. Modify .claude/scripts/tests/run-tests.sh — leading indent
 
 ## Commit Plan
 
-1. refactor: tweak core/shared/CLAUDE.md and README — items 1, 2
-2. refactor: tighten plan-integrity and settings — items 3, 4
+1. refactor: tweak CLAUDE.md and settings — items 1, 2
+2. refactor: tighten plan-integrity and its tests — items 3, 4
