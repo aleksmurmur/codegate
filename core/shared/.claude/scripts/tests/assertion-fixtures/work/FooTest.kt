@@ -36,6 +36,23 @@ class FooTest {
         putWindow(RESOURCE, 0).andExpect { status { isBadRequest() } }
     }
 
+    @Test
+    fun `unbalanced closing brace in a multi-line comment`() {
+        /*
+         * Historically this ended with a stray }
+         * and the assertion below is the real check.
+         */
+        assertEquals(1, service.doThing(1))
+    }
+
+    @Test
+    fun `unbalanced opening brace in a multi-line comment`() {
+        /*
+         * The payload looks like {
+         */
+        assertEquals(2, service.doThing(2))
+    }
+
     // A private fixture builder — asserts nothing by design, and must not be
     // reported. Test classes are full of these.
     private fun makeThing(id: Int): Thing = repository.save(Thing(id = id))

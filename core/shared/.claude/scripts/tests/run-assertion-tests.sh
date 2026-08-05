@@ -84,6 +84,8 @@ expect_line "kotlin: private fixture helper ignored" "makeThing" no
 
 # Lexer — braces inside strings and comments must not truncate the body.
 expect_line "kotlin: braces in literals are ignored" "braces in strings" no
+expect_line "kotlin: stray } in block comment ignored" "unbalanced closing brace" no
+expect_line "kotlin: stray { in block comment ignored" "unbalanced opening brace" no
 
 # Scope — a weak test the diff never touched is not this task's problem.
 expect_line "untouched weak test is not reported"    "untouched by the diff" no

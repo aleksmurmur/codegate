@@ -271,12 +271,26 @@ def added_lines_by_file(base: str) -> dict[str, set[int]]:
 # --- Body extraction ---------------------------------------------------------
 
 
-def strip_noise(line: str, lang: Language) -> str:
-    """Remove string literals and comments so braces inside them don't count."""
+def strip_noise(line: str, lang: Language, block: str | None = None) -> tuple[str, str | None]:
+    """Remove string literals and comments so braces inside them don't count.
+
+    `block` is the closer being waited for when the previous line ended inside a
+    block comment; the return carries it forward. Without that state a `{` or `}`
+    on an interior line of a `/* ... */` comment is counted as real code, which
+    truncates the extracted body — reporting a test that does assert as one that
+    does not.
+    """
     out: list[str] = []
     i = 0
     quote: str | None = None
     while i < len(line):
+        if block is not None:
+            end = line.find(block, i)
+            if end == -1:
+                return "".join(out), block
+            i = end + len(block)
+            block = None
+            continue
         ch = line[i]
         if quote:
             if ch == "\\":
@@ -297,7 +311,7 @@ def strip_noise(line: str, lang: Language) -> str:
             if line.startswith(opener, i):
                 end = line.find(closer, i + len(opener))
                 if end == -1:
-                    return "".join(out)
+                    return "".join(out), closer
                 i = end + len(closer)
                 matched_block = True
                 break
@@ -305,16 +319,28 @@ def strip_noise(line: str, lang: Language) -> str:
             continue
         out.append(ch)
         i += 1
-    return "".join(out)
+    return "".join(out), block
 
 
-def brace_body(lines: list[str], start: int, lang: Language) -> tuple[int, int] | None:
-    """Return (first, last) 0-based line indices of the function body."""
+def clean_lines(lines: list[str], lang: Language) -> list[str]:
+    """Strip strings and comments file-wide, carrying block-comment state."""
+    cleaned: list[str] = []
+    block: str | None = None
+    for line in lines:
+        text, block = strip_noise(line, lang, block)
+        cleaned.append(text)
+    return cleaned
+
+
+def brace_body(cleaned: list[str], start: int) -> tuple[int, int] | None:
+    """Return (first, last) 0-based line indices of the function body.
+
+    Operates on comment- and string-free lines from [clean_lines].
+    """
     depth = 0
     opened = False
-    for idx in range(start, len(lines)):
-        clean = strip_noise(lines[idx], lang)
-        for ch in clean:
+    for idx in range(start, len(cleaned)):
+        for ch in cleaned[idx]:
             if ch == "{":
                 depth += 1
                 opened = True
@@ -414,6 +440,8 @@ def examine(path: str, added: set[int], report: Report) -> None:
         report.unparsed.append(path)
         return
 
+    cleaned = clean_lines(lines, lang)
+
     found_any = False
     for idx, line in enumerate(lines):
         if not starts_a_test(lines, idx, lang):
@@ -421,7 +449,7 @@ def examine(path: str, added: set[int], report: Report) -> None:
         span = (
             indent_body(lines, idx)
             if lang.style == INDENT
-            else brace_body(lines, idx, lang)
+            else brace_body(cleaned, idx)
         )
         if span is None:
             continue
@@ -431,8 +459,7 @@ def examine(path: str, added: set[int], report: Report) -> None:
         if not touched:
             continue
         report.examined += 1
-        body = [strip_noise(l, lang) for l in lines[first : last + 1]]
-        verdict = classify(body)
+        verdict = classify(cleaned[first : last + 1])
         if verdict:
             tier, reason = verdict
             report.findings.append(
