@@ -185,17 +185,26 @@ EXISTENCE = re.compile(
 
 ASSERTION = re.compile(
     r"(?:"
-    # Call-shaped: assertEquals(, expect(, verify {, assert_eq!(, should(
-    r"\b(?:assert|verify|expect|should|check)\w*\s*!?\s*[\(\{]|"
+    # Call-shaped, with an optional generic parameter list: assertEquals(,
+    # expect(, verify {, assert_eq!(, and Kotlin's `assertThrows<T> { }` /
+    # `assertFailsWith<T> { }` / `shouldThrow<T> { }` — the generics are why a
+    # naive `\w*\s*[\(\{]` misses the most common negative-path assertion.
+    r"\b(?:assert|verify|expect|should|check)\w*\s*(?:<[^>]*>)?\s*!?\s*[\(\{]|"
+    # Spring MockMvc: the assertion is a chained `andExpect`, not a bare
+    # `expect`. Overwhelmingly the dominant idiom in JVM web-layer suites.
+    r"\bandExpect(?:All)?\s*[\(\{]|"
     # Library-qualified: require.Equal(, assert.True(
     r"\b(?:require|assert)\.\w+\s*\(|"
     # Go's idiom has no assertion library — a failure call IS the assertion
     r"\bt\.(?:Error|Errorf|Fatal|Fatalf)\s*\(|"
+    # pytest's context-manager form
+    r"\bpytest\.raises\s*\(|"
     # Statement-shaped: Python's bare `assert x == 1`, Rust's `assert!`
     r"^\s*assert\b(?!\s*\()|"
     # Matcher tails that carry the comparison
     r"\.\s*(?:toEqual|toBe|toStrictEqual|toMatch\w*|toContain\w*|"
-    r"toHaveLength|toHaveBeenCalled\w*|toThrow\w*)\s*\("
+    r"toHaveLength|toHaveBeenCalled\w*|toThrow\w*|"
+    r"isEqualTo|isTrue|isFalse|hasSize|containsExactly\w*)\s*\("
     r")"
 )
 

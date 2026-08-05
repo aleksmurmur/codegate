@@ -26,6 +26,16 @@ class FooTest {
         assertEquals("} not a closing brace {", s)
     }
 
+    @Test
+    fun `generic assertThrows is a real assertion`() {
+        assertThrows<IllegalStateException> { service.doThing(-1) }
+    }
+
+    @Test
+    fun `mockmvc andExpect is a real assertion`() {
+        putWindow(RESOURCE, 0).andExpect { status { isBadRequest() } }
+    }
+
     // A private fixture builder — asserts nothing by design, and must not be
     // reported. Test classes are full of these.
     private fun makeThing(id: Int): Thing = repository.save(Thing(id = id))

@@ -76,6 +76,8 @@ expect_line "kotlin: assertEquals is clean"          "real assertion" no
 expect_line "ts: toEqual is clean"                   "computes" no
 expect_line "python: bare assert is clean"           "test_bare_assert" no
 expect_line "go: t.Errorf is clean"                  "TestErrorf" no
+expect_line "kotlin: assertThrows<T> is clean"        "generic assertThrows" no
+expect_line "kotlin: mockmvc andExpect is clean"      "mockmvc andExpect" no
 
 # Fixture helpers are not tests — an unannotated `fun` must not be reported.
 expect_line "kotlin: private fixture helper ignored" "makeThing" no
