@@ -12,12 +12,18 @@ Every task follows enforced phases before code reaches review:
 1. **Elicitation** — context-aware clarifying questions. Cosmetic changes can
    short-circuit to a fast-path mini-plan (`/cg-approve quick`).
 2. **Planning** — plan generated, then a mechanical integrity script verifies
-   every referenced path, symbol, and migration version. An advisory pattern
-   review flags deviations from HIGH-confidence conventions.
+   every referenced path, symbol, and migration version, and warns when a file
+   the plan will create already names an existing symbol. An advisory pattern
+   review then reads the codebase for prior art — something that already does
+   what the plan proposes to build — and flags deviations from HIGH-confidence
+   conventions.
 3. **Implementation** — code written against the approved plan.
-4. **Quality gate** — mechanical diff-coverage check first (new production
-   lines must be exercised by tests); then the LLM review across quality
-   dimensions, with baseline-diffed test run and tech-debt log.
+4. **Quality gate** — two mechanical checks first: diff coverage (new
+   production lines must be exercised by tests) and test assertions (tests the
+   diff touched must assert something that could fail — coverage proves a line
+   ran, not that anything would notice it being wrong). Then the LLM review
+   across quality dimensions, reading whole files rather than only the diff,
+   with baseline-diffed test run and tech-debt log.
 5. **PR creation** — branch, commit, PR with quality report attached.
 
 Hooks block the agent's `Write` and `Edit` tool calls at wrong phases. Bash-based writes (redirects, `sed -i`) are not intercepted — treat the hook as a guardrail, not a sandbox.
@@ -159,12 +165,13 @@ your-project/
 │   ├── commands/                      # slash commands (cg-*)
 │   ├── scripts/
 │   │   ├── plan-integrity.py          # mechanical path/symbol/migration check (Phase 2)
+│   │   ├── test-assertions.py         # mechanical no-op-assertion check (Phase 4)
 │   │   └── diff-coverage.py           # mechanical coverage check (Phase 4)
 │   └── agents/                        # sub-agent prompts
 │       ├── codebase-intelligence/     # /cg-context
 │       ├── elicitation/               # Phase 1 (incl. fast-path triage)
 │       ├── planning/                  # Phase 2
-│       ├── plan-review/               # Phase 2 advisory pattern review
+│       ├── plan-review/               # Phase 2 advisory prior-art / pattern review
 │       ├── quality-gate/              # Phase 4
 │       └── pr-creator/                # Phase 5
 └── .ai/                               # runtime state
@@ -179,7 +186,7 @@ your-project/
 - [x] M1: Codebase Intelligence Engine
 - [x] M2: Elicitation Engine (context-aware questions per task type, cosmetic fast-path)
 - [x] M3: Plan Gate (planning agent, mechanical integrity script, advisory pattern review)
-- [x] M4: Quality Gate (baseline-diffed tests, diff-coverage, LLM review)
+- [x] M4: Quality Gate (baseline-diffed tests, diff-coverage, assertion check, LLM review)
 - [x] M5: Session Resilience (compaction recovery, /cg-resume)
 - [ ] M6: SQL EXPLAIN Integration (requires MCP)
 - [ ] M7: Observability Integration (requires MCP)
