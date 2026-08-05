@@ -50,7 +50,8 @@ slash commands always write the file explicitly.
 |---|---|---|
 | Elicitation has questions → answers recorded | wait for `/cg-approve elicit` | auto-proceed to Phase 2 |
 | Elicitation returns cosmetic fast-path proposal | wait for `/cg-approve quick` or `/cg-approve elicit` | auto-proceed via the `quick` path (implementation only) |
-| Plan ready, integrity CLEAN | wait for `/cg-approve plan` | auto-proceed to Phase 3 (after Pattern Review advisory is printed) |
+| Plan ready, integrity CLEAN, Pattern Review empty | wait for `/cg-approve plan` | auto-proceed to Phase 3 |
+| Plan ready, integrity CLEAN, Pattern Review has findings | wait for `/cg-approve plan` | pause once — present the findings, then wait for `/cg-approve plan` |
 | Plan integrity MIRAGES_FOUND or PARSE_FAILED | STOP, ask user | STOP, ask user — same; a bad plan blocks both modes |
 | Implementation complete | wait for `/cg-approve implementation` | auto-proceed to Phase 4 |
 | QG verdict PASS | auto-proceed to Phase 5 | auto-proceed to Phase 5 — same |
@@ -213,15 +214,17 @@ Steps:
    - Offer to re-run planning with corrections, or let the user edit PLAN.md manually.
    - **STOP. Do not accept `/cg-approve plan` until the issue is resolved.**
 7. If the script exits with **0 (CLEAN)**:
-   - If `.ai/CODEBASE_CONTEXT.md` exists, run the pattern review sub-agent (Task tool with `.claude/agents/plan-review/prompt.md`, passing the path to PLAN.md, CODEBASE_CONTEXT.md, and `integrity-report.md`). The agent appends an advisory `## Pattern Review` section to `integrity-report.md`. If CODEBASE_CONTEXT.md is absent, skip this step.
+   - Run the pattern review sub-agent (Task tool with `.claude/agents/plan-review/prompt.md`, passing the path to PLAN.md, `integrity-report.md`, and CODEBASE_CONTEXT.md when it exists). The agent appends an advisory `## Pattern Review` section to `integrity-report.md`. Run it **even when CODEBASE_CONTEXT.md is absent** — its prior-art check reads the repository directly and does not depend on the context file; only its convention-deviation half goes quiet.
    - Show any warnings from the script to the user (symbols not found, etc.)
-   - Show any Pattern Review advisory findings to the user, prefixed with "Advisory (not blocking):"
+   - Show any Pattern Review findings to the user, prefixed with "Advisory (not blocking):". `PRIOR ART:` entries go first — they name something in the codebase that already does what the plan proposes to build, and this is the last phase where acting on that costs an edit to a checklist line rather than deleting committed code.
    - **Native Plan Mode display (optional, soft-fail)**: if the `ExitPlanMode` tool is available in this environment AND `.ai/plan-mode-disabled` does not exist, invoke `ExitPlanMode` with the contents of PLAN.md so the user can review the plan in Claude Code's native Plan Mode UI. Plan Mode is presentation only — `/cg-approve plan` remains the formal approval gate. If the user rejects (exits without approving) or asks for changes, re-dispatch the planning sub-agent with their feedback rather than asking for `/cg-approve plan`. If the tool is unavailable (older Claude Code, headless run, or invocation from a different harness): skip silently and continue with the markdown presentation step below.
    - Present the plan
    - **Debug-mode hook**: if `.ai/cg-debug-mode` exists, append a `## Phase 2 — Planning` block to `.ai/sessions/{id}/flow-feedback.md` per §Debug mode format (plan size vs task complexity, integrity script catches vs misses, pattern review advisory usefulness, anything the planning sub-agent over- or under-thought).
    - **Mode check** (`cat .ai/sessions/{id}/mode`):
      - `interactive`: say "Plan ready. Review it above, then type `/cg-approve plan` to begin implementation." **STOP. Do not write any source files until user types `/cg-approve plan`.**
-     - `fast`: append `[ts] fast-mode-auto-proceed: phase-2` to audit log. Say "Plan ready (above). Auto-proceeding to implementation." Proceed directly to Phase 3 entry steps. (Note: a MIRAGES_FOUND or PARSE_FAILED plan stops in both modes — see step 6.)
+     - `fast`, **Pattern Review section empty**: append `[ts] fast-mode-auto-proceed: phase-2` to audit log. Say "Plan ready (above). Auto-proceeding to implementation." Proceed directly to Phase 3 entry steps.
+     - `fast`, **Pattern Review has findings**: pause once. Present them and say "Pattern review found the above. Type `/cg-approve plan` to proceed anyway, or tell me what to change." Append `[ts] fast-mode-pause: phase-2-pattern-review — N findings`. **Wait.** This is not a new blocking gate: nothing is being judged, and the agent is not overruling the planner. The finding is a fact about the repository — *this already exists at that path* — and whether two similar things should be one is a scope decision, which Hard Rule 10 already reserves for the user. Fast mode skips boundaries where the user adds nothing; printing a fact at a user who is not being asked anything is the failure this replaces.
+     - Either way, a MIRAGES_FOUND or PARSE_FAILED plan stops in both modes — see step 6.
 
 The plan must include:
 - Numbered checklist of files to change/create (exact paths)
