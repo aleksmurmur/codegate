@@ -300,6 +300,74 @@ def check_symbols(text: str) -> list[str]:
     return warnings
 
 
+def grep_symbol_locations(symbol: str, limit: int = 3) -> list[str]:
+    """Return up to `limit` `path:line` hits for a whole-word symbol."""
+    try:
+        out = subprocess.check_output(
+            ["git", "grep", "-n", "-w", "--", symbol],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return []
+    hits = []
+    for line in out.splitlines():
+        path, _, rest = line.partition(":")
+        lineno, _, _ = rest.partition(":")
+        hits.append(f"{path}:{lineno}")
+        if len(hits) == limit:
+            break
+    return hits
+
+
+# Filenames too generic for a name collision to mean anything.
+GENERIC_BASENAMES = {
+    "index", "main", "mod", "lib", "app", "utils", "util", "types", "type",
+    "constants", "const", "helpers", "helper", "common", "shared", "config",
+    "setup", "init", "__init__", "models", "model", "routes", "route", "api",
+    "test", "tests", "conftest", "schema", "schemas", "errors", "exceptions",
+}
+SNAKE_OR_KEBAB = re.compile(r"[_\-]")
+
+
+def check_create_collisions(items) -> list[str]:
+    """Warn when a file the plan will CREATE names a symbol that already exists.
+
+    This is `check_symbols` run backwards. That one asks "does the thing the plan
+    cites exist?"; this asks "does the thing the plan intends to invent exist
+    already?" — which is the cheaper question to answer at plan time and the more
+    expensive one to answer after Phase 3.
+
+    A name collision is a hint, never a verdict: `UserMapper` in two bounded
+    contexts is normal, and this is deliberately non-blocking. It exists so the
+    reviewer looks, not so the script decides.
+    """
+    warnings: list[str] = []
+    seen: set[str] = set()
+    for verb, path in items:
+        if verb != "create":
+            continue
+        stem = Path(path).stem
+        if not stem or stem.lower() in GENERIC_BASENAMES or len(stem) < 4:
+            continue
+        candidates = {stem}
+        if SNAKE_OR_KEBAB.search(stem):
+            # record_edit_window.py also plausibly declares `RecordEditWindow`
+            candidates.add("".join(w.capitalize() for w in SNAKE_OR_KEBAB.split(stem)))
+        for symbol in sorted(candidates):
+            if symbol in seen:
+                continue
+            seen.add(symbol)
+            hits = grep_symbol_locations(symbol)
+            if hits:
+                warnings.append(
+                    f"plan creates `{path}`, but `{symbol}` already exists: "
+                    + ", ".join(hits)
+                    + " — confirm the new file isn't a second implementation"
+                )
+    return warnings
+
+
 def write_report(
     report_path: Path, verdict: str, tool: str, verified, mirages, warnings
 ) -> None:
@@ -379,6 +447,7 @@ def main() -> None:
     mirages.extend(validate_acceptance_criteria(text))
     mirages.extend(validate_commit_plan(text, len(items)))
     warnings = check_symbols(text)
+    warnings.extend(check_create_collisions(items))
     warnings.extend(check_design_notes(text))
     warnings.extend(check_security_acs(text))
 

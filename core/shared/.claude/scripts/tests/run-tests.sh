@@ -15,11 +15,15 @@ SCRIPT="$(cd "$SCRIPT_DIR/.." && pwd)/plan-integrity.py"
 PASS=0
 FAIL=0
 
+# check <name> <fixture> <want_exit> <want_verdict> [report_substring]
+# The optional 5th argument must appear in integrity-report.md — used for
+# non-blocking warnings, which the verdict alone cannot distinguish.
 check() {
     local name="$1"
     local fixture="$2"
     local want_exit="$3"
     local want_verdict="$4"
+    local want_report="${5:-}"
 
     local tmpdir
     tmpdir=$(mktemp -d)
@@ -31,12 +35,19 @@ check() {
     got_verdict=$(grep -m1 '^\*\*Status\*\*' "$tmpdir/integrity-report.md" 2>/dev/null \
                   | sed 's/.*: //')
 
-    if [ "$got_exit" = "$want_exit" ] && [ "$got_verdict" = "$want_verdict" ]; then
+    local report_ok="yes"
+    if [ -n "$want_report" ]; then
+        grep -qF -- "$want_report" "$tmpdir/integrity-report.md" 2>/dev/null || report_ok="no"
+    fi
+
+    if [ "$got_exit" = "$want_exit" ] && [ "$got_verdict" = "$want_verdict" ] \
+       && [ "$report_ok" = "yes" ]; then
         echo "PASS  $name"
         PASS=$((PASS + 1))
     else
-        echo "FAIL  $name  (want exit=$want_exit verdict=$want_verdict;" \
-             "got exit=$got_exit verdict=$got_verdict)"
+        echo "FAIL  $name  (want exit=$want_exit verdict=$want_verdict" \
+             "report_match=yes; got exit=$got_exit verdict=$got_verdict" \
+             "report_match=$report_ok)"
         FAIL=$((FAIL + 1))
     fi
     rm -rf "$tmpdir"
@@ -51,6 +62,7 @@ check "missing-ac"           "$FIXTURES_DIR/missing-ac.md"           1 "MIRAGES_
 check "missing-commit-plan"  "$FIXTURES_DIR/missing-commit-plan.md"  1 "MIRAGES_FOUND"
 check "ac-too-few"           "$FIXTURES_DIR/ac-too-few.md"           1 "MIRAGES_FOUND"
 check "commit-plan-coverage" "$FIXTURES_DIR/commit-plan-coverage.md" 1 "MIRAGES_FOUND"
+check "create-collision"     "$FIXTURES_DIR/create-collision.md"     0 "CLEAN" "already exists"
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
