@@ -16,20 +16,30 @@ except Exception:
     print('')
 " <<< "$INPUT" 2>/dev/null || echo "")
 
+# Normalize the separators before matching anything.
+#
+# Claude Code hands this hook an ABSOLUTE path, and on Windows that path uses
+# backslashes: `D:\project\.ai\PLAN.md` matches neither `.ai/*` nor `*/.ai/*`, so every
+# allowlist below silently fell through to the state check and blocked the writes the flow
+# itself depends on — an agent could not write its own plan while the state was ELICITED.
+# `basename` is equally blind to backslashes, so the config allowlists broke the same way.
+# Matching on a forward-slash copy makes one set of patterns work on Windows, macOS and Linux.
+FILE_NORM=$(printf '%s' "$FILE" | tr '\' '/' 2>/dev/null)
+
 # Always allow writes to .ai/ (state files, plans, reports, audit logs)
-if [[ "$FILE" == .ai/* ]] || [[ "$FILE" == */.ai/* ]] || [[ -z "$FILE" ]]; then
+if [[ "$FILE_NORM" == .ai/* ]] || [[ "$FILE_NORM" == */.ai/* ]] || [[ -z "$FILE" ]]; then
   exit 0
 fi
 
 # Always allow writes to .claude/ (agent prompts, commands, hooks)
-if [[ "$FILE" == .claude/* ]] || [[ "$FILE" == */.claude/* ]]; then
+if [[ "$FILE_NORM" == .claude/* ]] || [[ "$FILE_NORM" == */.claude/* ]]; then
   exit 0
 fi
 
 # Always allow writes to workflow-config files at the project root. These define the
 # workflow itself; editing them is meta-work, not source-code changes, and should not
 # require an active session.
-BASENAME=$(basename "$FILE")
+BASENAME=$(basename "$FILE_NORM")
 case "$BASENAME" in
   CLAUDE.md|README.md|README_*.md|.gitignore)
     exit 0
