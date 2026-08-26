@@ -166,8 +166,11 @@ Steps:
 5. Write session ID to `.ai/current-session`
 6. Append to `.ai/sessions/{id}/audit.log`: `[timestamp] Session started, task type: {type}`
 7. If `.ai/CODEBASE_CONTEXT.md` does not exist: warn the user — "No codebase context found. Run `/cg-context` first for best results. Continuing without it."
-8. Run elicitation: use the Task tool with the prompt at `.claude/agents/elicitation/prompt.md`, passing the task description, task type, and contents of CODEBASE_CONTEXT.md (if present) and the relevant checklist from `.claude/agents/elicitation/checklists/{type}.md`
-9. The elicitation agent returns **either** a fast-path proposal **or** a question list:
+8. **Triage.** Run the elicitation agent with `MODE=triage`: Task tool with `.claude/agents/elicitation/prompt.md`, passing the task description, task type, CODEBASE_CONTEXT.md (if present), and the checklist from `.claude/agents/elicitation/checklists/{type}.md`. It returns either a fast-path proposal or a classification plus the list of lenses to run.
+8a. **Discovery.** If triage did not fast-path: launch one Task per lens named in `LENSES`, **all in a single message so they run in parallel**, each with `.claude/agents/discovery/prompt.md` and its own `LENS` value, plus the task description, task type, CODEBASE_CONTEXT.md and the workspace map if the project defines one. **Four lenses is the ceiling** — `prior-art` always, `surface` always for `feature`, at most two more. Each scout returns at most two findings; that budget is what keeps the summary readable, so do not raise it.
+8b. **Synthesis.** Run the elicitation agent again with `MODE=synthesis`, passing every scout report verbatim. It merges duplicates, resolves contradictions between lenses, decides which items the user actually owns, and returns the one-screen summary (`EXISTS` / `DECIDED` / `YOURS` / `SHAKY`).
+8c. Write the full scout reports and everything the synthesis cut to `.ai/sessions/{id}/discovery.md`. The summary is what the user reads; this file is what Phase 2 and the quality gate read.
+9. The elicitation agent returns **either** a fast-path proposal **or** the synthesis summary:
 
    **If the agent returns a fast-path proposal** (cosmetic change only; never for `refactor`):
    - Write the mini-plan section of the proposal to `.ai/sessions/{id}/PLAN.md`
@@ -178,9 +181,9 @@ Steps:
      - `interactive`: say "This change looks cosmetic. Type `/cg-approve quick` to skip elicitation and planning and go straight to implementation, or `/cg-approve elicit` to run the full workflow anyway." **STOP. Wait for `/cg-approve quick` or `/cg-approve elicit`.**
      - `fast`: append `[ts] fast-mode-auto-proceed: phase-1-cosmetic via quick` to audit log. Treat as if the user typed `/cg-approve quick` — proceed directly to Phase 3 (implementation) without Phase 2 planning.
 
-   **If the agent returns a question list** (normal flow):
-   - Present the questions to the user. Ask them all at once, not one by one.
-   - **Always wait for answers, regardless of mode** — elicitation Q&A is the one user touchpoint fast mode never skips. Record Q&A in `.ai/sessions/{id}/elicitation.md`.
+   **If the agent returns the synthesis summary** (normal flow):
+   - Present the summary to the user **verbatim**. Do not expand it, do not append the material it cut, do not re-attach the scout reports — that material is already in `.ai/sessions/{id}/discovery.md`. Widening the summary defeats the filtering that produced it.
+   - **Always wait for answers, regardless of mode** — this is the one user touchpoint fast mode never skips. The user answers the `YOURS` items; silence on an item means its stated default applies, **except** for anything moving money, changing schema, or altering a published contract, which requires an explicit answer. Record the exchange in `.ai/sessions/{id}/elicitation.md`.
    - **Debug-mode hook**: if `.ai/cg-debug-mode` exists, append a `## Phase 1 — Elicitation` block to `.ai/sessions/{id}/flow-feedback.md` per §Debug mode format (question count vs task size, which questions surfaced real ambiguity vs filler, anything the elicitation checklist should have asked but didn't).
    - **Mode check**:
      - `interactive`: say "Elicitation complete. Review the answers above, then type `/cg-approve elicit` to proceed to planning." **STOP. Do not proceed until user types `/cg-approve elicit`.**
@@ -249,7 +252,10 @@ Steps:
     `.ai/sessions/{id}/elicitation.md`. Any question where the user
     explicitly picked one approach over another with non-trivial
     consequences is a non-obvious decision and gets its own ADR — even
-    though it was made *before* implementation. Typical triggers:
+    though it was made *before* implementation. **Every item from the
+    summary's `DECIDED` section gets one too**: those were taken by the
+    agent without asking, and an ADR is what makes them reviewable later
+    instead of silently baked in. Typical triggers:
     - "Use library X instead of the existing convention Y" (e.g.,
       react-hook-form + zod when the project's existing forms use
       useState; or kotlinx.serialization when Jackson is the convention).
@@ -456,4 +462,5 @@ State transitions in order: `IDLE → ELICITED → PLAN_APPROVED → IMPLEMENTIN
 5. Writes to `.ai/` are always allowed regardless of state — that is where session data lives.
 6. If the user asks you to skip a phase: explain why the phase exists, then ask if they still want to skip. If yes, document the skip in the audit log.
 7. **Respond in the user's language.** If the user writes in Russian, respond in Russian. If in English, respond in English. Match the language of the user's most recent message. This applies to all responses, questions, and status messages throughout the workflow.
-8. **When uncertain during implementation, ask — do not assume.** If something in the plan is ambiguous, two valid approaches exist with real trade-offs, or codebase reality contradicts what elicitation assumed: stop and ask the user before proceeding. Do not pick an interpretation silently. Small technical choices (variable names, method signatures) may go to a `decisions/` ADR; anything affecting behavior, API shape, data model, or user-visible output must be raised with the user first.
+8. **State a number only after counting it.** Percentages, effort estimates, impact figures, volumes — verify before you say it, and say what you counted. If verification is impossible or too expensive, say so in words and give no figure; a range is still a figure and this rule covers it. Never let an unverified number reach the user and get corrected downward after they push back — verifying is the agent's job, not theirs. If a figure changes after verification, say what it was, what it became, and why, rather than quietly replacing it.
+9. **When uncertain during implementation, ask — do not assume.** If something in the plan is ambiguous, two valid approaches exist with real trade-offs, or codebase reality contradicts what elicitation assumed: stop and ask the user before proceeding. Do not pick an interpretation silently. Small technical choices (variable names, method signatures) may go to a `decisions/` ADR; anything affecting behavior, API shape, data model, or user-visible output must be raised with the user first.
