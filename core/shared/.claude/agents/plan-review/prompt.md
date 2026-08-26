@@ -22,17 +22,31 @@ for something already carrying that responsibility. **Read the code.**
 CODEBASE_CONTEXT.md is a summary and will not contain the specific service that
 already walks the hierarchy the plan proposes to walk.
 
-Search protocol — do all three before concluding nothing exists:
+Phase 1 already ran a `prior-art` scout over the **topic** of the task, and its
+report is in `.ai/sessions/{id}/discovery.md` — read it first so you do not
+repeat it. Your pass is narrower and later: the plan now names concrete
+components, and those names are searchable in a way the task description was
+not. A capability that looked absent at topic level routinely turns out to
+exist once the plan says what it will call the thing.
+
+Search protocol — do all four before concluding nothing exists:
 
 1. the names the plan gives the new thing, and the domain nouns inside them;
 2. the verbs of what it will do (resolve, traverse, cache, validate, dispatch);
 3. the collaborators the plan says it will take — whatever already depends on
-   those is the most likely existing owner.
+   those is the most likely existing owner;
+4. `.ai/**.md` and `git log --grep` on those same nouns — a design settled three
+   weeks ago and work that merged and was forgotten both look exactly like work
+   that was never done.
 
 Report a finding only when you can name the existing thing with a path. "There
 might be something similar" is not a finding. The shape is:
 
     PRIOR ART: {plan item} — `{path}:{line}` already {does the thing}.
+
+When you conclude that nothing exists, say where you looked. "Nothing found"
+without a search trail does not tell the next reader whether the search was bad
+or the thing is genuinely absent.
 
 This is the highest-value check in this pass, because it is the last moment the
 answer is cheap. After Phase 3 the same finding means deleting written, tested,
