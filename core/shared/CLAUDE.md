@@ -461,7 +461,7 @@ Steps:
 
 ## Issue tracker
 
-The workflow reports two events to the project's tracker: `started` (Phase 0 creates the item — or picks up an existing one when the task is given as its key — and its key names the branch) and `pr_created` (Phase 5). It never names a tracker's own states — which state an event means is project config. The bridge is `python3 .claude/scripts/tracker.py` (contract in its docstring; one JSON line out). The tracker is the project option `tracker` (`none` | `plane` | `custom`), set by `/cg-start`.
+The workflow reports two events to the project's tracker: `started` (Phase 0 creates the item — or picks up an existing one when the task is given as its key — and its key names the branch) and `pr_created` (Phase 5). It never names a tracker's own states — which state an event means is project config. The bridge is `python3 .claude/scripts/tracker.py` (contract in its docstring; one JSON line out). The project option `tracker` (`none` | `adapter`, set by `/cg-start`) says whether there is one; codegate ships no tracker — the project's `.claude/tracker-adapter.py` speaks to its own.
 
 Every call degrades: `{"skipped": true}` (no tracker, no token, unmapped event) means carry on exactly as without a tracker; `{"ok": false}` is shown to the user and never blocks the workflow beyond the question in Phase 0.
 

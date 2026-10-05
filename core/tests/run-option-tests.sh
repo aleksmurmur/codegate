@@ -27,7 +27,7 @@ stack: kotlin-backend
 ref: main
 options:
   base_branch: develop
-  tracker: plane
+  tracker: adapter
 files:
   - path: CLAUDE.md
     source: shared/CLAUDE.md
@@ -50,7 +50,7 @@ check() {
 }
 
 check "reads a recorded option"            "$WORK/manifest.yml"            "develop" 0 base_branch
-check "reads the second option"            "$WORK/manifest.yml"            "plane"   0 tracker
+check "reads the second option"            "$WORK/manifest.yml"            "adapter" 0 tracker
 check "recorded value beats the default"   "$WORK/manifest.yml"            "develop" 0 base_branch main
 check "absent key falls back to default"   "$WORK/manifest.yml"            "none"    0 missing none
 check "absent key without default fails"   "$WORK/manifest.yml"            ""        1 missing

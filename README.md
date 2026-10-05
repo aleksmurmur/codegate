@@ -138,13 +138,12 @@ headless runs, non-Claude-Code harnesses).
 
 ### Issue tracker
 
-`/cg-start` asks which tracker the project uses (`none`, `plane`, `custom`) and records it
-in the manifest. With one, a task's item is created when it starts — its key names the
-branch — and moved when its PR/MR exists. The workflow only knows two events,
-`started` and `pr_created`; which tracker state each one means is project config
-(`.claude/tracker.json`). The token never goes in the repo: Plane reads `PLANE_API_KEY`
-or `~/.claude/plane.env`. Another tracker plugs in as `.claude/tracker-adapter.py`,
-following the contract in `.claude/scripts/tracker.py`. Inspect or move the item by hand
+Codegate knows no tracker. It reports two events — `started` (a task begins: an item is
+created, or an existing one is taken up, and its key names the branch) and `pr_created`
+(its PR/MR exists) — through `.claude/scripts/tracker.py`. What they mean in a real
+tracker is the project's `.claude/tracker-adapter.py`, written against the contract in
+that script's docstring; its config and credentials stay with the project. `/cg-start`
+asks whether to use it (`tracker`: `none` or `adapter`). Inspect or move the item by hand
 with `/cg-tracker`.
 
 ### TDD Guard (strict TDD enforcement)
