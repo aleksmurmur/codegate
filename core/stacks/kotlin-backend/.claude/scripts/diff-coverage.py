@@ -52,7 +52,7 @@ TEST_FILENAME_PATTERNS = [
     re.compile(r".*Spec\.(kt|java|scala|rb)$"),
     re.compile(r".*\.test\.(ts|tsx|js|jsx|mjs)$"),
     re.compile(r".*\.spec\.(ts|tsx|js|jsx|mjs)$"),
-    re.compile(r"test_.*\.py$"),
+    re.compile(r"(^|/)test_[^/]*\.py$"),
     re.compile(r".*_test\.py$"),
     re.compile(r".*_test\.go$"),
     re.compile(r".*_spec\.rb$"),
@@ -120,7 +120,28 @@ TRIVIAL_LINE = re.compile(
     r"import\s+.*|from\s+.*|"     # imports
     r"using\s+.*|include\s+.*|"   # cpp-ish includes
     r"package\s+.*|"              # kotlin/java package
-    r"[\{\}\(\)\[\];,]*\s*"       # pure punctuation / empty
+    r"@[\w.]+(\s*\(.*\))?\s*|"    # kotlin/java annotation line (not bytecode-instrumented)
+    r"@[\w.]+\s*\(\s*\"\"\"\s*|"  # multiline annotation start, e.g. `@Query("""`
+    r"@[\w.]+\s*\(\s*$|"          # multiline annotation opener with no payload yet, e.g. `@Query(` then `"""` on the next line
+    r"\"\"\"\s*\)?\s*|"           # multiline string close, e.g. `"""` or `""")`
+    r"(SELECT|FROM|WHERE|LEFT|RIGHT|INNER|OUTER|JOIN|ON|AND|OR|GROUP\s+BY|ORDER\s+BY|HAVING|UNION|LIMIT|OFFSET|UPDATE|INSERT|DELETE|SET|VALUES|RETURNING|WITH|DISTINCT|CAST|COALESCE|COUNT|SUM|MAX|MIN|AVG|CASE|WHEN|THEN|ELSE|END|EXISTS|NULLIF)\b.*|"  # SQL / JPQL string body inside triple-quoted annotation (extended keyword set covers multi-line aggregate/CASE expressions)
+    r".*\bfun\s+\w+.*[(=\{]\s*|"  # kotlin function signature header (single-line with `{`/`=`, or multi-line opener ending with `(`)
+    r"fun\s+\w+.*\)\s*:\s*[\w<>.?,\s]+\s*|"  # kotlin function signature ending `): Type` (abstract/interface method)
+    r"interface\s+\w+.*\{?\s*|"   # kotlin interface declaration (no bytecode body)
+    r"const\s+val\s+\w+.*|"       # kotlin top-level `const val` — compile-time inlined, no bytecode method
+    r"companion\s+object(\s+\w+)?\s*\{?\s*|"  # kotlin `companion object` / `companion object Name {` declaration line
+    r"(public\s+|internal\s+|private\s+)?object\s+\w+(\s*:\s*[\w<>.,\s]+)?\s*\{?\s*|"  # kotlin named `object X {` declaration line — singleton header carries no bytecode (init attributes to member lines); anonymous `object : Type` expressions don't match (no name)
+    r"data\s+class\s+\w+\s*\(?\s*|"  # kotlin `data class Foo(` declaration line — properties inside are instrumented separately
+    r"val\s+\w+\s*:\s*[\w<>.?,]+\s*$|"  # kotlin abstract `val name: Type` (interface property — abstract getter, no body); `\s` deliberately not in char class to avoid matching initialized `val foo: Type = …`
+    r"\w+\s*=\s*\[\s*$|"          # array literal opener inside annotation values, e.g. `scanBasePackages = [`
+    r"[\"'][^\"']*[\"']\s*,?\s*|"  # bare string literal entry inside an array/annotation, e.g. `"dev.codefish.foo",`
+    r"[A-Z_][A-Z0-9_]+\s*,?\s*$|"  # const-style identifier as array/list entry, e.g. `TMA_HEALTH_V1_PATH,` — references inlined compile-time constants
+    r"(@\w+\s*(\([^)]*\))?\s+)+\w+\s*:\s*[\w<>.?,\s]+,?\s*|"  # annotated kotlin parameter (`@Param("x") name: Type`, `@PathVariable id: String,`, `@Valid @RequestBody body: T`) — annotations carry no bytecode
+    r"\w+\s*:\s*[\w<>.?,\s]+,?\s*|"  # kotlin multi-line signature parameter (`timetableId: UUID,`) — declarative, not bytecode-instrumented
+    r"\)\s*:\s*[\w<>.?,\s]+\s*[\{=]?\s*|"  # kotlin multi-line signature closer (`): Type {` or `): Type =`)
+    r"\}\s*else\s*\{?\s*|"        # `} else {` continuation — JaCoCo instruments the branch body, not the keyword line
+    r"\.\w+\([^)]*\)\s*|"         # dangling method-chain continuation (`.toResponse()`, `.filter { … }`); JaCoCo often attributes chain bytecode to the root line
+    r"[\{\}\(\)\[\];,\s]*"        # pure punctuation / whitespace-only (e.g. `) {`, `},`, `)`)
     r")$"
 )
 
@@ -201,23 +222,16 @@ def find_jacoco_report() -> Path | None:
     return None
 
 
-def parse_jacoco(xml_path: Path) -> tuple[dict[str, set[int]], dict[str, set[int]]]:
-    """Return (covered, executable) maps {source_relative_path: {line numbers}}.
-
-    `covered`    = lines with ci > 0 (at least one covered instruction).
-    `executable` = every line JaCoCo emits a `<line>` for, i.e. every line that
-                   carries bytecode.
-
-    Lines absent from `executable` are non-executable — declarations, function
-    signatures, interface/data-class/sealed bodies, `private set`, `companion`,
-    `const`, pure punctuation. JaCoCo never marks them covered, so counting them
-    as "uncovered" is a false positive. Callers must restrict the coverage check
-    to lines present in `executable`.
+def parse_jacoco(xml_path: Path) -> dict[str, dict[int, tuple[int, int]]]:
+    """Return {source_relative_path: {line_number: (mi, ci)}} from a JaCoCo XML
+    report, where mi/ci are the missed/covered instruction counts JaCoCo recorded
+    for that line. Only lines JaCoCo emits a <line> for are executable; a line
+    absent from this map carries no bytecode (annotation entry, `enum class X {`
+    or other bare declaration header) and is therefore not coverable.
     """
     import xml.etree.ElementTree as ET
 
-    covered: dict[str, set[int]] = {}
-    executable: dict[str, set[int]] = {}
+    tracked: dict[str, dict[int, tuple[int, int]]] = {}
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
@@ -226,32 +240,61 @@ def parse_jacoco(xml_path: Path) -> tuple[dict[str, set[int]], dict[str, set[int
         for sourcefile in package.iter("sourcefile"):
             fname = sourcefile.get("name", "")
             key = f"{pkg_name}/{fname}" if pkg_name else fname
-            cov: set[int] = set()
-            exe: set[int] = set()
+            lines: dict[int, tuple[int, int]] = {}
             for line in sourcefile.iter("line"):
                 try:
                     nr = int(line.get("nr", "0"))
+                    mi = int(line.get("mi", "0"))
                     ci = int(line.get("ci", "0"))
                 except ValueError:
                     continue
-                exe.add(nr)
-                if ci > 0:
-                    cov.add(nr)
-            if exe:
-                executable[key] = exe
-            if cov:
-                covered[key] = cov
-    return covered, executable
+                lines[nr] = (mi, ci)
+            if lines:
+                tracked[key] = lines
+    return tracked
 
 
-def match_jacoco_path(diff_path: str, covered_map: dict[str, set[int]]) -> set[int]:
+def match_jacoco_path(
+    diff_path: str, tracked_map: dict[str, dict[int, tuple[int, int]]]
+) -> dict[int, tuple[int, int]]:
     """JaCoCo keys look like `com/example/foo/Bar.kt`. Diff paths are repo-relative
     (`src/main/kotlin/com/example/foo/Bar.kt`). Match by suffix.
     """
-    for key, lines in covered_map.items():
+    for key, lines in tracked_map.items():
         if diff_path.endswith(key):
             return lines
-    return set()
+    return {}
+
+
+def evaluate_jacoco(
+    added: dict[str, dict[int, str]],
+    tracked_map: dict[str, dict[int, tuple[int, int]]],
+) -> tuple[list[str], int, int, int]:
+    """Classify each added production line against JaCoCo per-line instruction
+    data. Returns (uncovered, executable, covered, non_executable).
+
+    A line counts as executable only when JaCoCo tracked it with (mi+ci) > 0;
+    such a line is covered when ci > 0 and uncovered when ci == 0. Lines JaCoCo
+    never emitted a <line> for carry no bytecode (annotations, `enum class`/class
+    declaration headers) and are excluded from both the denominator and the
+    uncovered list — they cannot be "uncovered" because there is nothing to run.
+    """
+    uncovered: list[str] = []
+    executable = covered = non_executable = 0
+    for path, lines in added.items():
+        project_lines = match_jacoco_path(path, tracked_map)
+        for nr, text in sorted(lines.items()):
+            tracked = project_lines.get(nr)
+            if tracked is None or tracked[0] + tracked[1] == 0:
+                non_executable += 1
+                continue
+            _mi, ci = tracked
+            executable += 1
+            if ci > 0:
+                covered += 1
+            else:
+                uncovered.append(f"{path}:{nr}  {text.strip()[:80]}")
+    return uncovered, executable, covered, non_executable
 
 
 # --- Grep fallback -----------------------------------------------------------
@@ -353,48 +396,36 @@ def main() -> None:
 
     if jacoco is not None:
         try:
-            covered_map, executable_map = parse_jacoco(jacoco)
+            tracked_map = parse_jacoco(jacoco)
         except Exception as e:
-            print(f"warn: could not parse JaCoCo report: {e}", file=sys.stderr)
-            covered_map, executable_map = {}, {}
-        uncovered: list[str] = []
-        touched_lines = 0
-        covered_lines = 0
-        # A populated report means JaCoCo ran. A production file absent from it was
-        # excluded from instrumentation (e.g. the build's jacoco config drops
-        # `**/api/**/dto/**` and serializer stubs) — not measurable, so don't count it.
-        report_has_data = bool(executable_map)
-        for path, lines in added.items():
-            project_cov = match_jacoco_path(path, covered_map)
-            project_exe = match_jacoco_path(path, executable_map)
-            if report_has_data and not project_exe:
-                continue
-            for nr, text in lines.items():
-                # Skip non-executable lines (declarations, signatures, etc.): JaCoCo
-                # emits no bytecode for them, so they can never be "covered". Only
-                # count lines JaCoCo recognizes as executable. (When executable data
-                # is missing entirely — parse error — project_exe is empty and we fall
-                # back to counting every line, the original conservative behavior.)
-                if project_exe and nr not in project_exe:
-                    continue
-                touched_lines += 1
-                if nr in project_cov:
-                    covered_lines += 1
-                else:
-                    uncovered.append(f"{path}:{nr}  {text.strip()[:80]}")
+            # A JaCoCo report exists but is unreadable — coverage cannot be judged.
+            # Fail loud (exit 2 = "could not run") rather than silently passing.
+            msg = f"JaCoCo report found but could not be parsed: {jacoco} ({e})"
+            print(f"error: {msg}", file=sys.stderr)
+            write_report(
+                output, mode=f"JaCoCo ({jacoco})", result="ERROR",
+                summary=[msg, "Regenerate the coverage report and re-run."],
+                uncovered=[],
+            )
+            sys.exit(2)
+        uncovered, executable_lines, covered_lines, non_executable_lines = (
+            evaluate_jacoco(added, tracked_map)
+        )
         result = "CLEAN" if not uncovered else "FAIL"
         write_report(
             output, mode=f"JaCoCo ({jacoco})", result=result,
             summary=[
                 f"Production files touched: {len(added)}",
-                f"New/modified meaningful lines: {touched_lines}",
+                f"Executable new/modified lines: {executable_lines}",
                 f"Covered: {covered_lines}",
                 f"Uncovered: {len(uncovered)}",
+                f"Non-executable lines excluded: {non_executable_lines}",
             ],
             uncovered=uncovered,
         )
         print(f"Coverage: {result} (JaCoCo)")
-        print(f"  Touched: {touched_lines}   Covered: {covered_lines}   Uncovered: {len(uncovered)}")
+        print(f"  Executable: {executable_lines}   Covered: {covered_lines}   "
+              f"Uncovered: {len(uncovered)}   Non-exec excluded: {non_executable_lines}")
         print(f"  Report:  {output}")
         sys.exit(1 if uncovered else 0)
 

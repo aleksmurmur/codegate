@@ -22,39 +22,42 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
    - List what this branch actually changed: `git diff --name-only $(git merge-base "$TARGET" HEAD)..HEAD`
    - Every path should be either a file from `PLAN.md`'s checklist or an intentional artifact of this task. If a file appears that isn't in the plan and wasn't intentionally touched (e.g. `.mcp.json`, another ticket's doc, `.ai/audit`), **STOP** and tell the user — the index was likely polluted by a blanket `git add`. Do not push until it's resolved.
 
-3. **Push branch**
-   - Run `git push -u origin {branch}`
-   - If push fails (no remote, protected branch, auth error): report the error and stop.
-     Do not force push.
+3. **Write the description first** — fill the template below into `.ai/sessions/{id}/pr-description.md`. Every path below uses it.
 
-4. **Detect remote and create PR**
+4. **Push and create the PR/MR** — pick the path by the remote: `git remote get-url origin`.
+   Always target `TARGET`, never the hosting default. Never request a squash: the commit split
+   is what the PR was reviewed on.
 
-   First, detect the remote URL:
-   ```
-   git remote get-url origin
-   ```
+   **GitLab** (`gitlab.com` or a self-hosted GitLab in the URL) — two working paths, so a
+   machine without `glab` still gets an MR:
+   - `glab` installed and authenticated (`glab auth status` succeeds):
+     `git push -u origin {branch}`, then
+     `glab mr create --source-branch {branch} --target-branch "$TARGET" --title "<title>" --description "$(cat .ai/sessions/{id}/pr-description.md)" --remove-source-branch --yes`.
+   - otherwise, GitLab push options — the server creates the MR during the push:
+     `git push -u -o merge_request.create -o merge_request.target="$TARGET" -o merge_request.remove_source_branch -o merge_request.title="<title>" origin HEAD`.
+     The URL is in the push output (`View merge request … https://…/-/merge_requests/N`).
+     Push options cannot carry a multi-line description: tell the user the MR exists without
+     one and give them `.ai/sessions/{id}/pr-description.md` to paste.
+   - Neither produced an MR (old GitLab, options disabled): the push still happened — give the
+     manual URL `https://{host}/{owner}/{repo}/-/merge_requests/new?merge_request[source_branch]={branch}&merge_request[target_branch]=$TARGET`.
 
-   Based on the URL, determine which tool to use:
+   **GitHub** (`github.com`): `git push -u origin {branch}`, then
+   `gh pr create --base "$TARGET" --head {branch} --title "<title>" --body-file .ai/sessions/{id}/pr-description.md`
+   when `gh` is installed and authenticated; otherwise the manual URL
+   `https://github.com/{owner}/{repo}/compare/$TARGET...{branch}?expand=1`.
 
-   **GitHub** (`github.com` in URL):
-   - Try `gh pr create` (if `gh` is installed and authenticated)
-   - If `gh` fails or is not installed: output the manual URL:
-     `https://github.com/{owner}/{repo}/compare/{branch}?expand=1`
-     Tell the user: "Push succeeded. Open this URL to create the PR manually."
+   **Other / unknown**: `git push -u origin {branch}`; tell the user to open the PR/MR by hand
+   against `TARGET`.
 
-   **GitLab** (`gitlab.com` or self-hosted GitLab in URL):
-   - Try `glab mr create` (if `glab` is installed and authenticated)
-   - If `glab` fails or is not installed: output the manual URL:
-     `https://{host}/{owner}/{repo}/-/merge_requests/new?merge_request[source_branch]={branch}`
-     Tell the user: "Push succeeded. Open this URL to create the MR manually."
+   If the push itself fails (no remote, protected branch, auth): report it and stop. Never
+   force-push.
 
-   **Other / unknown**:
-   - Skip CLI tools. Tell the user: "Push succeeded. Create a PR/MR manually on your
-     hosting provider for branch `{branch}`."
+5. **Report the outcome** — the last line of your answer is exactly one of:
+   - `PR_URL: <url>` — a PR/MR was created (by `gh`, `glab` or push options) or already existed;
+   - `PR_URL: none` — only pushed; the user has to create it (manual URL given above).
 
-   Always target `TARGET`, never the hosting default: `gh pr create --base "$TARGET"`, `glab mr create --target-branch "$TARGET"`, `&merge_request[target_branch]=$TARGET` in a manual GitLab URL, `compare/$TARGET...{branch}` in a manual GitHub URL.
-
-   Regardless of method: include the PR description from the template below.
+   The workflow moves the tracker item only on a real `PR_URL`, so never print a manual
+   "create" link as `PR_URL`.
 
 ## PR Description Template
 
@@ -110,7 +113,7 @@ Types: `feat`, `fix`, `refactor`, `migration`, `chore`
 ## Error handling
 
 - If push fails: report the error and stop. Do not force push.
-- If no CLI tool is available (`gh`/`glab`): fall back to the manual URL approach
-  described in Step 4. Do not treat this as a fatal error.
-- If PR/MR already exists for this branch: report the existing URL and stop.
+- If no CLI tool is available: GitLab uses push options, GitHub the manual URL (Step 4).
+  Not a fatal error.
+- If PR/MR already exists for this branch: report it as `PR_URL: <existing url>` and stop.
 - If `git remote get-url origin` fails (no remote configured): report and stop.
