@@ -451,8 +451,8 @@ Steps:
    - Key decisions from `decisions/` ADR files (non-obvious choices reviewers should know about)
    - Quality report summary
 3. Write `PR_CREATED` to `.ai/sessions/{id}/state`
-4. Append to audit log: `[timestamp] PR created: {url}`
-4a. **Tracker**: if `.ai/sessions/{id}/tracker.json` exists, run `python3 .claude/scripts/tracker.py event pr_created` and append the outcome to the audit log (`Tracker item {key} → pr_created` or the skip/error). A tracker failure never fails the PR.
+4. Append to audit log: `[timestamp] PR created: {url}` (the creator's `PR_URL` line; `none` → `[timestamp] Branch pushed, PR/MR to be created by hand`)
+4a. **Tracker**: only when the PR creator returned a real `PR_URL: <url>` (not `none` — a manual link means no PR/MR exists yet) and `.ai/sessions/{id}/tracker.json` exists, run `python3 .claude/scripts/tracker.py event pr_created` and append the outcome to the audit log (`Tracker item {key} → pr_created` or the skip/error). With `PR_URL: none`, append `Tracker not moved — PR/MR not created by the workflow`. A tracker failure never fails the PR.
 5. **Debug-mode hook**: if `.ai/cg-debug-mode` exists:
    - First append a `## Phase 5 — PR Creation` block to `.ai/sessions/{id}/flow-feedback.md` per §Debug mode format (PR description completeness, sub-agent took the right inputs, anything the PR creator had to guess).
    - Then append the **session summary** block per §Debug mode format. Read the four prior Phase blocks already in `flow-feedback.md` and aggregate: top 3–5 wins, top 3–5 pain points, ranked concrete suggested improvements, gaps the agent encountered. Tell the user one line: "Flow feedback recorded at `.ai/sessions/{id}/flow-feedback.md`."
