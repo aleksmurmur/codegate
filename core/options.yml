@@ -24,18 +24,14 @@
 
 - key: tracker
   question: >
-    Which issue tracker should the workflow keep in sync? With one, a task is created
-    there when it starts (its key names the branch) and moved when its PR/MR exists.
-  choices: none, plane, custom
+    Should the workflow keep an issue tracker in sync? With one, a task is created (or
+    taken up) there when it starts — its key names the branch — and the tracker hears
+    when the task's PR/MR exists.
+  choices: none, adapter
   default: >
-    none. On `plane`, also write .claude/tracker.json (committed, no secrets):
-    {"base_url", "workspace" (slug from the Plane URL), "project_id" (UUID from the
-    project URL), "identifier" (the key prefix, e.g. BACK), "events": {"started": "<Plane
-    state for a task in progress>", "pr_created": "<Plane state once its PR/MR exists>"}}.
-    Ask the user for each value; never ask for the token. Then create ~/.claude/plane.env
-    containing `PLANE_API_KEY=PASTE_YOUR_TOKEN_HERE` (chmod 600) if it does not exist, and
-    tell the user to paste their key there (Plane → Settings → API tokens). Verify with
-    `python3 .claude/scripts/tracker.py check`: "skipped" means the token is still missing,
-    "missing" lists event states Plane does not have, an error means the config is
-    wrong. On `custom`, tell the user to provide .claude/tracker-adapter.py honouring the
-    contract in tracker.py's docstring.
+    none. On `adapter`, the project provides .claude/tracker-adapter.py: a Python script
+    for its own tracker that honours the contract in .claude/scripts/tracker.py's
+    docstring. Codegate ships no adapter and knows no tracker. If the project has none
+    yet, say so and offer to write one with the user — its config and credentials are
+    the project's business, credentials never in the repo. Verify with
+    `python3 .claude/scripts/tracker.py check`.
