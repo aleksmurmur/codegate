@@ -162,7 +162,7 @@ class Plane:
     def state_id(self, name: str) -> str | None:
         status, data = self.call("GET", "/states/")
         if status != 200:
-            return None
+            emit({"ok": False, "error": f"cannot list Plane states: {data.get('error', f'http {status}')}"}, 1)
         wanted = name.strip().lower()
         for s in data.get("results", []):
             if s["name"].strip().lower() == wanted:

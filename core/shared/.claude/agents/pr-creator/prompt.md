@@ -34,7 +34,7 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
      `git push -u origin {branch}`, then
      `glab mr create --source-branch {branch} --target-branch "$TARGET" --title "<title>" --description "$(cat .ai/sessions/{id}/pr-description.md)" --remove-source-branch --yes`.
    - otherwise, GitLab push options — the server creates the MR during the push:
-     `git push -u -o merge_request.create -o merge_request.target="$TARGET" -o merge_request.remove_source_branch -o merge_request.title="<title>" origin HEAD`.
+     `git push -u -o merge_request.create -o merge_request.target=<TARGET> -o merge_request.remove_source_branch -o merge_request.title="<title>" origin HEAD`, with the branch name written out literally — the pre-push hook reads the command text and treats an unexpanded `$TARGET` as a protected branch.
      The URL is in the push output (`View merge request … https://…/-/merge_requests/N`).
      Push options cannot carry a multi-line description: tell the user the MR exists without
      one and give them `.ai/sessions/{id}/pr-description.md` to paste.
