@@ -163,14 +163,18 @@ Every task gets its own branch before the first commit, so Phase 3's commits nev
 Steps:
 1. `BASE=$(.claude/scripts/cg-option.sh base_branch main)`, `PATTERN=$(.claude/scripts/cg-option.sh branch_pattern '{type}/{ticket}-{slug}')`, `CURRENT=$(git branch --show-current)`.
 2. **If `CURRENT` is `BASE`, `main` or `master`** — a fresh task. Start from the latest remote state of the base:
-   - **Ticket**: the task's tracker key. Take it from the task description (regex `[A-Z][A-Z0-9]+-\d+`); otherwise, if `PATTERN` contains `{ticket}`, ask the user. Never invent one. If the user says there is none, drop `{ticket}` and its adjoining separator from the name.
+   - **Ticket**: the task's tracker key. First the tracker (§Issue tracker): `python3 .claude/scripts/tracker.py create --type {type} --title "<short title>" --description "<task text>"`.
+     - `{"ok": true, "key": …}` → that key is the ticket; keep `id`, `key`, `url` for Phase 1. If the task is then abandoned before Phase 1, give the user the item's `url` so they can close it.
+     - `{"skipped": true}` → no tracker: take the key from the task description (regex `[A-Z][A-Z0-9]+-\d+`); otherwise, if `PATTERN` contains `{ticket}`, ask the user.
+     - `{"ok": false}` → show the error; ask whether to retry, give a key by hand, or go on without one.
+     Never invent a key. If the user says there is none, drop `{ticket}` and its adjoining separator from the name.
    - **Slug**: lowercase ASCII from the description, spaces → hyphens, only `[a-z0-9-]`, ~40 chars. If the description yields nothing (non-ASCII), ask for a short English slug.
    - Fill `PATTERN` and **confirm the branch name with the user**; use their edit if they give one.
    - Run, in order: `git fetch origin`, `git checkout $BASE`, `git pull --ff-only`, `git checkout -b <name>`.
    - If `git pull --ff-only` fails, local `BASE` has diverged from `origin/BASE`: **stop** and ask the user. No `reset --hard`, no merge, no other recovery on your own.
    - Never `git checkout -b <name> origin/$BASE`: that makes `origin/$BASE` the upstream, so a later `git pull` or a bare `git push` targets the shared branch.
    - The task's **target** (where its MR goes) is `BASE`.
-3. **If `CURRENT` is another branch** — a sequential task stacked on unmerged work. Confirm: "Starting a sequential task on top of `{CURRENT}` — correct?" If yes, create the task branch from `CURRENT` the same way (ticket, slug, pattern, confirm, `git checkout -b <name>`); its **target** is `CURRENT`. If the user wants a fresh task instead, switch to `BASE` and follow step 2. Detached HEAD or anything unclear: stop and ask.
+3. **If `CURRENT` is another branch** — a sequential task stacked on unmerged work. Confirm: "Starting a sequential task on top of `{CURRENT}` — correct?" If yes, create the task branch from `CURRENT` the same way (ticket, slug, pattern, confirm, `git checkout -b <name>`); its **target** is `CURRENT`. It gets its own tracker item like a fresh task. If the user wants a fresh task instead, switch to `BASE` and follow step 2. Detached HEAD or anything unclear: stop and ask.
 4. Remember the target and the ticket — Phase 1 records them in the session.
 
 ---
@@ -186,7 +190,7 @@ Steps:
 4. Write `IDLE` to `.ai/sessions/{id}/state`
 5. Write session ID to `.ai/current-session`
 6. Append to `.ai/sessions/{id}/audit.log`: `[timestamp] Session started, task type: {type}`
-6a. Write the Phase 0 target branch to `.ai/sessions/{id}/target-branch` and the ticket (if any) to `.ai/sessions/{id}/ticket`. Append `[timestamp] Branch {name} from {target}`.
+6a. Write the Phase 0 target branch to `.ai/sessions/{id}/target-branch` and the ticket (if any) to `.ai/sessions/{id}/ticket`. Append `[timestamp] Branch {name} from {target}`. If Phase 0 created a tracker item, write `{"id", "key", "url"}` to `.ai/sessions/{id}/tracker.json` and append `[timestamp] Tracker item {key} created`.
 7. If `.ai/CODEBASE_CONTEXT.md` does not exist: warn the user — "No codebase context found. Run `/cg-context` first for best results. Continuing without it."
 8. Run elicitation: use the Task tool with the prompt at `.claude/agents/elicitation/prompt.md`, passing the task description, task type, and contents of CODEBASE_CONTEXT.md (if present) and the relevant checklist from `.claude/agents/elicitation/checklists/{type}.md`
 9. The elicitation agent returns **either** a fast-path proposal **or** a question list:
@@ -445,9 +449,18 @@ Steps:
    - Quality report summary
 3. Write `PR_CREATED` to `.ai/sessions/{id}/state`
 4. Append to audit log: `[timestamp] PR created: {url}`
+4a. **Tracker**: if `.ai/sessions/{id}/tracker.json` exists, run `python3 .claude/scripts/tracker.py event pr_created` and append the outcome to the audit log (`Tracker item {key} → pr_created` or the skip/error). A tracker failure never fails the PR.
 5. **Debug-mode hook**: if `.ai/cg-debug-mode` exists:
    - First append a `## Phase 5 — PR Creation` block to `.ai/sessions/{id}/flow-feedback.md` per §Debug mode format (PR description completeness, sub-agent took the right inputs, anything the PR creator had to guess).
    - Then append the **session summary** block per §Debug mode format. Read the four prior Phase blocks already in `flow-feedback.md` and aggregate: top 3–5 wins, top 3–5 pain points, ranked concrete suggested improvements, gaps the agent encountered. Tell the user one line: "Flow feedback recorded at `.ai/sessions/{id}/flow-feedback.md`."
+
+---
+
+## Issue tracker
+
+The workflow reports two events to the project's tracker: `started` (Phase 0 creates the item; its key names the branch) and `pr_created` (Phase 5). It never names a tracker's own states — which state an event means is project config. The bridge is `python3 .claude/scripts/tracker.py` (contract in its docstring; one JSON line out). The tracker is the project option `tracker` (`none` | `plane` | `custom`), set by `/cg-start`.
+
+Every call degrades: `{"skipped": true}` (no tracker, no token, unmapped event) means carry on exactly as without a tracker; `{"ok": false}` is shown to the user and never blocks the workflow beyond the question in Phase 0.
 
 ---
 
@@ -463,6 +476,7 @@ Steps:
 - `/cg-explain` — read-only inspector: state + recent audit + checklist progress + diff so far. See `.claude/commands/cg-explain.md`. No side effects, no state advance.
 - `/cg-timeline [--since DURATION] [--full]` — cross-session chronological view across `.ai/sessions/*`. See `.claude/commands/cg-timeline.md`.
 - `/cg-debt` — list `.ai/tech-debt/*.md` with severity. If empty: "No tech debt logged."
+- `/cg-tracker [status|check|move <state>]` — the current task's tracker item by hand. See `.claude/commands/cg-tracker.md`.
 - `/cg-debug [on|off]` — toggle the project-level `.ai/cg-debug-mode` marker. With no argument: report current status. See `.claude/commands/cg-debug.md` and §Debug mode.
 
 State transitions in order: `IDLE → ELICITED → PLAN_APPROVED → IMPLEMENTING → QUALITY_REVIEWED → PR_CREATED`. State file: `.ai/sessions/{id}/state`. Current-session pointer: `.ai/current-session`.

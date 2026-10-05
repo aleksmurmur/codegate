@@ -21,3 +21,21 @@
     `{type}/{ticket}-{slug}`. {type} is feature, bugfix or refactor; {ticket} is the task's
     tracker key (e.g. ABC-123); {slug} is a short kebab-case summary. If the project's
     existing branches (`git branch -r`) follow another shape, propose that shape instead.
+
+- key: tracker
+  question: >
+    Which issue tracker should the workflow keep in sync? With one, a task is created
+    there when it starts (its key names the branch) and moved when its PR/MR exists.
+  choices: none, plane, custom
+  default: >
+    none. On `plane`, also write .claude/tracker.json (committed, no secrets):
+    {"base_url", "workspace" (slug from the Plane URL), "project_id" (UUID from the
+    project URL), "identifier" (the key prefix, e.g. BACK), "events": {"started": "<Plane
+    state for a task in progress>", "pr_created": "<Plane state once its PR/MR exists>"}}.
+    Ask the user for each value; never ask for the token. Then create ~/.claude/plane.env
+    containing `PLANE_API_KEY=PASTE_YOUR_TOKEN_HERE` (chmod 600) if it does not exist, and
+    tell the user to paste their key there (Plane → Settings → API tokens). Verify with
+    `python3 .claude/scripts/tracker.py check`: "skipped" means the token is still missing,
+    "missing" lists event states Plane does not have, an error means the config is
+    wrong. On `custom`, tell the user to provide .claude/tracker-adapter.py honouring the
+    contract in tracker.py's docstring.
