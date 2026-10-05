@@ -154,11 +154,26 @@ while IFS= read -r p; do
   fi
   UPSTREAM_HASH=$(sha256sum "$UPSTREAM_FILE" | awk "{print \$1}")
 
-  # local_changed   = local != manifest hash
-  # upstream_changed = upstream != manifest hash
+  # Both sides are compared against the baseline CONTENT, not the manifest hash: manifests
+  # written by older updates hold the hash of a kept-local file, which made a local edit read
+  # as "unchanged" and get silently overwritten. Hashed on LF so autocrlf is not an edit.
+  lf_hash() { sed 's/\r$//' "$1" | sha256sum | awk '{print $1}'; }
+  BASE_HASH=
+  BASE_PROBE="$WORK/base-probe.$$"
+  if git -C "$TMPDIR" show "$BASELINE_SHA:core/$MANIFEST_SRC" > "$BASE_PROBE" 2>/dev/null; then
+    BASE_HASH=$(lf_hash "$BASE_PROBE")
+  fi
+  rm -f "$BASE_PROBE"
+
   local_changed=no; upstream_changed=no
-  [ "$LOCAL_HASH" != "$MANIFEST_HASH" ] && local_changed=yes
-  [ "$UPSTREAM_HASH" != "$MANIFEST_HASH" ] && upstream_changed=yes
+  if [ -n "$BASE_HASH" ]; then
+    [ ! -f "./$p" ] || [ "$(lf_hash "./$p")" != "$BASE_HASH" ] && local_changed=yes
+    [ "$(lf_hash "$UPSTREAM_FILE")" != "$BASE_HASH" ] && upstream_changed=yes
+  else
+    # Baseline content unreachable: fall back to the manifest hash.
+    [ "$LOCAL_HASH" != "$MANIFEST_HASH" ] && local_changed=yes
+    [ "$UPSTREAM_HASH" != "$MANIFEST_HASH" ] && upstream_changed=yes
+  fi
 
   mkdir -p "$STAGING/$(dirname "$p")"
 
@@ -310,7 +325,9 @@ explicitly says "wait, redo".
 ## 7. Build the new manifest
 
 Walk the staged tree, attribute each file (stack first, else shared),
-and record its hash.
+and record the hash of the **upstream** file — what codegate shipped, the
+same thing install and adopt record. Not the staged file: for a kept-local
+or merged path that is the project's content.
 
 ```bash
 NEW_MF="$WORK/new-manifest-files"
@@ -319,10 +336,10 @@ NEW_MF="$WORK/new-manifest-files"
 ( cd "$STAGING" && find . -type f -printf "%P\n" ) | sort > "$WORK/staging-paths"
 
 while IFS= read -r p; do
-  if [ -f "$STACK_DIR/$p" ]; then SRC_REL="stacks/$STACK/$p"
-  else SRC_REL="shared/$p"
+  if [ -f "$STACK_DIR/$p" ]; then SRC_REL="stacks/$STACK/$p"; SRC_FILE="$STACK_DIR/$p"
+  else SRC_REL="shared/$p"; SRC_FILE="$SHARED_DIR/$p"
   fi
-  HASH=$(sha256sum "$STAGING/$p" | awk "{print \$1}")
+  HASH=$(sha256sum "$SRC_FILE" | awk "{print \$1}")
   printf '%s\t%s\t%s\n' "$p" "$SRC_REL" "$HASH" >> "$NEW_MF"
 done < "$WORK/staging-paths"
 
