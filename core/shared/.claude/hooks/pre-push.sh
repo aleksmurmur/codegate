@@ -26,31 +26,48 @@ except Exception:
 #   git push origin HEAD:main      → target = main
 #   git push origin feat:main      → target = main
 #   git push origin :main          → target = main (delete)
-TARGET=""
-if [ -n "$COMMAND" ]; then
-  # Everything after "git push", flags filtered out. `-o X` / `--push-option X` take a value
-  # (GitLab's merge_request.* options) that must not be read as a remote or refspec.
-  ARGS=$(echo "$COMMAND" \
-         | sed -E 's/^.*git[[:space:]]+push[[:space:]]*//' \
-         | sed -E 's/(^|[[:space:]])(-o|--push-option)[[:space:]]+[^[:space:]]+//g' \
-         | tr ' ' '\n' \
-         | grep -v '^-' \
-         | grep -v '^$')
-  REFSPECS=$(echo "$ARGS" | tail -n +2)
-  if [ -n "$REFSPECS" ]; then
-    for r in $REFSPECS; do
-      case "$r" in
-        *:*) TARGET="${r##*:}" ;;
-        *)   TARGET="$r" ;;
-      esac
-    done
-  fi
-fi
+# Every branch this push can land on: the pushed refspec's destination, and the target of an
+# MR the push creates (GitLab `-o merge_request.target=X`) — a protected one either way is gated.
+# Parsed with shlex: option values may be quoted and contain spaces (`-o merge_request.title="A b"`).
+TARGETS=$(COMMAND="$COMMAND" python3 -c '
+import os, shlex
+try:
+    words = shlex.split(os.environ["COMMAND"])
+except ValueError:
+    words = os.environ["COMMAND"].split()
+if "push" in words:
+    words = words[words.index("push") + 1:]
+positional, mr_target, i = [], None, 0
+while i < len(words):
+    w = words[i]
+    value = None
+    if w in ("-o", "--push-option") and i + 1 < len(words):
+        value, i = words[i + 1], i + 1
+    elif w.startswith("--push-option="):
+        value = w.split("=", 1)[1]
+    elif w.startswith("-o") and len(w) > 2:
+        value = w[2:]
+    elif not w.startswith("-"):
+        positional.append(w)
+    if value and value.startswith("merge_request.target="):
+        mr_target = value.split("=", 1)[1]
+    i += 1
+refspec_target = ""
+for r in positional[1:]:
+    refspec_target = r.rsplit(":", 1)[-1] if ":" in r else r
+print(refspec_target)
+if mr_target:
+    print(mr_target)
+' 2>/dev/null)
+TARGET=$(echo "$TARGETS" | sed -n 1p)
+MR_TARGET=$(echo "$TARGETS" | sed -n 2p)
 if [ -z "$TARGET" ] || [ "$TARGET" = "HEAD" ]; then
   TARGET=$(git branch --show-current 2>/dev/null || echo "")
 fi
 
-case "$TARGET" in
+for CHECK in "$TARGET" "$MR_TARGET"; do
+[ -z "$CHECK" ] && continue
+case "$CHECK" in
   main|master|release*)
     MARKER=".ai/protected-target-allowed"
     if [ -f "$MARKER" ]; then
@@ -58,11 +75,11 @@ case "$TARGET" in
       # Continue to gate 2 (session check) — marker only bypasses gate 1
     else
       cat >&2 <<EOF
-Push blocked: target branch is '$TARGET' (protected).
+Push blocked: target branch is '$CHECK' (protected).
 
 Direct pushes to protected branches bypass review. Either:
   - Push to a feature branch and open a PR/MR against a non-protected base, or
-  - If you really mean to push to '$TARGET', approve once:
+  - If you really mean to land on '$CHECK', approve once:
       touch .ai/protected-target-allowed
     then re-run the push. The marker is one-shot.
 EOF
@@ -70,6 +87,7 @@ EOF
     fi
     ;;
 esac
+done
 
 # --- Gate 2: active-session quality gate ---
 CURRENT_SESSION_FILE=".ai/current-session"

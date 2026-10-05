@@ -43,9 +43,14 @@ check "explicit push to main is blocked"          feat/x "git push origin main" 
 check "refspec onto main is blocked"              feat/x "git push origin HEAD:main"  2
 check "HEAD from main is blocked"                 main   "git push origin HEAD"       2
 check "HEAD from a feature branch passes"         feat/x "git push origin HEAD"       0
-check "MR push options from a feature branch"     feat/x "git push -u -o merge_request.create -o merge_request.target=main -o merge_request.remove_source_branch origin HEAD" 0
+check "MR push options from a feature branch"     feat/x "git push -u -o merge_request.create -o merge_request.target=dev -o merge_request.remove_source_branch origin HEAD" 0
 check "MR push options from main are blocked"     main   "git push -o merge_request.create -o merge_request.target=dev origin HEAD" 2
 check "--push-option value is not a refspec"      feat/x "git push --push-option merge_request.create origin feat/x" 0
+check "MR into main via push options is blocked"  feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD" 2
+check "MR into master via --push-option= blocked" feat/x "git push --push-option=merge_request.target=master origin HEAD" 2
+check "MR into dev via push options passes"       feat/x "git push -o merge_request.create -o merge_request.target=dev origin HEAD" 0
+check "quoted title with spaces is one value"     feat/x "git push -o merge_request.create -o merge_request.target=dev -o merge_request.title=\\\"Fix the main page\\\" origin HEAD" 0
+check "quoted title does not hide HEAD on main"   main   "git push -o merge_request.title=\\\"two words\\\" origin HEAD" 2
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
