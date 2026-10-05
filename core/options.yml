@@ -14,3 +14,10 @@
     The first of dev, develop, development that exists on origin
     (`git ls-remote --heads origin <name>`); if none does, main, then master.
     Propose it and let the user confirm or name another branch.
+
+- key: branch_pattern
+  question: How are task branches named?
+  default: >
+    `{type}/{ticket}-{slug}`. {type} is feature, bugfix or refactor; {ticket} is the task's
+    tracker key (e.g. ABC-123); {slug} is a short kebab-case summary. If the project's
+    existing branches (`git branch -r`) follow another shape, propose that shape instead.

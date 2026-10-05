@@ -154,9 +154,30 @@ at all.
 
 ---
 
+## Phase 0: Branch Setup
+
+**Entry**: user runs `/cg-feature`, `/cg-bugfix`, or `/cg-refactor`. Runs before anything else, before any session state is written.
+
+Every task gets its own branch before the first commit, so Phase 3's commits never land on a shared branch. Two project options drive it (`.claude/scripts/cg-option.sh <key>`): `base_branch` — where task branches start and merge back; `branch_pattern` — how they are named.
+
+Steps:
+1. `BASE=$(.claude/scripts/cg-option.sh base_branch main)`, `PATTERN=$(.claude/scripts/cg-option.sh branch_pattern '{type}/{ticket}-{slug}')`, `CURRENT=$(git branch --show-current)`.
+2. **If `CURRENT` is `BASE`, `main` or `master`** — a fresh task. Start from the latest remote state of the base:
+   - **Ticket**: the task's tracker key. Take it from the task description (regex `[A-Z][A-Z0-9]+-\d+`); otherwise, if `PATTERN` contains `{ticket}`, ask the user. Never invent one. If the user says there is none, drop `{ticket}` and its adjoining separator from the name.
+   - **Slug**: lowercase ASCII from the description, spaces → hyphens, only `[a-z0-9-]`, ~40 chars. If the description yields nothing (non-ASCII), ask for a short English slug.
+   - Fill `PATTERN` and **confirm the branch name with the user**; use their edit if they give one.
+   - Run, in order: `git fetch origin`, `git checkout $BASE`, `git pull --ff-only`, `git checkout -b <name>`.
+   - If `git pull --ff-only` fails, local `BASE` has diverged from `origin/BASE`: **stop** and ask the user. No `reset --hard`, no merge, no other recovery on your own.
+   - Never `git checkout -b <name> origin/$BASE`: that makes `origin/$BASE` the upstream, so a later `git pull` or a bare `git push` targets the shared branch.
+   - The task's **target** (where its MR goes) is `BASE`.
+3. **If `CURRENT` is another branch** — a sequential task stacked on unmerged work. Confirm: "Starting a sequential task on top of `{CURRENT}` — correct?" If yes, create the task branch from `CURRENT` the same way (ticket, slug, pattern, confirm, `git checkout -b <name>`); its **target** is `CURRENT`. If the user wants a fresh task instead, switch to `BASE` and follow step 2. Detached HEAD or anything unclear: stop and ask.
+4. Remember the target and the ticket — Phase 1 records them in the session.
+
+---
+
 ## Phase 1: Elicitation
 
-**Entry**: user runs `/cg-feature [description]`, `/cg-bugfix [description]`, or `/cg-refactor [description]`.
+**Entry**: Phase 0 completed — the task is on its own branch.
 
 Steps:
 1. Generate session ID: `$(date +%Y%m%d-%H%M%S)-$(echo "$TASK" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | cut -c1-30)`
@@ -165,6 +186,7 @@ Steps:
 4. Write `IDLE` to `.ai/sessions/{id}/state`
 5. Write session ID to `.ai/current-session`
 6. Append to `.ai/sessions/{id}/audit.log`: `[timestamp] Session started, task type: {type}`
+6a. Write the Phase 0 target branch to `.ai/sessions/{id}/target-branch` and the ticket (if any) to `.ai/sessions/{id}/ticket`. Append `[timestamp] Branch {name} from {target}`.
 7. If `.ai/CODEBASE_CONTEXT.md` does not exist: warn the user — "No codebase context found. Run `/cg-context` first for best results. Continuing without it."
 8. Run elicitation: use the Task tool with the prompt at `.claude/agents/elicitation/prompt.md`, passing the task description, task type, and contents of CODEBASE_CONTEXT.md (if present) and the relevant checklist from `.claude/agents/elicitation/checklists/{type}.md`
 9. The elicitation agent returns **either** a fast-path proposal **or** a question list:
@@ -223,7 +245,7 @@ Steps:
    - **Mode check** (`cat .ai/sessions/{id}/mode`):
      - `interactive`: say "Plan ready. Review it above, then type `/cg-approve plan` to begin implementation." **STOP. Do not write any source files until user types `/cg-approve plan`.**
      - `fast`, **Pattern Review section empty**: append `[ts] fast-mode-auto-proceed: phase-2` to audit log. Say "Plan ready (above). Auto-proceeding to implementation." Proceed directly to Phase 3 entry steps.
-     - `fast`, **Pattern Review has findings**: pause once. Present them and say "Pattern review found the above. Type `/cg-approve plan` to proceed anyway, or tell me what to change." Append `[ts] fast-mode-pause: phase-2-pattern-review — N findings`. **Wait.** This is not a new blocking gate: nothing is being judged, and the agent is not overruling the planner. The finding is a fact about the repository — *this already exists at that path* — and whether two similar things should be one is a scope decision, which Hard Rule 10 already reserves for the user. Fast mode skips boundaries where the user adds nothing; printing a fact at a user who is not being asked anything is the failure this replaces.
+     - `fast`, **Pattern Review has findings**: pause once. Present them and say "Pattern review found the above. Type `/cg-approve plan` to proceed anyway, or tell me what to change." Append `[ts] fast-mode-pause: phase-2-pattern-review — N findings`. **Wait.** This is not a new blocking gate: nothing is being judged, and the agent is not overruling the planner. The finding is a fact about the repository — *this already exists at that path* — and whether two similar things should be one is a scope decision, which Hard Rule 9 already reserves for the user. Fast mode skips boundaries where the user adds nothing; printing a fact at a user who is not being asked anything is the failure this replaces.
      - Either way, a MIRAGES_FOUND or PARSE_FAILED plan stops in both modes — see step 6.
 
 The plan must include:
@@ -324,7 +346,7 @@ Steps:
    fails the second, which is the whole reason the second exists.
 
    2a. **Diff coverage**:
-   - Compute base: `BASE=$(git merge-base main HEAD)`
+   - Compute base: `BASE=$(git merge-base "$(cat .ai/sessions/{id}/target-branch 2>/dev/null || echo main)" HEAD)` — the branch this task merges into (Phase 0)
    - **Refresh coverage data first.** `diff-coverage.py` reads existing
      coverage reports; if none exist it falls back to a weak grep symbol
      check. To get real coverage, detect the project's coverage command
@@ -415,7 +437,7 @@ Steps:
 **Entry**: quality gate passed (or overridden with `/cg-approve quality`)
 
 Steps:
-1. Run PR creator sub-agent: Task tool with `.claude/agents/pr-creator/prompt.md`
+1. Run PR creator sub-agent: Task tool with `.claude/agents/pr-creator/prompt.md`. The PR/MR targets `.ai/sessions/{id}/target-branch` (Phase 0), not the hosting default.
 2. PR description must include:
    - What was built and why (from task + elicitation)
    - Summary of elicitation answers (the accepted requirements)
@@ -432,9 +454,9 @@ Steps:
 ## Slash Command Handlers
 
 - `/cg-context` — run the CIE sub-agent (`.claude/agents/codebase-intelligence/prompt.md`). No session needed. Output: `.ai/CODEBASE_CONTEXT.md`.
-- `/cg-feature [description]` — task type `feature`. Begin Phase 1.
-- `/cg-bugfix [description]` — task type `bugfix`. Begin Phase 1.
-- `/cg-refactor [description]` — task type `refactor`. Begin Phase 1.
+- `/cg-feature [description]` — task type `feature`. Run Phase 0 (Branch Setup), then Phase 1.
+- `/cg-bugfix [description]` — task type `bugfix`. Run Phase 0 (Branch Setup), then Phase 1.
+- `/cg-refactor [description]` — task type `refactor`. Run Phase 0 (Branch Setup), then Phase 1.
 - `/cg-approve {quick|elicit|plan|implementation|quality}` — phase transitions. See `.claude/commands/cg-approve.md` for the state-by-state behaviour.
 - `/ok [phase]` — context-aware shortcut for `/cg-approve`. With no argument: reads session state and dispatches the right approval. With argument: identical to `/cg-approve <arg>`. See `.claude/commands/ok.md`. Refuses to override quality FAIL — long form required for that.
 - `/cg-status` — read `.ai/current-session`; report session ID, task, state, and next action. If no session: "No active session."
@@ -449,11 +471,12 @@ State transitions in order: `IDLE → ELICITED → PLAN_APPROVED → IMPLEMENTIN
 
 ## Hard Rules
 
-1. Never write source files when state is IDLE or ELICITED. (Hooks enforce this, but don't attempt it.)
-2. Never expand scope beyond the approved plan without asking the user first.
-3. Never create a PR without a completed quality gate.
-4. Always log state transitions to `.ai/sessions/{id}/audit.log` with a timestamp.
-5. Writes to `.ai/` are always allowed regardless of state — that is where session data lives.
-6. If the user asks you to skip a phase: explain why the phase exists, then ask if they still want to skip. If yes, document the skip in the audit log.
-7. **Respond in the user's language.** If the user writes in Russian, respond in Russian. If in English, respond in English. Match the language of the user's most recent message. This applies to all responses, questions, and status messages throughout the workflow.
-8. **When uncertain during implementation, ask — do not assume.** If something in the plan is ambiguous, two valid approaches exist with real trade-offs, or codebase reality contradicts what elicitation assumed: stop and ask the user before proceeding. Do not pick an interpretation silently. Small technical choices (variable names, method signatures) may go to a `decisions/` ADR; anything affecting behavior, API shape, data model, or user-visible output must be raised with the user first.
+1. **Never start a task on the base branch.** Phase 0 creates (or confirms) the task branch before any session state is written; never `git checkout -b X origin/<base>`.
+2. Never write source files when state is IDLE or ELICITED. (Hooks enforce this, but don't attempt it.)
+3. Never expand scope beyond the approved plan without asking the user first.
+4. Never create a PR without a completed quality gate.
+5. Always log state transitions to `.ai/sessions/{id}/audit.log` with a timestamp.
+6. Writes to `.ai/` are always allowed regardless of state — that is where session data lives.
+7. If the user asks you to skip a phase: explain why the phase exists, then ask if they still want to skip. If yes, document the skip in the audit log.
+8. **Respond in the user's language.** If the user writes in Russian, respond in Russian. If in English, respond in English. Match the language of the user's most recent message. This applies to all responses, questions, and status messages throughout the workflow.
+9. **When uncertain during implementation, ask — do not assume.** If something in the plan is ambiguous, two valid approaches exist with real trade-offs, or codebase reality contradicts what elicitation assumed: stop and ask the user before proceeding. Do not pick an interpretation silently. Small technical choices (variable names, method signatures) may go to a `decisions/` ADR; anything affecting behavior, API shape, data model, or user-visible output must be raised with the user first.

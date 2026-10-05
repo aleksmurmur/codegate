@@ -23,7 +23,7 @@ Steps:
    yet, there is no diff to show; skip step 4.
 
    Practical: run `git log --oneline` and find the commit recorded near the
-   `Plan approved` entry, or use `git merge-base main HEAD` as a fallback.
+   `Plan approved` entry, or use `git merge-base "$(cat .ai/sessions/{id}/target-branch 2>/dev/null || echo main)" HEAD` as a fallback.
 
 4. Run `git diff <baseline>..HEAD --stat` to get the file change summary.
    For each Modify/Create file in the checklist, indicate whether it appears

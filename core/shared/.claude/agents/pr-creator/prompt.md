@@ -10,10 +10,8 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
 ## Steps
 
 1. **Verify branch**
-   - Run `git branch --show-current`
-   - If on `main` or `master`: create a branch named `{task-type}/{session-slug}` where
-     slug is the session ID with date prefix stripped (e.g. `feature/add-weekly-digest`)
-   - If already on a feature branch: continue
+   - `TARGET=$(cat .ai/sessions/{id}/target-branch 2>/dev/null || .claude/scripts/cg-option.sh base_branch main)` — where this PR merges into; Phase 0 recorded it.
+   - Run `git branch --show-current`. Phase 0 created the task branch before the first commit, so it must not be `TARGET`, `main` or `master`. If it is, **STOP** and tell the user — the commits are on a shared branch, and moving them is their call, not yours.
 
 2. **Commit uncommitted changes**
    - Run `git status` — if there are unstaged or uncommitted changes to this task's files, stage them by explicit path (the files in `PLAN.md`'s checklist), or `git add -u` for modifications to already-tracked files. Do **not** `git add -A`/`git add .`: the working tree may hold unrelated untracked files (other tickets' artifacts, `.mcp.json`, `.ai/audit`, editor scratch) that must not enter the PR branch.
@@ -21,7 +19,7 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
    - Types: `feat`, `fix`, `refactor`, `migration`, `chore`
 
 2a. **Sanity-check branch contents** (backstop against a polluted index)
-   - List what this branch actually changed: `git diff --name-only $(git merge-base main HEAD)..HEAD`
+   - List what this branch actually changed: `git diff --name-only $(git merge-base "$TARGET" HEAD)..HEAD`
    - Every path should be either a file from `PLAN.md`'s checklist or an intentional artifact of this task. If a file appears that isn't in the plan and wasn't intentionally touched (e.g. `.mcp.json`, another ticket's doc, `.ai/audit`), **STOP** and tell the user — the index was likely polluted by a blanket `git add`. Do not push until it's resolved.
 
 3. **Push branch**
@@ -53,6 +51,8 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
    **Other / unknown**:
    - Skip CLI tools. Tell the user: "Push succeeded. Create a PR/MR manually on your
      hosting provider for branch `{branch}`."
+
+   Always target `TARGET`, never the hosting default: `gh pr create --base "$TARGET"`, `glab mr create --target-branch "$TARGET"`, `&merge_request[target_branch]=$TARGET` in a manual GitLab URL, `compare/$TARGET...{branch}` in a manual GitHub URL.
 
    Regardless of method: include the PR description from the template below.
 
