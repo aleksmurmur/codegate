@@ -37,35 +37,57 @@ except ValueError:
     words = os.environ["COMMAND"].split()
 if "push" in words:
     words = words[words.index("push") + 1:]
-positional, mr_target, i = [], None, 0
+positional, options, i = [], [], 0
 while i < len(words):
     w = words[i]
-    value = None
     if w in ("-o", "--push-option") and i + 1 < len(words):
-        value, i = words[i + 1], i + 1
+        options.append(words[i + 1]); i += 1
     elif w.startswith("--push-option="):
-        value = w.split("=", 1)[1]
+        options.append(w.split("=", 1)[1])
     elif w.startswith("-o") and len(w) > 2:
-        value = w[2:]
+        options.append(w[2:])
     elif not w.startswith("-"):
         positional.append(w)
-    if value and value.startswith("merge_request.target="):
-        mr_target = value.split("=", 1)[1]
     i += 1
-refspec_target = ""
-for r in positional[1:]:
-    refspec_target = r.rsplit(":", 1)[-1] if ":" in r else r
-print(refspec_target)
-if mr_target:
-    print(mr_target)
-' 2>/dev/null)
-TARGET=$(echo "$TARGETS" | sed -n 1p)
-MR_TARGET=$(echo "$TARGETS" | sed -n 2p)
-if [ -z "$TARGET" ] || [ "$TARGET" = "HEAD" ]; then
-  TARGET=$(git branch --show-current 2>/dev/null || echo "")
-fi
 
-for CHECK in "$TARGET" "$MR_TARGET"; do
+def branch(ref):
+    ref = ref.lstrip("+")
+    for prefix in ("refs/heads/", "heads/"):
+        if ref.startswith(prefix):
+            return ref[len(prefix):]
+    return ref
+
+# Every refspec, not just the last: `git push origin a:main b:x` lands on main too.
+dests = [branch(r.rsplit(":", 1)[-1] if ":" in r else r) for r in positional[1:]]
+print(" ".join(d or "HEAD" for d in dests) or "HEAD")
+
+mr = [o.split("=", 1)[1] for o in options if o.startswith("merge_request.target=")]
+if mr:
+    print(mr[-1])
+elif "merge_request.create" in options:
+    print("@default")  # GitLab opens it against the default branch
+' 2>/dev/null)
+REF_TARGETS=$(echo "$TARGETS" | sed -n 1p)
+MR_TARGET=$(echo "$TARGETS" | sed -n 2p)
+
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+CHECKS=""
+for t in $REF_TARGETS; do
+  [ "$t" = "HEAD" ] && t="$CURRENT_BRANCH"
+  CHECKS="$CHECKS $t"
+done
+[ -z "$REF_TARGETS" ] && CHECKS="$CURRENT_BRANCH"
+if [ "$MR_TARGET" = "@default" ]; then
+  MR_TARGET=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
+  # Unknown default branch: assume the worst rather than let the MR through unchecked.
+  [ -z "$MR_TARGET" ] && MR_TARGET="main"
+fi
+case "$MR_TARGET" in
+  *'$'*|*'`'*) MR_TARGET="main" ;;  # an unexpanded variable can be anything — treat as protected
+esac
+CHECKS="$CHECKS $MR_TARGET"
+
+for CHECK in $CHECKS; do
 [ -z "$CHECK" ] && continue
 case "$CHECK" in
   main|master|release*)
