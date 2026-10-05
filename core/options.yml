@@ -34,7 +34,10 @@
     state for a task in progress>", "pr_created": "<Plane state once its PR/MR exists>"}}.
     Ask the user for each value; never ask for the token. Then create ~/.claude/plane.env
     containing `PLANE_API_KEY=PASTE_YOUR_TOKEN_HERE` (chmod 600) if it does not exist, and
-    tell the user to paste their key there (Plane → Settings → API tokens). Verify with
+    tell the user to paste their key there. The token must be the developer's own — items
+    are created in its owner's name (Plane → Profile Settings → Personal Access Tokens; on
+    older self-hosted versions Workspace Settings → API Tokens, admins only). Suggest adding
+    `PLANE_ASSIGNEE=<their email>` to the same file so new items are assigned to them. Verify with
     `python3 .claude/scripts/tracker.py check`: "skipped" means the token is still missing,
     "missing" lists event states Plane does not have, an error means the config is
     wrong. On `custom`, tell the user to provide .claude/tracker-adapter.py honouring the

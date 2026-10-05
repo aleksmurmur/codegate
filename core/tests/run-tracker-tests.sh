@@ -49,6 +49,11 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         self._record(None)
         if self.path.endswith("/states/"): return self._send(200, {"results": STATES})
+        if self.path.endswith("/members/"): return self._send(200, [
+            {"id": "u-me", "email": "me@corp.ru", "display_name": "me.dev"},
+            {"id": "u-other", "email": "other@corp.ru", "display_name": "other"}])
+        if self.path.endswith("/issues/item-busy/"):
+            return self._send(200, {"id": "item-busy", "sequence_id": 9, "name": "x", "assignees": ["u-other"]})
         if "/projects/" not in self.path and "/issues/" in self.path:
             key = self.path.rstrip("/").split("/")[-1]
             if key == "BACK-404": return self._send(404, {"error": "Page not found."})
@@ -174,6 +179,38 @@ run get BACK-404
 expect "get of a missing key is an error"     1 "not j['ok'] and 'BACK-404' in j['error']"
 run get BACK-8
 expect "get refuses another project's item"   1 "not j['ok'] and 'another' in j['error']"
+
+echo ""
+echo "-- assignee --"
+rm -f "$LOG"
+run create --title t
+expect "no PLANE_ASSIGNEE: nobody assigned"    0 "j['ok'] and all('assignees' not in r['b'] for r in log if r['m'] == 'POST')"
+printf 'PLANE_API_KEY=secret-1
+PLANE_ASSIGNEE=me@corp.ru
+' > "$FAKE_HOME/.claude/plane.env"
+rm -f "$LOG"
+run create --title t
+expect "create assigns PLANE_ASSIGNEE by email" 0 "[r['b']['assignees'] for r in log if r['m'] == 'POST'] == [['u-me']]"
+printf 'PLANE_API_KEY=secret-1
+PLANE_ASSIGNEE=ME.DEV
+' > "$FAKE_HOME/.claude/plane.env"
+rm -f "$LOG"
+run create --title t
+expect "display name matches, any case"        0 "[r['b']['assignees'] for r in log if r['m'] == 'POST'] == [['u-me']]"
+rm -f "$LOG"
+run event started --id item-busy
+expect "taking up an item keeps its assignees" 0 "[r['b'] for r in log if r['m'] == 'PATCH'] == [{'state': 'st-work', 'assignees': ['u-other', 'u-me']}]"
+rm -f "$LOG"
+run event pr_created --id item-busy
+expect "pr_created does not touch assignees"   0 "[r['b'] for r in log if r['m'] == 'PATCH'] == [{'state': 'st-qa'}]"
+printf 'PLANE_API_KEY=secret-1
+PLANE_ASSIGNEE=nobody@corp.ru
+' > "$FAKE_HOME/.claude/plane.env"
+rm -f "$LOG"
+run create --title t
+expect "unknown assignee: created, with warning" 0 "j['ok'] and 'nobody@corp.ru' in j['warning'] and all('assignees' not in r['b'] for r in log if r['m'] == 'POST')"
+printf 'PLANE_API_KEY=secret-1
+' > "$FAKE_HOME/.claude/plane.env"
 
 echo ""
 echo "-- custom adapter --"

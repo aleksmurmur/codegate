@@ -28,8 +28,10 @@ Output: exactly one JSON line on stdout.
 Exit codes: 0 ok or skipped; 1 error; 2 bad usage or broken config.
 
 Which tracker: `.claude/scripts/cg-option.sh tracker` (none | plane | custom).
-  plane  — config in .claude/tracker.json (no secrets), token in PLANE_API_KEY or
-           ~/.claude/plane.env.
+  plane  — config in .claude/tracker.json (no secrets); per developer, in the environment
+           or ~/.claude/plane.env: PLANE_API_KEY (a personal token — items are created in
+           its owner's name) and optional PLANE_ASSIGNEE (email or display name), set as
+           assignee on `create` and added on `event started`.
   custom — .claude/tracker-adapter.py, a Python script run with this same interpreter;
            it takes these same arguments and honours this same output contract.
 """
@@ -118,19 +120,24 @@ def html_to_text(markup: str | None) -> str:
 # ── Plane ──────────────────────────────────────────────────────────────────────────────
 
 
-def plane_token() -> str | None:
-    token = os.environ.get("PLANE_API_KEY")
-    if token:
-        return token.strip()
+def plane_setting(name: str) -> str | None:
+    """A per-developer Plane setting: the environment first, then ~/.claude/plane.env."""
+    value = os.environ.get(name)
+    if value:
+        return value.strip()
     env = Path.home() / ".claude" / "plane.env"
     if env.exists():
         for line in env.read_text(encoding="utf-8").splitlines():
             line = line.strip()
-            if line.startswith("PLANE_API_KEY="):
+            if line.startswith(f"{name}="):
                 value = line.split("=", 1)[1].strip().strip('"').strip("'")
                 if value and value != "PASTE_YOUR_TOKEN_HERE":
                     return value
     return None
+
+
+def plane_token() -> str | None:
+    return plane_setting("PLANE_API_KEY")
 
 
 class Plane:
@@ -141,6 +148,9 @@ class Plane:
         self.identifier = cfg.get("identifier", "")
         self.events = cfg.get("events", {})
         self.token = token
+        # Plane never assigns the creator; whom to assign is per developer, so it lives next
+        # to the token (PLANE_ASSIGNEE = email or display name), not in the committed config.
+        self.assignee = plane_setting("PLANE_ASSIGNEE")
 
     def call(self, method: str, path: str, body: dict | None = None, project: bool = True) -> tuple[int, dict]:
         scope = f"/projects/{self.project}" if project else ""
@@ -169,6 +179,20 @@ class Plane:
                 return s["id"]
         return None
 
+    def assignee_id(self) -> tuple[str | None, str | None]:
+        """(member id, warning). A missing or unknown assignee never fails the call."""
+        if not self.assignee:
+            return None, None
+        status, data = self.call("GET", "/members/")
+        if status != 200:
+            return None, f"cannot list Plane members: {data.get('error', f'http {status}')}"
+        rows = data if isinstance(data, list) else data.get("results", [])
+        wanted = self.assignee.strip().lower()
+        for m in rows:
+            if wanted in ((m.get("email") or "").lower(), (m.get("display_name") or "").lower()):
+                return m["id"], None
+        return None, f"PLANE_ASSIGNEE '{self.assignee}' is not a member of the project"
+
     def item(self, data: dict) -> dict:
         seq = data.get("sequence_id")
         return {
@@ -192,19 +216,31 @@ class Plane:
             body["description_html"] = "".join(
                 "<p>" + html.escape(p).replace("\n", "<br>") + "</p>" for p in paragraphs
             )
+        member, warning = self.assignee_id()
+        if member:
+            body["assignees"] = [member]
         status, data = self.call("POST", "/issues/", body)
         if status not in (200, 201):
             emit({"ok": False, "error": data.get("error", f"http {status}")}, 1)
-        emit(self.item(data))
+        emit({**self.item(data), **({"warning": warning} if warning else {})})
 
-    def move(self, item_id: str, state_name: str) -> None:
+    def move(self, item_id: str, state_name: str, assign: bool = False) -> None:
         sid = self.state_id(state_name)
         if not sid:
             emit({"ok": False, "error": f"state not found in Plane: {state_name}"}, 1)
-        status, data = self.call("PATCH", f"/issues/{item_id}/", {"state": sid})
+        body: dict = {"state": sid}
+        warning = None
+        if assign:
+            # Taking up an existing item: add the developer, keep whoever is already on it.
+            member, warning = self.assignee_id()
+            if member:
+                current = self.call("GET", f"/issues/{item_id}/")[1].get("assignees") or []
+                if member not in current:
+                    body["assignees"] = [*current, member]
+        status, data = self.call("PATCH", f"/issues/{item_id}/", body)
         if status not in (200, 201):
             emit({"ok": False, "error": data.get("error", f"http {status}")}, 1)
-        emit({**self.item(data), "state": state_name})
+        emit({**self.item(data), "state": state_name, **({"warning": warning} if warning else {})})
 
     def get(self, key: str) -> None:
         # Plane resolves "<IDENTIFIER>-<seq>" only at workspace level, not under /projects/.
@@ -310,7 +346,7 @@ def main(argv: list[str]) -> None:
         state = plane.events.get(args.name)
         if not state:
             skipped(f"no Plane state mapped to event '{args.name}' in {CONFIG}")
-        plane.move(item_id, state)
+        plane.move(item_id, state, assign=args.name == "started")
     if args.cmd == "move":
         plane.move(item_id, args.state)
     plane.status(item_id)
