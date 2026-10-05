@@ -28,9 +28,11 @@ except Exception:
 #   git push origin :main          → target = main (delete)
 TARGET=""
 if [ -n "$COMMAND" ]; then
-  # Everything after "git push", flags filtered out
+  # Everything after "git push", flags filtered out. `-o X` / `--push-option X` take a value
+  # (GitLab's merge_request.* options) that must not be read as a remote or refspec.
   ARGS=$(echo "$COMMAND" \
          | sed -E 's/^.*git[[:space:]]+push[[:space:]]*//' \
+         | sed -E 's/(^|[[:space:]])(-o|--push-option)[[:space:]]+[^[:space:]]+//g' \
          | tr ' ' '\n' \
          | grep -v '^-' \
          | grep -v '^$')
@@ -44,7 +46,7 @@ if [ -n "$COMMAND" ]; then
     done
   fi
 fi
-if [ -z "$TARGET" ]; then
+if [ -z "$TARGET" ] || [ "$TARGET" = "HEAD" ]; then
   TARGET=$(git branch --show-current 2>/dev/null || echo "")
 fi
 
