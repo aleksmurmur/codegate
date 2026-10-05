@@ -1,0 +1,16 @@
+# Project options codegate asks about. Not installed into projects.
+#
+# install asks every option; update asks only the keys the project's manifest does not
+# have yet, so adding an option here is how a new question reaches existing projects.
+# Answers live in the manifest under `options:`; workflow steps read them with
+# `.claude/scripts/cg-option.sh <key>`.
+#
+# Each entry: key, question (shown to the user), default (how to propose a value),
+# choices (when the answer is one of a fixed set).
+
+- key: base_branch
+  question: Which branch do task branches start from and merge back into?
+  default: >
+    The first of dev, develop, development that exists on origin
+    (`git ls-remote --heads origin <name>`); if none does, main, then master.
+    Propose it and let the user confirm or name another branch.

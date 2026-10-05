@@ -28,7 +28,30 @@ echo "baseline=$BASELINE_SHA stack=$STACK branch=$BRANCH"
 for v in "$BASELINE_SHA" "$STACK"; do
   [ -z "$v" ] && { echo "ERROR: manifest is missing required fields"; exit 1; }
 done
+
+WORK=$(mktemp -d /tmp/cg-update-XXXXXX)
+
+# Options already answered: `key \t value` rows.
+awk '
+  /^options:[[:space:]]*$/ { in_opts=1; next }
+  in_opts && /^[^[:space:]]/ { in_opts=0 }
+  in_opts && /^  [^ ]/ { k=$1; sub(/:$/, "", k); v=$0; sub(/^[[:space:]]*[^:]+:[[:space:]]*/, "", v); print k "\t" v }
+' "$MANIFEST" > "$WORK/options"
 ```
+
+---
+
+## 1b. Ask the new options
+
+Read `$TMPDIR/core/options.yml`. Every option whose `key` is not in `$WORK/options`
+was added to codegate after this project's last install or update. Ask those (and
+only those) exactly as install does: propose the value its `default:` describes, ask
+all of them in one message. A `key=value` in `$ARGUMENTS` answers or **changes** an
+option without asking, including one already recorded — that is how a user switches a
+setting later. Append new answers to `$WORK/options`; replace the row for a changed key.
+Rows for keys no longer in `options.yml` are dropped.
+
+Set `OPTIONS_CHANGED=yes` if anything was asked or changed.
 
 ---
 
@@ -38,11 +61,15 @@ done
 HEAD_SHA=$(git -C "$TMPDIR" rev-parse HEAD)
 echo "upstream HEAD=$HEAD_SHA"
 
-if [ "$HEAD_SHA" = "$BASELINE_SHA" ]; then
+if [ "$HEAD_SHA" = "$BASELINE_SHA" ] && [ "${OPTIONS_CHANGED:-no}" = no ]; then
   echo "codegate is already at HEAD ($HEAD_SHA). Nothing to do."
+  rm -rf "$WORK"
   exit 0
 fi
 ```
+
+Same SHA but `OPTIONS_CHANGED=yes`: the file walk below finds nothing to change, and
+step 9 rewrites the manifest with the new options.
 
 Ensure the baseline commit is reachable from the temp clone. cg-start.md
 clones with `--depth 50` for speed; deepen if the baseline isn't there:
@@ -70,8 +97,6 @@ Three things matter:
 - **union-paths**: their union — the full set we walk.
 
 ```bash
-WORK=$(mktemp -d /tmp/cg-update-XXXXXX)
-
 awk '/^  - path:/{print $3}' "$MANIFEST" | sort -u > "$WORK/baseline-paths"
 
 SHARED_DIR="$TMPDIR/core/shared"
@@ -411,6 +436,10 @@ NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   echo "installed_at: $INSTALLED_AT"
   echo "last_updated_at: $NOW"
   echo "ref: $BRANCH"
+  echo "options:"
+  while IFS=$'\t' read -r key value; do
+    echo "  $key: $value"
+  done < "$WORK/options"
   echo "files:"
   while IFS=$'\t' read -r path src hash; do
     echo "  - path: $path"
