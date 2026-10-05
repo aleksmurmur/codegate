@@ -94,6 +94,23 @@ from 2 tied candidates: kotlin-backend, kotlin-multiplatform)`.
 
 ---
 
+## 1b. Ask the project options
+
+`$TMPDIR/core/options.yml` lists the options codegate needs from the project. For each
+entry: work out the proposed value as its `default:` describes, then ask the user its
+`question:` with that proposal (or its `choices:`). Ask all of them in one message. A
+`key=value` in `$ARGUMENTS` answers that option without asking.
+
+Record the answers, one `key \t value` row per option:
+
+```bash
+: > "$TMPDIR/.cg-options"
+# for each answered option:
+printf '%s\t%s\n' "$KEY" "$VALUE" >> "$TMPDIR/.cg-options"
+```
+
+---
+
 ## 2. Compose the file list
 
 Walk both source directories and build a union (stack wins on overlap).
@@ -191,6 +208,10 @@ mkdir -p .claude
   echo "installed_at: $NOW"
   echo "last_updated_at: $NOW"
   echo "ref: $BRANCH"
+  echo "options:"
+  while IFS=$'\t' read -r key value; do
+    echo "  $key: $value"
+  done < "$TMPDIR/.cg-options"
   echo "files:"
   while IFS=$'\t' read -r path src hash; do
     echo "  - path: $path"

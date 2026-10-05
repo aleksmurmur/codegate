@@ -266,12 +266,10 @@ changes applied. Don't reimplement the update logic here — re-read the
 update runbook and follow it:
 
 ```bash
-if [ "$BEST_SHA" != "$HEAD_SHA" ]; then
-  echo "Now running update flow to bring baseline → HEAD"
-  RUNBOOK="$TMPDIR/core/tools/update.md"
-  # Hand off: read $RUNBOOK and execute it step-by-step against the
-  # manifest we just wrote.
-fi
+echo "Now running update flow to bring baseline → HEAD and ask the options"
+RUNBOOK="$TMPDIR/core/tools/update.md"
+# Hand off: read $RUNBOOK and execute it step-by-step against the
+# manifest we just wrote.
 ```
 
 Practically: after this section, read `core/tools/update.md` in the
@@ -279,6 +277,9 @@ clone and execute its sections 1–10 normally. They'll find the manifest
 you just created, see `codegate_version=$BEST_SHA`, `HEAD_SHA != BEST_SHA`,
 and proceed. Local-divergence files will surface as
 `local_changed=yes` and merge correctly.
+
+Run update even when `BEST_SHA == HEAD_SHA`: the manifest written above has
+no `options:`, and update's step 1b is what asks for them.
 
 ---
 

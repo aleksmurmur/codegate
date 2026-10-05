@@ -1,0 +1,41 @@
+# Project options codegate asks about. Not installed into projects.
+#
+# install asks every option; update asks only the keys the project's manifest does not
+# have yet, so adding an option here is how a new question reaches existing projects.
+# Answers live in the manifest under `options:`; workflow steps read them with
+# `.claude/scripts/cg-option.sh <key>`.
+#
+# Each entry: key, question (shown to the user), default (how to propose a value),
+# choices (when the answer is one of a fixed set).
+
+- key: base_branch
+  question: Which branch do task branches start from and merge back into?
+  default: >
+    The first of dev, develop, development that exists on origin
+    (`git ls-remote --heads origin <name>`); if none does, main, then master.
+    Propose it and let the user confirm or name another branch.
+
+- key: branch_pattern
+  question: How are task branches named?
+  default: >
+    `{type}/{ticket}-{slug}`. {type} is feature, bugfix or refactor; {ticket} is the task's
+    tracker key (e.g. ABC-123); {slug} is a short kebab-case summary. If the project's
+    existing branches (`git branch -r`) follow another shape, propose that shape instead.
+
+- key: tracker
+  question: >
+    Which issue tracker should the workflow keep in sync? With one, a task is created
+    there when it starts (its key names the branch) and moved when its PR/MR exists.
+  choices: none, plane, custom
+  default: >
+    none. On `plane`, also write .claude/tracker.json (committed, no secrets):
+    {"base_url", "workspace" (slug from the Plane URL), "project_id" (UUID from the
+    project URL), "identifier" (the key prefix, e.g. BACK), "events": {"started": "<Plane
+    state for a task in progress>", "pr_created": "<Plane state once its PR/MR exists>"}}.
+    Ask the user for each value; never ask for the token. Then create ~/.claude/plane.env
+    containing `PLANE_API_KEY=PASTE_YOUR_TOKEN_HERE` (chmod 600) if it does not exist, and
+    tell the user to paste their key there (Plane → Settings → API tokens). Verify with
+    `python3 .claude/scripts/tracker.py check`: "skipped" means the token is still missing,
+    "missing" lists event states Plane does not have, an error means the config is
+    wrong. On `custom`, tell the user to provide .claude/tracker-adapter.py honouring the
+    contract in tracker.py's docstring.

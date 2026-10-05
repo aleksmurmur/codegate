@@ -23,7 +23,8 @@ Examples:
 
 ## Flow
 
-Run Phase 1 (Elicitation) per CLAUDE.md §Phase 1. After step 5 of Phase 1
+Run Phase 0 (Branch Setup) per CLAUDE.md §Phase 0 first, then Phase 1
+(Elicitation) per CLAUDE.md §Phase 1. After step 5 of Phase 1
 (write session id to `.ai/current-session`), also:
 
 6. Write `MODE` (one word, `fast` or `interactive`) to

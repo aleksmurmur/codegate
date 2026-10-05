@@ -16,6 +16,8 @@ The free-text is a hint. Examples:
 - `--branch dev` — clone a non-main branch.
 - `stack=android-compose` — force a stack instead of detecting.
 - `i edited diff-coverage.py by hand, leave it alone` — for adopt mode.
+- `base_branch=develop` — answer or change a project option (see
+  `core/options.yml` in the clone); works in every mode.
 
 Treat the hint as advisory. If it contradicts hard checks (e.g., user
 says "this is install mode" but the manifest exists), trust the checks.

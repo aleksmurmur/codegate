@@ -28,7 +28,30 @@ echo "baseline=$BASELINE_SHA stack=$STACK branch=$BRANCH"
 for v in "$BASELINE_SHA" "$STACK"; do
   [ -z "$v" ] && { echo "ERROR: manifest is missing required fields"; exit 1; }
 done
+
+WORK=$(mktemp -d /tmp/cg-update-XXXXXX)
+
+# Options already answered: `key \t value` rows.
+awk '
+  /^options:[[:space:]]*$/ { in_opts=1; next }
+  in_opts && /^[^[:space:]]/ { in_opts=0 }
+  in_opts && /^  [^ ]/ { k=$1; sub(/:$/, "", k); v=$0; sub(/^[[:space:]]*[^:]+:[[:space:]]*/, "", v); print k "\t" v }
+' "$MANIFEST" > "$WORK/options"
 ```
+
+---
+
+## 1b. Ask the new options
+
+Read `$TMPDIR/core/options.yml`. Every option whose `key` is not in `$WORK/options`
+was added to codegate after this project's last install or update. Ask those (and
+only those) exactly as install does: propose the value its `default:` describes, ask
+all of them in one message. A `key=value` in `$ARGUMENTS` answers or **changes** an
+option without asking, including one already recorded — that is how a user switches a
+setting later. Append new answers to `$WORK/options`; replace the row for a changed key.
+Rows for keys no longer in `options.yml` are dropped.
+
+Set `OPTIONS_CHANGED=yes` if anything was asked or changed.
 
 ---
 
@@ -38,11 +61,15 @@ done
 HEAD_SHA=$(git -C "$TMPDIR" rev-parse HEAD)
 echo "upstream HEAD=$HEAD_SHA"
 
-if [ "$HEAD_SHA" = "$BASELINE_SHA" ]; then
+if [ "$HEAD_SHA" = "$BASELINE_SHA" ] && [ "${OPTIONS_CHANGED:-no}" = no ]; then
   echo "codegate is already at HEAD ($HEAD_SHA). Nothing to do."
+  rm -rf "$WORK"
   exit 0
 fi
 ```
+
+Same SHA but `OPTIONS_CHANGED=yes`: the file walk below finds nothing to change, and
+step 9 rewrites the manifest with the new options.
 
 Ensure the baseline commit is reachable from the temp clone. cg-start.md
 clones with `--depth 50` for speed; deepen if the baseline isn't there:
@@ -70,8 +97,6 @@ Three things matter:
 - **union-paths**: their union — the full set we walk.
 
 ```bash
-WORK=$(mktemp -d /tmp/cg-update-XXXXXX)
-
 awk '/^  - path:/{print $3}' "$MANIFEST" | sort -u > "$WORK/baseline-paths"
 
 SHARED_DIR="$TMPDIR/core/shared"
@@ -154,11 +179,26 @@ while IFS= read -r p; do
   fi
   UPSTREAM_HASH=$(sha256sum "$UPSTREAM_FILE" | awk "{print \$1}")
 
-  # local_changed   = local != manifest hash
-  # upstream_changed = upstream != manifest hash
+  # Both sides are compared against the baseline CONTENT, not the manifest hash: manifests
+  # written by older updates hold the hash of a kept-local file, which made a local edit read
+  # as "unchanged" and get silently overwritten. Hashed on LF so autocrlf is not an edit.
+  lf_hash() { sed 's/\r$//' "$1" | sha256sum | awk '{print $1}'; }
+  BASE_HASH=
+  BASE_PROBE="$WORK/base-probe.$$"
+  if git -C "$TMPDIR" show "$BASELINE_SHA:core/$MANIFEST_SRC" > "$BASE_PROBE" 2>/dev/null; then
+    BASE_HASH=$(lf_hash "$BASE_PROBE")
+  fi
+  rm -f "$BASE_PROBE"
+
   local_changed=no; upstream_changed=no
-  [ "$LOCAL_HASH" != "$MANIFEST_HASH" ] && local_changed=yes
-  [ "$UPSTREAM_HASH" != "$MANIFEST_HASH" ] && upstream_changed=yes
+  if [ -n "$BASE_HASH" ]; then
+    [ ! -f "./$p" ] || [ "$(lf_hash "./$p")" != "$BASE_HASH" ] && local_changed=yes
+    [ "$(lf_hash "$UPSTREAM_FILE")" != "$BASE_HASH" ] && upstream_changed=yes
+  else
+    # Baseline content unreachable: fall back to the manifest hash.
+    [ "$LOCAL_HASH" != "$MANIFEST_HASH" ] && local_changed=yes
+    [ "$UPSTREAM_HASH" != "$MANIFEST_HASH" ] && upstream_changed=yes
+  fi
 
   mkdir -p "$STAGING/$(dirname "$p")"
 
@@ -310,7 +350,9 @@ explicitly says "wait, redo".
 ## 7. Build the new manifest
 
 Walk the staged tree, attribute each file (stack first, else shared),
-and record its hash.
+and record the hash of the **upstream** file — what codegate shipped, the
+same thing install and adopt record. Not the staged file: for a kept-local
+or merged path that is the project's content.
 
 ```bash
 NEW_MF="$WORK/new-manifest-files"
@@ -319,10 +361,10 @@ NEW_MF="$WORK/new-manifest-files"
 ( cd "$STAGING" && find . -type f -printf "%P\n" ) | sort > "$WORK/staging-paths"
 
 while IFS= read -r p; do
-  if [ -f "$STACK_DIR/$p" ]; then SRC_REL="stacks/$STACK/$p"
-  else SRC_REL="shared/$p"
+  if [ -f "$STACK_DIR/$p" ]; then SRC_REL="stacks/$STACK/$p"; SRC_FILE="$STACK_DIR/$p"
+  else SRC_REL="shared/$p"; SRC_FILE="$SHARED_DIR/$p"
   fi
-  HASH=$(sha256sum "$STAGING/$p" | awk "{print \$1}")
+  HASH=$(sha256sum "$SRC_FILE" | awk "{print \$1}")
   printf '%s\t%s\t%s\n' "$p" "$SRC_REL" "$HASH" >> "$NEW_MF"
 done < "$WORK/staging-paths"
 
@@ -394,6 +436,10 @@ NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   echo "installed_at: $INSTALLED_AT"
   echo "last_updated_at: $NOW"
   echo "ref: $BRANCH"
+  echo "options:"
+  while IFS=$'\t' read -r key value; do
+    echo "  $key: $value"
+  done < "$WORK/options"
   echo "files:"
   while IFS=$'\t' read -r path src hash; do
     echo "  - path: $path"
