@@ -19,6 +19,7 @@ Examples:
 - `/cg-feature add a login button` → task=`add a login button`, MODE=fast
 - `/cg-feature --interactive add a login button` → MODE=interactive
 - `/cg-feature add a login button --fast` → task=`add a login button`, MODE=fast (explicit but default)
+- `/cg-feature ABC-123` → task taken from tracker item ABC-123 (CLAUDE.md §Phase 0)
 - `/cg-feature --interactive --fast …` → MODE=interactive
 
 ## Flow
