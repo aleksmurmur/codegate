@@ -163,7 +163,10 @@ Every task gets its own branch before the first commit, so Phase 3's commits nev
 Steps:
 1. `BASE=$(.claude/scripts/cg-option.sh base_branch main)`, `PATTERN=$(.claude/scripts/cg-option.sh branch_pattern '{type}/{ticket}-{slug}')`, `CURRENT=$(git branch --show-current)`.
 2. **If `CURRENT` is `BASE`, `main` or `master`** — a fresh task. Start from the latest remote state of the base:
-   - **Ticket**: the task's tracker key. First the tracker (§Issue tracker): `python3 .claude/scripts/tracker.py create --type {type} --title "<short title>" --description "<task text>"`.
+   - **Existing item**: if the task text is a tracker key (`/cg-feature BACK-1234`, optionally followed by notes), start from that item instead of creating one: `python3 .claude/scripts/tracker.py get <KEY>`.
+     - `{"ok": true}` → the task is its `name` and `description` (plus the user's notes); the ticket is the key. Show the user the title and the first lines of the description, keep `id`, `key`, `url` for Phase 1, and run `tracker.py event started --id <id>` once the branch exists.
+     - `{"ok": false}` (not found, another project) → show the error and ask for the task text or another key. `{"skipped": true}` → no tracker: the key is just the ticket, and ask the user what the task is.
+   - **Ticket** (no existing item): the task's tracker key. First the tracker (§Issue tracker): `python3 .claude/scripts/tracker.py create --type {type} --title "<short title>" --description "<task text>"`.
      - `{"ok": true, "key": …}` → that key is the ticket; keep `id`, `key`, `url` for Phase 1. If the task is then abandoned before Phase 1, give the user the item's `url` so they can close it.
      - `{"skipped": true}` → no tracker: take the key from the task description (regex `[A-Z][A-Z0-9]+-\d+`); otherwise, if `PATTERN` contains `{ticket}`, ask the user.
      - `{"ok": false}` → show the error; ask whether to retry, give a key by hand, or go on without one.
@@ -458,7 +461,7 @@ Steps:
 
 ## Issue tracker
 
-The workflow reports two events to the project's tracker: `started` (Phase 0 creates the item; its key names the branch) and `pr_created` (Phase 5). It never names a tracker's own states — which state an event means is project config. The bridge is `python3 .claude/scripts/tracker.py` (contract in its docstring; one JSON line out). The tracker is the project option `tracker` (`none` | `plane` | `custom`), set by `/cg-start`.
+The workflow reports two events to the project's tracker: `started` (Phase 0 creates the item — or picks up an existing one when the task is given as its key — and its key names the branch) and `pr_created` (Phase 5). It never names a tracker's own states — which state an event means is project config. The bridge is `python3 .claude/scripts/tracker.py` (contract in its docstring; one JSON line out). The tracker is the project option `tracker` (`none` | `plane` | `custom`), set by `/cg-start`.
 
 Every call degrades: `{"skipped": true}` (no tracker, no token, unmapped event) means carry on exactly as without a tracker; `{"ok": false}` is shown to the user and never blocks the workflow beyond the question in Phase 0.
 

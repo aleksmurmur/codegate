@@ -11,6 +11,7 @@ Inspect `$ARGUMENTS` (trim whitespace):
 | Argument | Action |
 |---|---|
 | empty or `status` | `tracker.py status` — show key, title, link |
+| `get <KEY>` | `tracker.py get <KEY>` — an existing item's title, state and description |
 | `check` | `tracker.py check` — verify config and token; list the tracker's states and any event mapped to a state it does not have |
 | `move <state>` | `tracker.py move "<state>"` — the tracker's own state name, e.g. `move "Code Review"` |
 | anything else | say which arguments exist; do nothing |

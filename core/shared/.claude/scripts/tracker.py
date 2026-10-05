@@ -8,6 +8,8 @@ Which tracker, and which of its states each event means, is project config.
 
 Usage:
   tracker.py create --title T [--description D] [--type feature|bugfix|refactor]
+  tracker.py get    <KEY>           an existing item by its key (e.g. ABC-12): title,
+                                    plain-text description, state — to start a task from it
   tracker.py event  <started|pr_created> [--id ID]
   tracker.py move   <tracker state name> [--id ID]
   tracker.py status [--id ID]
@@ -20,6 +22,7 @@ Without --id, `event`/`move`/`status` use the current session's item
 
 Output: exactly one JSON line on stdout.
   {"ok": true, "key": "ABC-12", "id": "...", "url": "...", ...}
+      `get` adds "description" (plain text) and "state" (the tracker's state name).
   {"ok": false, "skipped": true, "reason": "..."}   tracker off or not configured
   {"ok": false, "error": "..."}                     the tracker refused or is unreachable
 Exit codes: 0 ok or skipped; 1 error; 2 bad usage or broken config.
@@ -40,6 +43,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
+from html.parser import HTMLParser
 from pathlib import Path
 
 CONFIG = Path(".claude/tracker.json")
@@ -85,6 +89,32 @@ def session_item_id() -> str | None:
         return None
 
 
+class _Text(HTMLParser):
+    BLOCKS = {"p", "div", "br", "li", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "blockquote", "tr"}
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        if tag in self.BLOCKS:
+            self.parts.append("\n")
+        if tag == "li":
+            self.parts.append("- ")
+
+    def handle_data(self, data: str) -> None:
+        self.parts.append(data)
+
+
+def html_to_text(markup: str | None) -> str:
+    parser = _Text()
+    parser.feed(markup or "")
+    text = "\n".join(line.rstrip() for line in "".join(parser.parts).splitlines())
+    while "\n\n\n" in text:
+        text = text.replace("\n\n\n", "\n\n")
+    return text.strip()
+
+
 # ── Plane ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -112,8 +142,9 @@ class Plane:
         self.events = cfg.get("events", {})
         self.token = token
 
-    def call(self, method: str, path: str, body: dict | None = None) -> tuple[int, dict]:
-        url = f"{self.base}/api/v1/workspaces/{self.workspace}/projects/{self.project}{path}"
+    def call(self, method: str, path: str, body: dict | None = None, project: bool = True) -> tuple[int, dict]:
+        scope = f"/projects/{self.project}" if project else ""
+        url = f"{self.base}/api/v1/workspaces/{self.workspace}{scope}{path}"
         req = urllib.request.Request(
             url, data=json.dumps(body).encode() if body is not None else None, method=method
         )
@@ -175,6 +206,19 @@ class Plane:
             emit({"ok": False, "error": data.get("error", f"http {status}")}, 1)
         emit({**self.item(data), "state": state_name})
 
+    def get(self, key: str) -> None:
+        # Plane resolves "<IDENTIFIER>-<seq>" only at workspace level, not under /projects/.
+        status, data = self.call("GET", f"/issues/{key.strip().upper()}/", project=False)
+        if status == 404:
+            emit({"ok": False, "error": f"no item {key} in Plane"}, 1)
+        if status != 200:
+            emit({"ok": False, "error": data.get("error", f"http {status}")}, 1)
+        if data.get("project") != self.project:
+            emit({"ok": False, "error": f"{key} belongs to another Plane project"}, 1)
+        states = self.call("GET", "/states/")[1].get("results", [])
+        state = next((s["name"] for s in states if s["id"] == data.get("state")), data.get("state"))
+        emit({**self.item(data), "description": html_to_text(data.get("description_html")), "state": state})
+
     def check(self) -> None:
         status, data = self.call("GET", "/states/")
         if status != 200:
@@ -217,6 +261,8 @@ def parse(argv: list[str]) -> argparse.Namespace:
     c.add_argument("--title", required=True)
     c.add_argument("--description")
     c.add_argument("--type", choices=["feature", "bugfix", "refactor"])
+    g = sub.add_parser("get")
+    g.add_argument("key")
     e = sub.add_parser("event")
     e.add_argument("name", choices=EVENTS)
     e.add_argument("--id")
@@ -254,6 +300,8 @@ def main(argv: list[str]) -> None:
         plane.check()
     if args.cmd == "create":
         plane.create(args.title, args.description)
+    if args.cmd == "get":
+        plane.get(args.key)
 
     item_id = args.id or session_item_id()
     if not item_id:

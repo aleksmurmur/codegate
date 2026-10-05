@@ -49,6 +49,12 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         self._record(None)
         if self.path.endswith("/states/"): return self._send(200, {"results": STATES})
+        if "/projects/" not in self.path and "/issues/" in self.path:
+            key = self.path.rstrip("/").split("/")[-1]
+            if key == "BACK-404": return self._send(404, {"error": "Page not found."})
+            return self._send(200, {"id": "item-77", "sequence_id": 77, "name": "Существующая задача",
+                "project": "other" if key == "BACK-8" else "proj", "state": "st-qa",
+                "description_html": "<p>Первый абзац<br>вторая строка</p><p></p><ul><li>пункт один</li><li>пункт два</li></ul>"})
         return self._send(200, {"id": self.path.rstrip("/").split("/")[-1], "sequence_id": 7, "name": "x"})
     def do_POST(self):
         b = self._body(); self._record(b)
@@ -157,6 +163,17 @@ EOF2
 run check
 expect "check flags an unmapped state"        1 "not j['ok'] and j['missing'] == {'pr_created': 'Ревью'}"
 plane_config
+
+rm -f "$LOG"
+run get back-77
+expect "get finds an item by key"             0 "j['ok'] and j['key'] == 'BACK-77' and j['id'] == 'item-77' and j['name'] == 'Существующая задача'"
+expect "get asks the workspace, upper-cased"  0 "any(r['p'].endswith('/workspaces/ws/issues/BACK-77/') for r in log)"
+expect "get names the state, not its id"      0 "j['state'] == 'в QA'"
+expect "get turns html into plain text"       0 "j['description'] == 'Первый абзац\nвторая строка\n\n- пункт один\n- пункт два'"
+run get BACK-404
+expect "get of a missing key is an error"     1 "not j['ok'] and 'BACK-404' in j['error']"
+run get BACK-8
+expect "get refuses another project's item"   1 "not j['ok'] and 'another' in j['error']"
 
 echo ""
 echo "-- custom adapter --"
