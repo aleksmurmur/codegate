@@ -172,12 +172,13 @@ Steps:
      - `{"ok": false}` → show the error; ask whether to retry, give a key by hand, or go on without one.
      Never invent a key. If the user says there is none, drop `{ticket}` and its adjoining separator from the name.
    - **Slug**: lowercase ASCII from the description, spaces → hyphens, only `[a-z0-9-]`, ~40 chars. If the description yields nothing (non-ASCII), ask for a short English slug.
-   - Fill `PATTERN` and **confirm the branch name with the user**; use their edit if they give one.
+   - Fill `PATTERN` and create the branch without asking: say the name in one line. A name is cheap to change (`git branch -m`), a question costs a round-trip on every task.
    - Run, in order: `git fetch origin`, `git checkout $BASE`, `git pull --ff-only`, `git checkout -b <name>`.
    - If `git pull --ff-only` fails, local `BASE` has diverged from `origin/BASE`: **stop** and ask the user. No `reset --hard`, no merge, no other recovery on your own.
    - Never `git checkout -b <name> origin/$BASE`: that makes `origin/$BASE` the upstream, so a later `git pull` or a bare `git push` targets the shared branch.
    - The task's **target** (where its MR goes) is `BASE`.
-3. **If `CURRENT` is another branch** — a sequential task stacked on unmerged work. Confirm: "Starting a sequential task on top of `{CURRENT}` — correct?" If yes, create the task branch from `CURRENT` the same way (ticket, slug, pattern, confirm, `git checkout -b <name>`); its **target** is `CURRENT`. It gets its own tracker item like a fresh task. If the user wants a fresh task instead, switch to `BASE` and follow step 2. Detached HEAD or anything unclear: stop and ask.
+3. **If `CURRENT` is another branch** and it is already merged (`git fetch origin` then `git merge-base --is-ancestor HEAD origin/$BASE`) — its work is in the base, so this is a fresh task: follow step 2 without asking.
+   **Otherwise** it is a sequential task stacked on unmerged work. Confirm: "Starting a sequential task on top of `{CURRENT}` — correct?" If yes, create the task branch from `CURRENT` the same way (ticket, slug, pattern, `git checkout -b <name>`); its **target** is `CURRENT`. It gets its own tracker item like a fresh task. If the user wants a fresh task instead, switch to `BASE` and follow step 2. Detached HEAD or anything unclear: stop and ask.
 4. Remember the target and the ticket — Phase 1 records them in the session.
 
 ---
