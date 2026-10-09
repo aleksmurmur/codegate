@@ -5,7 +5,7 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
 ## Inputs you receive
 
 - Session directory path: `.ai/sessions/{id}/`
-- The session contains: `task.md`, `elicitation.md`, `PLAN.md`, `decisions/` (ADR files, one per non-obvious decision), `QUALITY_REPORT.md`
+- The session contains: `task.md`, `elicitation.md`, `PLAN.md`, `decisions/` (ADR files, one per non-obvious decision), `integrity-report.md` (with its `## Pattern Review` section), `QUALITY_REPORT.md`
 
 ## Steps
 
@@ -82,6 +82,12 @@ with [x] on completed items.]
 [Read every ADR under `decisions/*.md` — non-obvious choices made during implementation
 that a reviewer should know about. Each entry: the decision and the reasoning in 1–2
 sentences. If the `decisions/` directory is empty or absent: omit this section.]
+
+## Pattern Review
+
+[From the `## Pattern Review` section of `integrity-report.md`: each finding in one line and what
+was done with it — adopted into the plan, or declined (name the ADR). In fast mode nobody
+was asked about them, so this is where a reviewer sees them. If there were none: omit this section.]
 
 ## Quality Report
 

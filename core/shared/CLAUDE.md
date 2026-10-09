@@ -51,7 +51,7 @@ slash commands always write the file explicitly.
 | Elicitation has questions → answers recorded | wait for `/cg-approve elicit` | auto-proceed to Phase 2 |
 | Elicitation returns cosmetic fast-path proposal | wait for `/cg-approve quick` or `/cg-approve elicit` | auto-proceed via the `quick` path (implementation only) |
 | Plan ready, integrity CLEAN, Pattern Review empty | wait for `/cg-approve plan` | auto-proceed to Phase 3 |
-| Plan ready, integrity CLEAN, Pattern Review has findings | wait for `/cg-approve plan` | pause once — present the findings, then wait for `/cg-approve plan` |
+| Plan ready, integrity CLEAN, Pattern Review has findings | wait for `/cg-approve plan` | decide each finding (adopt, or decline with an ADR) and proceed; ask only if a finding changes what the task delivers |
 | Plan integrity MIRAGES_FOUND or PARSE_FAILED | STOP, ask user | STOP, ask user — same; a bad plan blocks both modes |
 | Implementation complete | wait for `/cg-approve implementation` | auto-proceed to Phase 4 |
 | QG verdict PASS | auto-proceed to Phase 5 | auto-proceed to Phase 5 — same |
@@ -253,7 +253,7 @@ Steps:
    - **Mode check** (`cat .ai/sessions/{id}/mode`):
      - `interactive`: say "Plan ready. Review it above, then type `/cg-approve plan` to begin implementation." **STOP. Do not write any source files until user types `/cg-approve plan`.**
      - `fast`, **Pattern Review section empty**: append `[ts] fast-mode-auto-proceed: phase-2` to audit log. Say "Plan ready (above). Auto-proceeding to implementation." Proceed directly to Phase 3 entry steps.
-     - `fast`, **Pattern Review has findings**: pause once. Present them and say "Pattern review found the above. Type `/cg-approve plan` to proceed anyway, or tell me what to change." Append `[ts] fast-mode-pause: phase-2-pattern-review — N findings`. **Wait.** This is not a new blocking gate: nothing is being judged, and the agent is not overruling the planner. The finding is a fact about the repository — *this already exists at that path* — and whether two similar things should be one is a scope decision, which Hard Rule 9 already reserves for the user. Fast mode skips boundaries where the user adds nothing; printing a fact at a user who is not being asked anything is the failure this replaces.
+     - `fast`, **Pattern Review has findings**: decide each finding yourself — adopt it (adjust PLAN.md) or decline it with an ADR in `decisions/` — append `[ts] fast-mode-auto-proceed: phase-2 — N findings, M adopted`, carry the list into the PR/MR description, and proceed to Phase 3. Stop and ask only when acting on a finding would change what the task delivers (drop, merge or add a deliverable): that is a scope decision, reserved to the user by Hard Rule 9. The old unconditional pause ended in a bare "ok" in 52 of 61 cases.
      - Either way, a MIRAGES_FOUND or PARSE_FAILED plan stops in both modes — see step 6.
 
 The plan must include:
