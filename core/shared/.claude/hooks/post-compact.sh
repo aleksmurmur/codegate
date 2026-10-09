@@ -35,34 +35,26 @@ SESSION_DIR="$CWD/.ai/sessions/$SESSION"
 STATE=$(cat "$SESSION_DIR/state" 2>/dev/null | tr -d '[:space:]' || echo "")
 [ -z "$STATE" ] && exit 0
 
-# /rewind reconciliation — if commits logged in audit.log are no longer reachable
-# from HEAD (Claude Code /rewind, manual git reset, etc.), revert state so the
-# user isn't trapped in a phase whose underlying commits are gone.
+# Commits the session logged that no branch holds any more. Usually a squash, amend or rebase
+# rewrote them; sometimes work was really reset. Report only: rewriting the state on a guess
+# stranded sessions with an open MR in PLAN_APPROVED. `rev-parse`: in a worktree .git is a file.
 AUDIT_LOG="$SESSION_DIR/audit.log"
-if [ -f "$AUDIT_LOG" ] && [ -d "$CWD/.git" ]; then
+if [ -f "$AUDIT_LOG" ] && git -C "$CWD" rev-parse --git-dir >/dev/null 2>&1; then
   LOGGED_SHAS=$(grep -oE 'commit: [a-f0-9]{7,40}' "$AUDIT_LOG" 2>/dev/null | awk '{print $2}' | sort -u)
-  if [ -n "$LOGGED_SHAS" ]; then
-    MISSING=""
-    for SHA in $LOGGED_SHAS; do
-      git -C "$CWD" merge-base --is-ancestor "$SHA" HEAD 2>/dev/null || MISSING="$MISSING $SHA"
-    done
-    if [ -n "$MISSING" ]; then
-      case "$STATE" in
-        IMPLEMENTING|QUALITY_REVIEWED|PR_CREATED)
-          OLD_STATE="$STATE"
-          echo "PLAN_APPROVED" > "$SESSION_DIR/state"
-          STATE="PLAN_APPROVED"
-          TS=$(date '+%Y-%m-%dT%H:%M:%S')
-          echo "[$TS] /rewind detected — state reverted from $OLD_STATE to PLAN_APPROVED, missing commits:$MISSING" >> "$AUDIT_LOG"
-          echo "/REWIND DETECTED"
-          echo ""
-          echo "Commits logged in audit.log are no longer reachable from HEAD."
-          echo "Codegate state has been reverted from $OLD_STATE to PLAN_APPROVED."
-          echo "Missing commits:$MISSING"
-          echo ""
-          ;;
-      esac
+  MISSING=""
+  for SHA in $LOGGED_SHAS; do
+    HELD=""
+    git -C "$CWD" cat-file -e "$SHA^{commit}" 2>/dev/null &&
+      HELD=$(git -C "$CWD" for-each-ref --contains "$SHA" --count=1 refs/heads refs/remotes 2>/dev/null)
+    if [ -z "$HELD" ]; then
+      MISSING="$MISSING $SHA"
     fi
+  done
+  if [ -n "$MISSING" ]; then
+    echo "Commits logged in this session are not reachable from any branch:$MISSING"
+    echo "A squash, amend or rebase rewrites them; a reset drops them."
+    echo "If work was really lost, set the session state by hand (it is $STATE)."
+    echo ""
   fi
 fi
 
