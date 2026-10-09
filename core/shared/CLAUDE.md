@@ -194,7 +194,7 @@ Steps:
 4. Write `IDLE` to `.ai/sessions/{id}/state`
 5. Write session ID to `.ai/current-session`
 6. Append to `.ai/sessions/{id}/audit.log`: `[timestamp] Session started, task type: {type}`
-6a. Write the Phase 0 target branch to `.ai/sessions/{id}/target-branch` and the ticket (if any) to `.ai/sessions/{id}/ticket`. Append `[timestamp] Branch {name} from {target}`. If Phase 0 created a tracker item, write `{"id", "key", "url"}` to `.ai/sessions/{id}/tracker.json` and append `[timestamp] Tracker item {key} created`.
+6a. Write the task branch (`git branch --show-current`) to `.ai/sessions/{id}/branch` — the push gate holds back only this branch — the Phase 0 target branch to `.ai/sessions/{id}/target-branch` and the ticket (if any) to `.ai/sessions/{id}/ticket`. Append `[timestamp] Branch {name} from {target}`. If Phase 0 created a tracker item, write `{"id", "key", "url"}` to `.ai/sessions/{id}/tracker.json` and append `[timestamp] Tracker item {key} created`.
 7. If `.ai/CODEBASE_CONTEXT.md` does not exist: warn the user — "No codebase context found. Run `/cg-context` first for best results. Continuing without it."
 8. Run elicitation: use the Task tool with the prompt at `.claude/agents/elicitation/prompt.md`, passing the task description, task type, and contents of CODEBASE_CONTEXT.md (if present) and the relevant checklist from `.claude/agents/elicitation/checklists/{type}.md`
 9. The elicitation agent returns **either** a fast-path proposal **or** a question list:

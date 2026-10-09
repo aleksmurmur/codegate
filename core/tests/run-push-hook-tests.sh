@@ -61,6 +61,27 @@ check "MR create without target, default main"    feat/x "git push -o merge_requ
 git -C "$REPO" symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/dev
 check "MR create without target, default dev"     feat/x "git push -o merge_request.create origin HEAD" 0
 
+# ── gate 2: a session that has not passed the quality gate holds back ITS branch ────────
+# Claude Code blocks a tool call only on exit 2; the gate used to exit 1 and never blocked.
+echo ""
+echo "-- gate 2: active session --"
+mkdir -p "$REPO/.ai/sessions/s1"
+echo "s1" > "$REPO/.ai/current-session"
+session() { echo "$1" > "$REPO/.ai/sessions/s1/state"; if [ -n "$2" ]; then echo "$2" > "$REPO/.ai/sessions/s1/branch"; else rm -f "$REPO/.ai/sessions/s1/branch"; fi; }
+
+session IMPLEMENTING feat/x
+check "own branch before the gate is blocked"     feat/x "git push -u origin feat/x"  2
+ERR=$(printf '{"tool_input":{"command":"git push -u origin feat/x"}}' | ( cd "$REPO" && bash "$HOOK" 2>&1 >/dev/null ))
+if [ -n "$ERR" ]; then echo "PASS  gate 2 reason goes to stderr"; PASS=$((PASS + 1))
+else echo "FAIL  gate 2 reason goes to stderr  (stderr was empty)"; FAIL=$((FAIL + 1)); fi
+session QUALITY_REVIEWED feat/x
+check "own branch after the gate passes"          feat/x "git push -u origin feat/x"  0
+session IMPLEMENTING feat/other
+check "another task's branch is not held back"    feat/x "git push -u origin feat/x"  0
+session IMPLEMENTING ""
+check "session without a recorded branch blocks"  feat/x "git push -u origin feat/x"  2
+rm -rf "$REPO/.ai/sessions" "$REPO/.ai/current-session"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
