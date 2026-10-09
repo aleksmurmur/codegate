@@ -31,6 +31,21 @@ if [[ "$FILE_NORM" == .ai/* ]] || [[ "$FILE_NORM" == */.ai/* ]] || [[ -z "$FILE"
   exit 0
 fi
 
+# Guard this repository only. A file in another directory (/tmp, a sibling project, another
+# worktree) is not this task's source; blocking it only taught agents to write through the shell.
+# Compare git's own answers rather than path strings: one path arrives in several spellings.
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -n "$REPO_ROOT" ]; then
+  case "$FILE_NORM" in
+    /*|?:/*)
+      DIR=$(dirname "$FILE_NORM")
+      while [ ! -d "$DIR" ] && [ "$DIR" != "$(dirname "$DIR")" ]; do DIR=$(dirname "$DIR"); done
+      FILE_ROOT=$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null)
+      [ "$FILE_ROOT" != "$REPO_ROOT" ] && exit 0
+      ;;
+  esac
+fi
+
 # Always allow writes to .claude/ (agent prompts, commands, hooks)
 if [[ "$FILE_NORM" == .claude/* ]] || [[ "$FILE_NORM" == */.claude/* ]]; then
   exit 0

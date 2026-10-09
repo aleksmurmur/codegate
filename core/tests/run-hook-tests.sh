@@ -78,6 +78,49 @@ ERR=$(printf '{"tool_input":{"file_path":"src/Main.kt"}}' | ( cd "$PROJECT" && b
 if [ -n "$ERR" ]; then echo "PASS  block reason goes to stderr"; PASS=$((PASS + 1))
 else echo "FAIL  block reason goes to stderr  (stderr was empty)"; FAIL=$((FAIL + 1)); fi
 
+# ── the hook guards this repository only: files elsewhere are not its business ────────────
+echo ""
+echo "-- inside a git repository --"
+REPO=$(mktemp -d)
+OTHER=$(mktemp -d)
+trap 'rm -rf "$PROJECT" "$REPO" "$OTHER"' EXIT
+git -C "$REPO" init -q
+mkdir -p "$REPO/.ai/sessions/s1" "$REPO/src"
+echo "s1" > "$REPO/.ai/current-session"
+echo "ELICITED" > "$REPO/.ai/sessions/s1/state"
+REPO_ABS=$(cd "$REPO" && pwd -W 2>/dev/null || pwd)
+OTHER_ABS=$(cd "$OTHER" && pwd -W 2>/dev/null || pwd)
+
+# check_in <name> <file-path> <want_exit> — like check, but run from the git repository
+check_in() {
+    local name="$1" path="$2" want="$3" got
+    printf '{"tool_input":{"file_path":"%s"}}' "$path" | ( cd "$REPO" && bash "$HOOK" >/dev/null 2>&1 )
+    got=$?
+    if [ "$got" = "$want" ]; then
+        echo "PASS  $name"; PASS=$((PASS + 1))
+    else
+        echo "FAIL  $name  (want exit=$want, got exit=$got)"; FAIL=$((FAIL + 1))
+    fi
+}
+check_in "relative source still blocked"        "src/Main.kt"                     2
+check_in "absolute source in repo blocked"      "$REPO_ABS/src/Main.kt"           2
+check_in "file in another directory allowed"    "$OTHER_ABS/report.md"            0
+check_in "new file in a new dir elsewhere"      "$OTHER_ABS/deep/new/report.md"   0
+# Claude Code on Windows sends D:\dir\file: the comparison must not depend on the spelling
+case "$OTHER_ABS" in
+  ?:/*)
+    WIN_OTHER=$(python3 -c "import sys; print(sys.argv[1].replace('/', chr(92)))" "$OTHER_ABS/report.md")
+    WIN_SRC=$(python3 -c "import sys; print(sys.argv[1].replace('/', chr(92)))" "$REPO_ABS/src/Main.kt")
+    for case_ in "other:$WIN_OTHER:0" "src:$WIN_SRC:2"; do
+      p_=${case_#*:}; want_=${p_##*:}; p_=${p_%:*}
+      json_=$(python3 -c "import json,sys; print(json.dumps({'tool_input': {'file_path': sys.argv[1]}}))" "$p_")
+      printf "%s" "$json_" | ( cd "$REPO" && bash "$HOOK" >/dev/null 2>&1 ); got_=$?
+      if [ "$got_" = "$want_" ]; then echo "PASS  windows backslash path (${case_%%:*})"; PASS=$((PASS + 1))
+      else echo "FAIL  windows backslash path (${case_%%:*})  (want exit=$want_, got exit=$got_)"; FAIL=$((FAIL + 1)); fi
+    done
+    ;;
+esac
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]
