@@ -445,6 +445,7 @@ Steps:
 **Entry**: quality gate passed (or overridden with `/cg-approve quality`)
 
 Steps:
+0. **Commit the tech debt this task logged.** The quality gate writes `.ai/tech-debt/*.md` after the Phase 4 commit, so without this step the notes never leave the machine. `git status --porcelain --untracked-files=all .ai/tech-debt` lists them; stage those paths explicitly and `git commit -m "docs: tech debt logged by <ticket or task>"`. If `.ai/tech-debt` is ignored by git in this project, skip and say so under "Tech Debt Logged" in the description.
 1. Run PR creator sub-agent: Task tool with `.claude/agents/pr-creator/prompt.md`. The PR/MR targets `.ai/sessions/{id}/target-branch` (Phase 0), not the hosting default.
 2. PR description must include:
    - What was built and why (from task + elicitation)
