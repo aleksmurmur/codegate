@@ -31,6 +31,21 @@ if [[ "$FILE_NORM" == .ai/* ]] || [[ "$FILE_NORM" == */.ai/* ]] || [[ -z "$FILE"
   exit 0
 fi
 
+# Guard this repository only. A file in another directory (/tmp, a sibling project, another
+# worktree) is not this task's source; blocking it only taught agents to write through the shell.
+# Compare git's own answers rather than path strings: one path arrives in several spellings.
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -n "$REPO_ROOT" ]; then
+  case "$FILE_NORM" in
+    /*|?:/*)
+      DIR=$(dirname "$FILE_NORM")
+      while [ ! -d "$DIR" ] && [ "$DIR" != "$(dirname "$DIR")" ]; do DIR=$(dirname "$DIR"); done
+      FILE_ROOT=$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null)
+      [ "$FILE_ROOT" != "$REPO_ROOT" ] && exit 0
+      ;;
+  esac
+fi
+
 # Always allow writes to .claude/ (agent prompts, commands, hooks)
 if [[ "$FILE_NORM" == .claude/* ]] || [[ "$FILE_NORM" == */.claude/* ]]; then
   exit 0
@@ -62,13 +77,13 @@ esac
 # Check active session
 CURRENT_SESSION_FILE=".ai/current-session"
 if [ ! -f "$CURRENT_SESSION_FILE" ]; then
-  echo "No active session. Start a task with /cg-feature, /cg-bugfix, or /cg-refactor before editing source files."
+  echo "No active session. Start a task with /cg-feature, /cg-bugfix, or /cg-refactor before editing source files." >&2
   exit 2
 fi
 
 SESSION=$(cat "$CURRENT_SESSION_FILE" 2>/dev/null | tr -d '[:space:]')
 if [ -z "$SESSION" ]; then
-  echo "Current session file is empty. Start a new task with /cg-feature or /cg-bugfix."
+  echo "Current session file is empty. Start a new task with /cg-feature or /cg-bugfix." >&2
   exit 2
 fi
 
@@ -80,15 +95,15 @@ case "$STATE" in
     exit 0
     ;;
   IDLE)
-    echo "Cannot modify '$FILE': state is IDLE. Complete elicitation questions first, then run /cg-approve elicit."
+    echo "Cannot modify '$FILE': state is IDLE. Complete elicitation questions first, then run /cg-approve elicit." >&2
     exit 2
     ;;
   ELICITED)
-    echo "Cannot modify '$FILE': state is ELICITED. A plan must be created and approved. Run /cg-approve plan after reviewing the plan."
+    echo "Cannot modify '$FILE': state is ELICITED. A plan must be created and approved. Run /cg-approve plan after reviewing the plan." >&2
     exit 2
     ;;
   *)
-    echo "Cannot modify '$FILE': unexpected state '$STATE'. Check /cg-status."
+    echo "Cannot modify '$FILE': unexpected state '$STATE'. Check /cg-status." >&2
     exit 2
     ;;
 esac

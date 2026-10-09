@@ -4,8 +4,8 @@
 # Two gates:
 #   1. Direct push to a protected branch (main / master / release*) is blocked
 #      unless the one-shot marker `.ai/protected-target-allowed` exists.
-#   2. Push from inside an active codegate session is blocked unless the
-#      quality gate has passed.
+#   2. Push of an active session's own branch is blocked unless the
+#      quality gate has passed. Exit 2: Claude Code blocks on nothing else.
 
 INPUT=$(cat 2>/dev/null || echo "")
 COMMAND=$(python3 -c "
@@ -125,26 +125,38 @@ fi
 STATE_FILE=".ai/sessions/$SESSION/state"
 STATE=$(cat "$STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "")
 
+# The session holds back only its own branch. Without this, a pointer left on another task
+# blocked unrelated pushes; sessions that predate the `branch` file keep the old, wider rule.
+SESSION_BRANCH=$(cat ".ai/sessions/$SESSION/branch" 2>/dev/null | tr -d '[:space:]')
+if [ -n "$SESSION_BRANCH" ]; then
+  OWN=""
+  for t in ${REF_TARGETS:-HEAD}; do
+    [ "$t" = "HEAD" ] && t="$CURRENT_BRANCH"
+    [ "$t" = "$SESSION_BRANCH" ] && OWN=1
+  done
+  [ -z "$OWN" ] && exit 0
+fi
+
 # These states mean quality gate has not passed yet
 case "$STATE" in
   IDLE|ELICITED|PLAN_APPROVED|IMPLEMENTING)
     TASK=$(cat ".ai/sessions/$SESSION/task.md" 2>/dev/null | head -1 || echo "unknown task")
-    echo ""
-    echo "PUSH BLOCKED: active session has not passed the quality gate."
-    echo ""
-    echo "Session : $SESSION"
-    echo "Task    : $TASK"
-    echo "State   : $STATE"
-    echo ""
-    echo "Complete the workflow first:"
-    echo "  1. Finish implementation"
-    echo "  2. Type /cg-approve implementation  (commits + runs quality gate)"
-    echo "  3. Fix any quality gate failures"
-    echo "  4. Then push via /cg-approve quality or Phase 5 PR creation"
-    echo ""
-    echo "To push anyway (bypassing the workflow), delete .ai/current-session first."
-    echo ""
-    exit 1
+    echo "" >&2
+    echo "PUSH BLOCKED: active session has not passed the quality gate." >&2
+    echo "" >&2
+    echo "Session : $SESSION" >&2
+    echo "Task    : $TASK" >&2
+    echo "State   : $STATE" >&2
+    echo "" >&2
+    echo "Complete the workflow first:" >&2
+    echo "  1. Finish implementation" >&2
+    echo "  2. Type /cg-approve implementation  (commits + runs quality gate)" >&2
+    echo "  3. Fix any quality gate failures" >&2
+    echo "  4. Then push via /cg-approve quality or Phase 5 PR creation" >&2
+    echo "" >&2
+    echo "To push anyway (bypassing the workflow), delete .ai/current-session first." >&2
+    echo "" >&2
+    exit 2
     ;;
   QUALITY_REVIEWED|PR_CREATED|"")
     # Quality gate passed or no active session — allow push

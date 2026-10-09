@@ -51,7 +51,7 @@ slash commands always write the file explicitly.
 | Elicitation has questions → answers recorded | wait for `/cg-approve elicit` | auto-proceed to Phase 2 |
 | Elicitation returns cosmetic fast-path proposal | wait for `/cg-approve quick` or `/cg-approve elicit` | auto-proceed via the `quick` path (implementation only) |
 | Plan ready, integrity CLEAN, Pattern Review empty | wait for `/cg-approve plan` | auto-proceed to Phase 3 |
-| Plan ready, integrity CLEAN, Pattern Review has findings | wait for `/cg-approve plan` | pause once — present the findings, then wait for `/cg-approve plan` |
+| Plan ready, integrity CLEAN, Pattern Review has findings | wait for `/cg-approve plan` | decide each finding (adopt, or decline with an ADR) and proceed; ask only if a finding changes what the task delivers |
 | Plan integrity MIRAGES_FOUND or PARSE_FAILED | STOP, ask user | STOP, ask user — same; a bad plan blocks both modes |
 | Implementation complete | wait for `/cg-approve implementation` | auto-proceed to Phase 4 |
 | QG verdict PASS | auto-proceed to Phase 5 | auto-proceed to Phase 5 — same |
@@ -194,7 +194,7 @@ Steps:
 4. Write `IDLE` to `.ai/sessions/{id}/state`
 5. Write session ID to `.ai/current-session`
 6. Append to `.ai/sessions/{id}/audit.log`: `[timestamp] Session started, task type: {type}`
-6a. Write the Phase 0 target branch to `.ai/sessions/{id}/target-branch` and the ticket (if any) to `.ai/sessions/{id}/ticket`. Append `[timestamp] Branch {name} from {target}`. If Phase 0 created a tracker item, write `{"id", "key", "url"}` to `.ai/sessions/{id}/tracker.json` and append `[timestamp] Tracker item {key} created`.
+6a. Write the task branch (`git branch --show-current`) to `.ai/sessions/{id}/branch` — the push gate holds back only this branch — the Phase 0 target branch to `.ai/sessions/{id}/target-branch` and the ticket (if any) to `.ai/sessions/{id}/ticket`. Append `[timestamp] Branch {name} from {target}`. If Phase 0 created a tracker item, write `{"id", "key", "url"}` to `.ai/sessions/{id}/tracker.json` and append `[timestamp] Tracker item {key} created`.
 7. If `.ai/CODEBASE_CONTEXT.md` does not exist: warn the user — "No codebase context found. Run `/cg-context` first for best results. Continuing without it."
 8. Run elicitation: use the Task tool with the prompt at `.claude/agents/elicitation/prompt.md`, passing the task description, task type, and contents of CODEBASE_CONTEXT.md (if present) and the relevant checklist from `.claude/agents/elicitation/checklists/{type}.md`
 9. The elicitation agent returns **either** a fast-path proposal **or** a question list:
@@ -253,7 +253,7 @@ Steps:
    - **Mode check** (`cat .ai/sessions/{id}/mode`):
      - `interactive`: say "Plan ready. Review it above, then type `/cg-approve plan` to begin implementation." **STOP. Do not write any source files until user types `/cg-approve plan`.**
      - `fast`, **Pattern Review section empty**: append `[ts] fast-mode-auto-proceed: phase-2` to audit log. Say "Plan ready (above). Auto-proceeding to implementation." Proceed directly to Phase 3 entry steps.
-     - `fast`, **Pattern Review has findings**: pause once. Present them and say "Pattern review found the above. Type `/cg-approve plan` to proceed anyway, or tell me what to change." Append `[ts] fast-mode-pause: phase-2-pattern-review — N findings`. **Wait.** This is not a new blocking gate: nothing is being judged, and the agent is not overruling the planner. The finding is a fact about the repository — *this already exists at that path* — and whether two similar things should be one is a scope decision, which Hard Rule 9 already reserves for the user. Fast mode skips boundaries where the user adds nothing; printing a fact at a user who is not being asked anything is the failure this replaces.
+     - `fast`, **Pattern Review has findings**: decide each finding yourself — adopt it (adjust PLAN.md) or decline it with an ADR in `decisions/` — append `[ts] fast-mode-auto-proceed: phase-2 — N findings, M adopted`, carry the list into the PR/MR description, and proceed to Phase 3. Stop and ask only when acting on a finding would change what the task delivers (drop, merge or add a deliverable): that is a scope decision, reserved to the user by Hard Rule 9. The old unconditional pause ended in a bare "ok" in 52 of 61 cases.
      - Either way, a MIRAGES_FOUND or PARSE_FAILED plan stops in both modes — see step 6.
 
 The plan must include:
@@ -295,7 +295,7 @@ Steps:
     from elicitation, Alternative considered is the option not taken.
     These are written BEFORE the baseline test run in step 5 — if a
     deviation is being formalized, the ADR should pre-date any code.
-5. **Run baseline test suite**: run the full test suite now, before writing any code. Save the names of any failing tests to `.ai/sessions/{id}/test-baseline.txt`. If the suite is clean, write "CLEAN" to that file. This baseline is used by the quality gate to distinguish pre-existing failures from new ones introduced by this task.
+5. **Run the baseline tests**: before writing any code, run the tests that cover what the plan touches — the existing test classes of every file the Checklist modifies, plus any tests the plan names. Not the full suite: it is often too slow or red for reasons unrelated to the task, and agents swapped it for this scope anyway. Write `scope: <test classes run>` as the first line of `.ai/sessions/{id}/test-baseline.txt`, then the names of the failing tests, or `CLEAN`. The quality gate uses it to tell pre-existing failures from new ones within that scope. Run the full suite only when the user asks for it.
 6. Implement in small commits, one concept per commit. Follow the plan's `### Commit Plan` section — each entry there is one commit. Typical chunk: one test file + the production code it exercises.
    a. **Write the tests first.** Mark the corresponding test items `[x]` in PLAN.md.
    b. **Confirm red with a one-line prediction (desirable, agent's discretion).** If you choose to skip running (e.g., the test references a symbol that doesn't exist yet), append: `[ts] red-check: <test-target> — skipped:<reason>`. Otherwise:
@@ -445,6 +445,7 @@ Steps:
 **Entry**: quality gate passed (or overridden with `/cg-approve quality`)
 
 Steps:
+0. **Commit the tech debt this task logged.** The quality gate writes `.ai/tech-debt/*.md` after the Phase 4 commit, so without this step the notes never leave the machine. `git status --porcelain --untracked-files=all .ai/tech-debt` lists them; stage those paths explicitly and `git commit -m "docs: tech debt logged by <ticket or task>"`. If `.ai/tech-debt` is ignored by git in this project, skip and say so under "Tech Debt Logged" in the description.
 1. Run PR creator sub-agent: Task tool with `.claude/agents/pr-creator/prompt.md`. The PR/MR targets `.ai/sessions/{id}/target-branch` (Phase 0), not the hosting default.
 2. PR description must include:
    - What was built and why (from task + elicitation)
