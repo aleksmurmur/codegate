@@ -295,7 +295,7 @@ Steps:
     from elicitation, Alternative considered is the option not taken.
     These are written BEFORE the baseline test run in step 5 — if a
     deviation is being formalized, the ADR should pre-date any code.
-5. **Run baseline test suite**: run the full test suite now, before writing any code. Save the names of any failing tests to `.ai/sessions/{id}/test-baseline.txt`. If the suite is clean, write "CLEAN" to that file. This baseline is used by the quality gate to distinguish pre-existing failures from new ones introduced by this task.
+5. **Run the baseline tests**: before writing any code, run the tests that cover what the plan touches — the existing test classes of every file the Checklist modifies, plus any tests the plan names. Not the full suite: it is often too slow or red for reasons unrelated to the task, and agents swapped it for this scope anyway. Write `scope: <test classes run>` as the first line of `.ai/sessions/{id}/test-baseline.txt`, then the names of the failing tests, or `CLEAN`. The quality gate uses it to tell pre-existing failures from new ones within that scope. Run the full suite only when the user asks for it.
 6. Implement in small commits, one concept per commit. Follow the plan's `### Commit Plan` section — each entry there is one commit. Typical chunk: one test file + the production code it exercises.
    a. **Write the tests first.** Mark the corresponding test items `[x]` in PLAN.md.
    b. **Confirm red with a one-line prediction (desirable, agent's discretion).** If you choose to skip running (e.g., the test references a symbol that doesn't exist yet), append: `[ts] red-check: <test-target> — skipped:<reason>`. Otherwise:
