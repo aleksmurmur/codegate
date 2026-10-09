@@ -70,6 +70,14 @@ echo "IMPLEMENTING" > "$PROJECT/.ai/sessions/s1/state"
 check "source allowed while IMPLEMENTING"   "src/Main.kt"                        0
 check "windows source allowed too"          'D:\project\src\Main.kt'             0
 
+# ── the reason reaches the agent: Claude Code shows only stderr for exit 2 ────────────────
+echo ""
+echo "-- blocking reason on stderr --"
+rm -f "$PROJECT/.ai/current-session"
+ERR=$(printf '{"tool_input":{"file_path":"src/Main.kt"}}' | ( cd "$PROJECT" && bash "$HOOK" 2>&1 >/dev/null ))
+if [ -n "$ERR" ]; then echo "PASS  block reason goes to stderr"; PASS=$((PASS + 1))
+else echo "FAIL  block reason goes to stderr  (stderr was empty)"; FAIL=$((FAIL + 1)); fi
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]
