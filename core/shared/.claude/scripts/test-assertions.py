@@ -226,7 +226,7 @@ ASSERTION = re.compile(
     # pytest's context-manager form
     r"\bpytest\.raises\s*\(|"
     # Assertion-shaped helper names: `awaitStatus(...)`, `expectStatus(...)`,
-    # `verifyBalance(...)`, `ensureRefunded(...)`. Helpers in a base class or a
+    # `verifyTotal(...)`, `ensureDeleted(...)`. Helpers in a base class or a
     # shared module cannot be followed, and this check blocks the gate — so when
     # a call names itself an assertion, believe it. Over-matching costs a missed
     # weak test; under-matching blocks correct code, which is worse.
@@ -510,7 +510,7 @@ def classify(
     when no line reached the discriminating tier.
 
     Tests routinely delegate their assertion to a helper in the same file —
-    `postExecutorPayment(..., expectStatus = 409)` whose body does the
+    `postOrder(..., expectStatus = 409)` whose body does the
     `andExpect`. Reporting those as assertionless is the single largest source
     of false positives, so calls are followed into same-file functions, bounded
     by depth and a visited set. Cross-file helpers remain out of reach; that is

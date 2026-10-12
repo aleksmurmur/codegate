@@ -21,6 +21,7 @@ was clean.
 - Path to `CODEBASE_CONTEXT.md`
 - Path to the session's `PLAN.md` (for scope context and smoke commands)
 - Path to the session's `test-baseline.txt` (pre-implementation test run snapshot)
+- Path to the session's `test-results.txt` (failing tests of the gate's full run, or `CLEAN`)
 - Path to `coverage-report.md`
 - Path to `assertion-report.md` (the mechanical no-op-assertion check already ran; its blocking findings are resolved, its advisory findings are yours to weigh)
 - Path to `.ai/tech-debt/` directory (for logging complex issues)
@@ -29,12 +30,14 @@ was clean.
 
 ## Stage 1 — Test Results
 
-Compare current test results against `test-baseline.txt`. Identify:
-- New failures introduced by this diff
+Compare `test-results.txt` (the gate's full run) with `test-baseline.txt` (the run before
+any code). Identify:
+- New failures introduced by this diff — each is a FAIL finding
 - Pre-existing failures (already failing before changes; not this PR's problem)
 - Passing tests
 
-If baseline is "CLEAN" and any tests now fail → those are introduced failures.
+If baseline is "CLEAN" and any tests now fail → those are introduced failures. Either
+file missing → say so in the report; do not guess the results.
 
 ---
 

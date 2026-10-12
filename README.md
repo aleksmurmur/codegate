@@ -106,7 +106,7 @@ to override quality `FAIL` — the long form is required for that, by design.
 ```
 /cg-status   # this branch's task: state and next action
 /cg-tasks    # every task in the repository: branch, state, worktree
-/cg-merged       # is this task's MR merged? closes the task when it is
+/cg-merged  # is this task's PR/MR merged? closes the task when it is
 /cg-next     # tracker items assigned to you, and which are already started
 /cg-explain  # read-only: state + audit + checklist + diff so far
 /cg-timeline # cross-session chronological view (--since 7d, --full)
@@ -167,7 +167,9 @@ script; and `.claude/tracker.md`, instructions for doing an action with the tool
 user's AI already has for that tracker (an MCP server, a CLI). An action the script cannot
 do is handed to the agent with those instructions, or skipped. Config and credentials stay
 with the project. `/cg-start` asks whether to use a tracker (`tracker`: `none` or `adapter`)
-and which projects consume this one (`consumers`). `/cg-tracker` for the current item by
+and which projects consume this one (`consumers`). It also asks how the full test suite
+runs (`test_command`): the workflow runs it before any code and in the quality gate; a
+project whose suite needs a wrapper script sets it there. `/cg-tracker` for the current item by
 hand, `/cg-next` for what is assigned to you.
 
 ### TDD Guard (strict TDD enforcement)

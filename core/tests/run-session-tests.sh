@@ -97,7 +97,7 @@ echo ""
 echo "-- facts about the checkout --"
 is "on the base branch"                              "$(fact "$REPO" status)" base
 g checkout -q feature/B-2-b
-is "an open MR"                                      "$(fact "$REPO" status)" mr-open
+is "an open MR"                                      "$(fact "$REPO" status)" review-open
 g checkout -q feature/C-3-c
 echo x > "$REPO/tracked.txt" && g add tracked.txt && g commit -q -m "wip"
 echo y >> "$REPO/tracked.txt"

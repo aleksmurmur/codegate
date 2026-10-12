@@ -16,6 +16,7 @@ produce findings.
 - `quality-findings-arch-code.md`
 - `quality-findings-testing.md`
 - Path to `PLAN.md` (for cross-references)
+- Paths to `test-baseline.txt` and `test-results.txt` (the runs before any code and in the gate)
 - Git diff, plus the list of files it touches (for cross-references when
   classifying — open a file when two findings might share one root cause)
 
@@ -169,7 +170,8 @@ and why synthesis proceeded.)
 
 ## Stage 1 — Test Results
 
-(carry forward from session test-baseline, same as single-pass format)
+(compare `test-results.txt` with `test-baseline.txt`, same as single-pass format: a new
+failure is a FAIL finding)
 
 ## Stage 2 — Linters
 

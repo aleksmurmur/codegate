@@ -297,7 +297,7 @@ def facts() -> dict:
     elif state == "MERGED" or merged:
         status = "merged"
     elif state in AFTER_PR:
-        status = "mr-open"
+        status = "review-open"
     elif idle_days is not None and idle_days >= STALE_DAYS:
         status = "stale"
     else:

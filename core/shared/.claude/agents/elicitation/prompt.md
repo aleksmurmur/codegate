@@ -104,8 +104,8 @@ field, cache key, event, API response:
 - **writers**: every code path that writes it (grep the name; follow repositories, mappers,
   consumers, jobs);
 - **readers**: every path that reads it — especially ones that will now see a new value;
-- **live path**: when several paths do the same thing (old and new API, preview and actual,
-  two doors into one flow), which one clients actually call;
+- **live path**: when several paths do the same thing (an old and a new API version, a dry run
+  and the real call, two entry points into one flow), which one clients actually call;
 - **existing data**: whether rows already in the database break the new rule. When the
   project gives you a read-only database tool and the answer depends on real data, query
   it and cite the query; otherwise say what you could not check.
@@ -133,11 +133,11 @@ system grows. Always produce this block for anything above a local change:
 - one mandatory line: is there a simpler or broader solution — an existing mechanism that
   already does most of this? Name it or say you looked and found none.
 Ask the user to choose only when the options differ in business consequences or are
-expensive to reverse (schema, public contract, anything irreversible for users or their money); otherwise state the choice and
+expensive to reverse (schema, public contract, anything irreversible for users); otherwise state the choice and
 let them object.
 
 **C. Business questions (block 2)** — only what the user knows and the code cannot tell:
-business rules and edge cases users will see, money, who may do what, API contracts and
+business rules and edge cases users will see, who may do what, API contracts and
 **consumers: which other projects (front end, mobile, other services) depend on this, and
 in what order to roll out**, scope (what is in, what is a follow-up), what to do with existing
 data. At most 4. Each:

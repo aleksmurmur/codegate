@@ -35,8 +35,9 @@ Not sure whether the PR/MR is merged: `/cg-merged` (below) first.
    - the quality-gate sub-agent (`.claude/agents/quality-gate/prompt.md`) on the delta only:
      `git diff <checked-sha>..HEAD`, the files it touches, and the sibling paths of what
      changed. Reason `scope` → the full Phase 4 instead (skill `cg-phase-4`);
-   - diff coverage on the delta when production code changed
-     (`diff-coverage.py --base <checked-sha>`).
+   - diff coverage on the delta when production code changed: first the full suite with
+     coverage (option `test_command`, as in Phase 4 — failing test names to
+     `{dir}/test-results.txt`), then `diff-coverage.py --base <checked-sha>`.
    Report in `{dir}/rework-N.md`. FAIL → fix and re-check the new commits, up to 3 rounds.
 5. Passed: write `git rev-parse HEAD` to `{dir}/checked-sha`, state `PR_UPDATED`, audit
    `[ts] Rework checked: <sha>`. Push (the push gate compares the pushed HEAD with

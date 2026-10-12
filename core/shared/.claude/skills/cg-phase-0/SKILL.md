@@ -23,7 +23,7 @@ python3 .claude/scripts/cg_session.py facts
 ```
 
 `facts` describes the checkout from git, not from what a session file claims: `status` is
-one of `base`, `in-progress` (uncommitted changes), `merged`, `mr-open`, `paused`, `stale`
+one of `base`, `in-progress` (uncommitted changes), `merged`, `review-open`, `paused`, `stale`
 (idle for days), `no-session`. Decide what happens to the task already here, and where the
 new one goes:
 
@@ -33,7 +33,7 @@ new one goes:
 | `in-progress` | paused, untouched | **new worktree** |
 | a live chat works here (the `codegate:` line says so, or `ListAgents` shows a busy session in this repo) | untouched | **new worktree** |
 | `merged` | write `MERGED` to its state, `tracker.py event merged` | this folder, new branch from fresh `BASE` |
-| `mr-open` | stays as is (its PR/MR is open) | this folder, new branch from fresh `BASE` |
+| `review-open` | stays as is (its PR/MR is open) | this folder, new branch from fresh `BASE` |
 | `stale` | ask one line: "close `<branch>` as no longer relevant?" — yes → write `ABANDONED` to its state; no → paused | this folder, new branch from fresh `BASE` |
 | `paused`, `no-session` | paused | this folder, new branch from fresh `BASE` |
 

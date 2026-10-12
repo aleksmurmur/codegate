@@ -50,17 +50,17 @@ def check(name: str, condition: bool, detail: str = "") -> None:
 # A JaCoCo report shaped like the the original run:
 #   - LimitationType.kt: the enum's <clinit>/synthetic methods attribute to the
 #     first constant line (4), fully covered. NO <line> for the `enum class` header (3).
-#   - OneTimeProduct.kt: one covered executable line (11) and one genuinely
+#   - Widget.kt: one covered executable line (11) and one genuinely
 #     uncovered executable line (10) -- the regression guard.
 #   - ErrorDetails.kt: a pure sealed interface with annotations -> JaCoCo emits
 #     no <line> at all, so it is absent from the report entirely.
 JACOCO_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <report name="test">
-  <package name="dev/codefish/smstrerching/core/product/domain">
+  <package name="com/example/app/core/product/domain">
     <sourcefile name="LimitationType.kt">
       <line nr="4" mi="0" ci="37" mb="0" cb="0"/>
     </sourcefile>
-    <sourcefile name="OneTimeProduct.kt">
+    <sourcefile name="Widget.kt">
       <line nr="10" mi="5" ci="0" mb="0" cb="0"/>
       <line nr="11" mi="0" ci="4" mb="0" cb="0"/>
     </sourcefile>
@@ -70,13 +70,13 @@ JACOCO_XML = """<?xml version="1.0" encoding="UTF-8"?>
 
 # Added/modified meaningful lines from the diff (path -> {line: text}).
 ADDED = {
-    "src/main/kotlin/dev/codefish/smstrerching/core/product/domain/LimitationType.kt": {
+    "src/main/kotlin/com/example/app/core/product/domain/LimitationType.kt": {
         3: "enum class LimitationType {",
     },
-    "src/main/kotlin/dev/codefish/smstrerching/core/common/dto/error/ErrorDetails.kt": {
-        15: '    JsonSubTypes.Type(value = ExecutorPaymentServiceLimitationDetails::class, name = "EXECUTOR_PAYMENT_SERVICE_LIMITATION"),',
+    "src/main/kotlin/com/example/app/core/common/dto/error/ErrorDetails.kt": {
+        15: '    JsonSubTypes.Type(value = WidgetLimitDetails::class, name = "WIDGET_LIMIT"),',
     },
-    "src/main/kotlin/dev/codefish/smstrerching/core/product/domain/OneTimeProduct.kt": {
+    "src/main/kotlin/com/example/app/core/product/domain/Widget.kt": {
         10: "        val violations = limitationViolationsFor(payment)",
         11: "        return violations.isEmpty()",
     },
@@ -95,7 +95,7 @@ def run() -> None:
 
     # parse_jacoco now carries (mi, ci) per tracked line, and only tracked lines exist.
     lt = dc.match_jacoco_path(
-        "src/main/kotlin/dev/codefish/smstrerching/core/product/domain/LimitationType.kt",
+        "src/main/kotlin/com/example/app/core/product/domain/LimitationType.kt",
         tracked,
     )
     check("parse: enum constant line tracked with instructions", lt.get(4) == (0, 37), f"got {lt.get(4)}")
@@ -120,11 +120,11 @@ def run() -> None:
     # Regression guard: a genuinely uncovered executable line is still caught.
     check(
         "genuinely uncovered executable line still flagged",
-        any("OneTimeProduct.kt:10" in u for u in uncovered),
+        any("Widget.kt:10" in u for u in uncovered),
         f"uncovered={uncovered}",
     )
 
-    # Counts: 2 executable (OneTimeProduct 10 + 11), 1 covered (11),
+    # Counts: 2 executable (Widget 10 + 11), 1 covered (11),
     # 2 non-executable excluded (enum header + annotation entry).
     check("executable count == 2", executable == 2, f"got {executable}")
     check("covered count == 1", covered == 1, f"got {covered}")
@@ -133,7 +133,7 @@ def run() -> None:
 
     # End-to-end shape: with only the two non-executable lines added, verdict is CLEAN.
     clean_added = {
-        k: v for k, v in ADDED.items() if "OneTimeProduct.kt" not in k
+        k: v for k, v in ADDED.items() if "Widget.kt" not in k
     }
     unc2, _, _, nonexec2 = dc.evaluate_jacoco(clean_added, tracked)
     check("the original repro: only non-exec lines -> CLEAN", unc2 == [], f"uncovered={unc2}")

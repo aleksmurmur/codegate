@@ -9,7 +9,7 @@ List the tasks of this repository across all branches and worktrees. Read-only.
 2. Leave out `MERGED` and `ABANDONED` ones unless `$ARGUMENTS` contains `all`.
 3. Show a table: ticket (or session id), branch, state, worktree (`-` = branch checked out
    nowhere), last activity. Mark the row of this checkout. Sort by last activity, newest first.
-4. Below it, one line per task that needs attention, only when it applies: an PR/MR open for
+4. Below it, one line per task that needs attention, only when it applies: a PR/MR open for
    days, rework not pushed, a task idle for over a week (offer to close it as no longer
    relevant), a branch checked out nowhere with unfinished work.
 

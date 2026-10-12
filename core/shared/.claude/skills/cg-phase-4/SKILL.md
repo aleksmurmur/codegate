@@ -7,10 +7,10 @@ user-invocable: false
 # Phase 4 — Quality gate
 
 **Entry**: implementation complete. Session dir: `python3 .claude/scripts/cg_session.py dir` (`{dir}`).
-`BASE=$(git merge-base "$(cat {dir}/target-branch 2>/dev/null || echo main)" HEAD)`.
+`BASE=$(git merge-base "$(cat {dir}/target-branch 2>/dev/null || .claude/scripts/cg-option.sh base_branch main)" HEAD)`.
 
 Mechanical checks run once; the gate runs again only after FAIL, and only on what the fixes
-touched — a fix is where a new defect most often hides.
+touched: fix commits get their own review.
 
 ## 1. Leftovers
 
@@ -22,15 +22,15 @@ task's files only (`git add -u` plus new plan files by path; never `-A`/`.`) and
 
 Both read committed history (`$BASE..HEAD`), not the working tree.
 
-**2a. Diff coverage.** Run the full test suite with coverage — this is the task's one full
-run after the baseline. The project's command is the option `test_command`
-(`.claude/scripts/cg-option.sh test_command`); how it runs (batches, time limits, locks) is
-the project's business. Without the option, detect: vitest `npx vitest run --coverage`; jest
+**2a. Diff coverage.** Run the full test suite with coverage — the gate's full run; every later
+coverage re-check is a full run again. The project's command is the option `test_command`
+(`.claude/scripts/cg-option.sh test_command`); how it runs is the project's business. Without the option, detect: vitest `npx vitest run --coverage`; jest
 `npx jest --coverage`; Gradle + JaCoCo `./gradlew test jacocoTestReport --rerun-tasks`; Maven
 `mvn test`. Force the tests to run: an up-to-date build skips them and leaves an old report.
 None detected → skip, and the script falls back to `Mode: grep` (informational only — say
-coverage was not measured). A failing test is not a reason to skip coverage: compare the
-failures with `test-baseline.txt` and still produce the report. Audit `[ts] coverage-refresh: <command|skipped:reason>`.
+coverage was not measured). A failing test is not a reason to skip coverage: write the failing test names (or
+`CLEAN`) to `{dir}/test-results.txt` — the gate compares them with `test-baseline.txt` —
+and still produce the report. Audit `[ts] coverage-refresh: <command|skipped:reason>`.
 Then `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output {dir}/coverage-report.md`.
 - `0` CLEAN → 2b.
 - `1` FAIL → write the missing tests (not production code bent to the metric), commit, and
@@ -50,7 +50,8 @@ Then `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output {dir}/cov
 Inputs: the diff `$BASE..HEAD`, the list of files it touches (the agent reads each in full —
 the defects hardest to catch are invisible in a diff: a guard every sibling applies and the
 new method omits, a second copy of existing machinery), CODEBASE_CONTEXT.md, PLAN.md,
-`test-baseline.txt`, `coverage-report.md`, `.ai/tech-debt/`.
+`test-baseline.txt`, `test-results.txt`, `coverage-report.md`, `assertion-report.md`,
+`.ai/tech-debt/`.
 
 - Default: one sub-agent, `.claude/agents/quality-gate/prompt.md`; it writes `{dir}/QUALITY_REPORT.md`.
 - `.ai/multi-persona-qg-enabled` exists: in ONE message, three parallel sub-agents
@@ -80,7 +81,7 @@ Then: state `QUALITY_REVIEWED`; audit `[ts] Quality gate complete`; present the 
   - Cannot be overridden, in any mode: critical SQL and security findings (XSS, hardcoded
     secret, an untested Security AC). Escalate.
 
-If the project has its own pre-MR review (a command or hook), its repeat covers only the
+If the project has its own review step before the PR/MR (a command or hook), its repeat covers only the
 commits since its last run — not the whole branch again.
 
 `checked-sha` is what the push gate compares against: commits after it that touch more than
