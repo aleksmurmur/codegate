@@ -1,12 +1,13 @@
 ---
 name: cg-phase-5
-description: Codegate Phase 5 — PR/MR creation. Use when the quality gate passed (or was overridden): commit logged tech debt, create the PR/MR, linked tasks for consumers, tracker event.
+description: Codegate Phase 5 — PR/MR creation. Use when the quality gate and the independent review concluded: commit logged tech debt, create the PR/MR, linked tasks for consumers, tracker event.
 user-invocable: false
 ---
 
 # Phase 5 — PR/MR
 
-**Entry**: gate PASS, WARN accepted, or FAIL overridden by the user. Session dir:
+**Entry**: the gate concluded (PASS, WARN accepted, FAIL overridden) and the independent
+review concluded (Phase 4 §5). Session dir:
 `python3 .claude/scripts/cg_session.py dir` (`{dir}`).
 
 1. **Tech debt this task logged.** The gate writes `.ai/tech-debt/*.md` after the last

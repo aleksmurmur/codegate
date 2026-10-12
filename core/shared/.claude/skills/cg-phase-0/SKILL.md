@@ -19,6 +19,7 @@ merge back; `branch_pattern` — how they are named.
 git fetch origin
 BASE=$(.claude/scripts/cg-option.sh base_branch main)
 PATTERN=$(.claude/scripts/cg-option.sh branch_pattern '{type}/{ticket}-{slug}')
+CURRENT=$(git branch --show-current)
 python3 .claude/scripts/cg_session.py facts
 ```
 

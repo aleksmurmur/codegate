@@ -5,7 +5,7 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
 ## Inputs you receive
 
 - Session directory path: `.ai/sessions/{id}/`
-- The session contains: `task.md`, `elicitation.md`, `PLAN.md`, `decisions/` (ADR files, one per non-obvious decision), `integrity-report.md` (with its `## Pattern Review` section), `QUALITY_REPORT.md`
+- The session contains: `task.md`, `elicitation.md`, `PLAN.md`, `decisions/` (ADR files, one per non-obvious decision), `integrity-report.md` (with its `## Pattern Review` section), `QUALITY_REPORT.md`, `REVIEW.md` (and `REVIEW-N.md` for repeats)
 
 ## Steps
 
@@ -14,13 +14,13 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
    - Run `git branch --show-current`. Phase 0 created the task branch before the first commit, so it must not be `TARGET`, `main` or `master`. If it is, **STOP** and tell the user — the commits are on a shared branch, and moving them is their call, not yours.
 
 2. **Commit uncommitted changes**
-   - Run `git status` — if there are unstaged or uncommitted changes to this task's files, stage them by explicit path (the files in `PLAN.md`'s checklist), or `git add -u` for modifications to already-tracked files. Do **not** `git add -A`/`git add .`: the working tree may hold unrelated untracked files (other tickets' artifacts, `.mcp.json`, `.ai/audit`, editor scratch) that must not enter the PR branch.
+   - Run `git status` — if there are unstaged or uncommitted changes to this task's files, stage them by explicit path (the files in `PLAN.md`'s checklist), or `git add -u` for modifications to already-tracked files. Do **not** `git add -A`/`git add .`: the working tree may hold unrelated untracked files (other tasks' notes, local tool configs, editor scratch) that must not enter the PR branch.
    - Commit message: `{type}: {short description from task.md}`
    - Types: `feat`, `fix`, `refactor`, `migration`, `chore`
 
 2a. **Sanity-check branch contents** (backstop against a polluted index)
    - List what this branch actually changed: `git diff --name-only $(git merge-base "$TARGET" HEAD)..HEAD`
-   - Every path should be either a file from `PLAN.md`'s checklist or an intentional artifact of this task. If a file appears that isn't in the plan and wasn't intentionally touched (e.g. `.mcp.json`, another ticket's doc, `.ai/audit`), **STOP** and tell the user — the index was likely polluted by a blanket `git add`. Do not push until it's resolved.
+   - Every path should be either a file from `PLAN.md`'s checklist or an intentional artifact of this task. If a file appears that isn't in the plan and wasn't intentionally touched (e.g. a local tool config, another task's notes), **STOP** and tell the user — the index was likely polluted by a blanket `git add`. Do not push until it's resolved.
 
 3. **Write the description first** — fill the template below into `.ai/sessions/{id}/pr-description.md`. Every path below uses it.
 
@@ -32,9 +32,9 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
    machine without `glab` still gets an MR:
    - `glab` installed and authenticated (`glab auth status` succeeds):
      `git push -u origin {branch}`, then
-     `glab mr create --source-branch {branch} --target-branch "$TARGET" --title "<title>" --description "$(cat .ai/sessions/{id}/pr-description.md)" --remove-source-branch --yes`.
+     `glab mr create --source-branch {branch} --target-branch "$TARGET" --title "<title>" --description "$(cat .ai/sessions/{id}/pr-description.md)" --yes`.
    - otherwise, GitLab push options — the server creates the MR during the push:
-     `git push -u -o merge_request.create -o merge_request.target=<TARGET> -o merge_request.remove_source_branch -o merge_request.title="<title>" origin HEAD`, with the branch name written out literally — the pre-push hook reads the command text and treats an unexpanded `$TARGET` as a protected branch.
+     `git push -u -o merge_request.create -o merge_request.target=<TARGET> -o merge_request.title="<title>" origin HEAD`, with the branch name written out literally — the pre-push hook reads the command text and treats an unexpanded `$TARGET` as a protected branch.
      The URL is in the push output (`View merge request … https://…/-/merge_requests/N`).
      Push options cannot carry a multi-line description: tell the user the MR exists without
      one and give them `.ai/sessions/{id}/pr-description.md` to paste.
@@ -91,10 +91,15 @@ was asked about them, so this is where a reviewer sees them. If there were none:
 
 ## Quality Report
 
-[Paste the verdict line and the Stage 3 findings table from QUALITY_REPORT.md.
+[Paste the verdict line and the Stage 4 findings table from QUALITY_REPORT.md.
 If verdict is PASS: "All quality checks passed."
 If verdict is WARN: paste the warnings with a note they were reviewed and accepted.
 Do not paste the full report — summary only.]
+
+## Independent Review
+
+[From `REVIEW.md` (and `REVIEW-N.md`): the verdict; each critical and what happened to it —
+fixed (commit) or not applicable (the user's reason); warnings left unfixed, one line each.]
 
 ## Tech Debt Logged
 

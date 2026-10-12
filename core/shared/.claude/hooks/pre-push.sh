@@ -178,7 +178,7 @@ case "$STATE" in
     ;;
 esac
 
-# Commits after the last check (checked-sha, written by the gate and the rework check) reach
+# Commits after the last check (checked-sha, written at the end of Phase 4 and by the rework check) reach
 # the PR/MR unreviewed. Merges of the target branch and commits touching only .ai/ do not count.
 CHECKED=$(cat "$SESSION_DIR/checked-sha" 2>/dev/null | tr -d '[:space:]')
 if [ -z "$CHECKED" ] && [ -n "$SESSION_BRANCH" ]; then
@@ -187,7 +187,7 @@ if [ -z "$CHECKED" ] && [ -n "$SESSION_BRANCH" ]; then
   case "$STATE" in
     QUALITY_REVIEWED|PR_CREATED|PR_UPDATED)
       block "no checked commit is recorded (checked-sha) — the quality gate has not concluded." \
-            "Finish the gate (skill cg-phase-4): PASS, an accepted WARN or the user's /cg-approve quality writes checked-sha."
+            "Finish Phase 4 (skill cg-phase-4): the gate, then the independent review, which writes checked-sha."
       ;;
   esac
 elif [ -z "$CHECKED" ] && [ "$STATE" = QUALITY_REVIEWED ] && grep -qiE 'verdict[^a-z]*FAIL' "$SESSION_DIR/QUALITY_REPORT.md" 2>/dev/null; then

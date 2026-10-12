@@ -1,6 +1,6 @@
 ---
 name: cg-phase-4
-description: Codegate Phase 4 — quality gate. Use when implementation is complete (or /cg-approve implementation): commit leftovers, diff coverage and assertion checks once, the review sub-agent, fix rounds limited to what failed.
+description: Codegate Phase 4 — quality gate and independent review. Use when implementation is complete (or /cg-approve implementation): commit leftovers, diff coverage and assertion checks once, the review sub-agent, fix rounds limited to what failed.
 user-invocable: false
 ---
 
@@ -25,8 +25,7 @@ Both read committed history (`$BASE..HEAD`), not the working tree.
 **2a. Diff coverage.** Run the full test suite with coverage — the gate's full run; every later
 coverage re-check is a full run again. The project's command is the option `test_command`
 (`.claude/scripts/cg-option.sh test_command`); how it runs is the project's business. Without the option, detect: vitest `npx vitest run --coverage`; jest
-`npx jest --coverage`; Gradle + JaCoCo `./gradlew test jacocoTestReport --rerun-tasks`; Maven
-`mvn test`. Force the tests to run: an up-to-date build skips them and leaves an old report.
+`npx jest --coverage`; Gradle + JaCoCo `./gradlew test jacocoTestReport`; Maven `mvn test`.
 None detected → skip, and the script falls back to `Mode: grep` (informational only — say
 coverage was not measured). A failing test is not a reason to skip coverage: write the failing test names (or
 `CLEAN`) to `{dir}/test-results.txt` — the gate compares them with `test-baseline.txt` —
@@ -64,25 +63,44 @@ Then: state `QUALITY_REVIEWED`; audit `[ts] Quality gate complete`; present the 
 
 ## 4. Verdict
 
-- **PASS** → audit `[ts] Quality gate passed — verdict: PASS`, write `git rev-parse HEAD` to
-  `{dir}/checked-sha`, go to Phase 5 (skill `cg-phase-5`). Both modes.
+- **PASS** → audit `[ts] Quality gate passed — verdict: PASS`, go to §5. Both modes.
 - **WARN** → fix what is worth fixing now (these fixes are not re-gated: the PR/MR review sees
   them), log the rest as tech debt or in the PR description. `fast`: audit
-  `[ts] fast-mode-auto-proceed: phase-4-warn`, write `checked-sha`, Phase 5. `interactive`:
+  `[ts] fast-mode-auto-proceed: phase-4-warn`, §5. `interactive`:
   "Type `/cg-approve quality` to proceed." Wait.
 - **FAIL** → fix each FAIL item; commit `fix: address quality gate findings — round N`;
   re-run the gate **on the fix commits only**: their diff, the files they touch, and the
   sibling paths of the fixed code (other callers and writers of what was changed). Not the
-  whole task again. Up to 3 rounds; then escalate. Audit `[ts] Quality gate FAIL — N issues`.
+  whole task again. Before it, re-run the tests listed in `test-results.txt` and the fix's
+  own tests, and rewrite `test-results.txt` from that run — the gate judges test failures
+  by that file. Up to 3 rounds; then escalate. Audit `[ts] Quality gate FAIL — N issues`.
   - When the fixes changed production code, re-run diff coverage once after the last round;
     its result goes into the PR description, it does not restart the loop.
   - `/cg-approve quality` by the user overrides FAIL: audit `[ts] Quality gate override by
-    user — FAIL items accepted`, write `checked-sha`, Phase 5.
+    user — FAIL items accepted`, §5.
   - Cannot be overridden, in any mode: critical SQL and security findings (XSS, hardcoded
     secret, an untested Security AC). Escalate.
 
-If the project has its own review step before the PR/MR (a command or hook), its repeat covers only the
-commits since its last run — not the whole branch again.
+## 5. Independent review
+
+Once the gate has concluded (PASS, WARN accepted, FAIL overridden), in both modes: a
+reviewer who did not write the code reads it against the task. It catches what a gate that
+shares the author's plan and reasoning does not.
+
+Sub-agent `.claude/agents/independent-review/prompt.md`, given **only**: `{dir}/task.md`,
+`{dir}/elicitation.md`, the base `$BASE`, and the report path `{dir}/REVIEW.md`. Not the
+plan, the ADRs, the gate report, or your own account of how it was built.
+- **CLEAN** → go on.
+- **HAS CRITICAL** → each critical is either fixed test-first (commit
+  `fix: independent review — <one line>`) or the user says why it does not apply (audit
+  their reason). The agent never dismisses a critical alone, in any mode. Then re-run the
+  review on the fix commits only (base = HEAD before the fixes, report `{dir}/REVIEW-N.md`),
+  with the tests of the fixed code. Up to 3 rounds; then escalate.
+- **HAS WARNINGS ONLY** → `fast`: fix what is worth fixing now (not re-reviewed), the rest
+  goes to the PR description. `interactive`: show them; "fix or proceed?" — wait.
+
+Audit `[ts] Independent review: <verdict> — C critical, W warnings`. Then write
+`git rev-parse HEAD` to `{dir}/checked-sha` and go to Phase 5 (skill `cg-phase-5`).
 
 `checked-sha` is what the push gate compares against: commits after it that touch more than
 `.ai/` block the push until they are checked (skill `cg-rework`).

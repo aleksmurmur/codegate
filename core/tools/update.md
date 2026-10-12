@@ -372,6 +372,12 @@ did not. After the files are in place:
   a session naming no branch would otherwise count as the task of every branch.
 - `.gitignore`: add `.claude/worktrees/` when missing (Phase 0 creates task worktrees there).
 
+**Independent review** — upstream has `.claude/agents/independent-review/prompt.md` and
+baseline did not. Phase 4 now ends with a review by a sub-agent that sees only the task and
+the code. If the project has its own review before the PR/MR (a command, an agent, a hook
+that demands its marker), tell the user both now run, and ask whether to keep theirs. Their
+command, agent and hook are project files: never delete or edit them without a yes.
+
 ---
 
 ## 7. Build the new manifest

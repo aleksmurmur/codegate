@@ -39,8 +39,8 @@ never write code without a task on the branch.
 | 1 Session + elicitation | Phase 0 done | `cg-phase-1` |
 | 2 Planning | elicitation answered | `cg-phase-2` |
 | 3 Implementation | plan approved | `cg-phase-3` |
-| 4 Quality gate | implementation complete | `cg-phase-4` |
-| 5 PR/MR | gate passed | `cg-phase-5` |
+| 4 Quality gate + independent review | implementation complete | `cg-phase-4` |
+| 5 PR/MR | gate and review concluded | `cg-phase-5` |
 | After the PR/MR | rule 2 above, `/cg-merged` | `cg-rework` |
 
 On entering a phase, invoke its skill and follow it. After compaction the recovery note
@@ -90,7 +90,7 @@ workflow on it beyond the question in Phase 0.
    (redirects, `sed -i`, python, heredoc). Hooks and editor diagnostics see only those tools;
    a shell write is invisible to them.
 4. Never expand scope beyond the approved plan without asking the user.
-5. Never create a PR/MR without a completed quality gate, and never push commits made after
+5. Never create a PR/MR without a completed quality gate and independent review, and never push commits made after
    it without the rework check.
 6. Stage by explicit path; never `git add -A` / `git add .`.
 7. Writes to `.ai/` are always allowed — that is where session data lives.

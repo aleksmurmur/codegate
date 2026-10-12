@@ -368,7 +368,7 @@ def write_report(
         lines.append("")
         lines.append("## Next step")
         lines.append("Add at least one test exercising each item above, commit,")
-        lines.append("then re-run `/cg-approve implementation`.")
+        lines.append("then run the tests with coverage again and re-run this check.")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

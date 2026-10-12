@@ -17,7 +17,8 @@ lands here directly). Session dir: `python3 .claude/scripts/cg_session.py dir` (
    `{dir}/decisions/NNN-slug.md` (format in `.claude/agents/implementer/prompt.md`), before
    any code. Plain clarifications of behaviour are not ADRs.
 3. **Baseline**, before any code: the full test suite — the option `test_command`
-   (`.claude/scripts/cg-option.sh test_command`) or the stack's usual command. Failures here
+   (`.claude/scripts/cg-option.sh test_command`); without it: vitest `npx vitest run --coverage`,
+   jest `npx jest --coverage`, Gradle + JaCoCo `./gradlew test jacocoTestReport`, Maven `mvn test`. Failures here
    are not this task's; the gate compares against them. `{dir}/test-baseline.txt`: the
    failing test names, or `CLEAN`.
 4. **Chunks.** Each entry of the plan's `### Commit Plan` is a chunk; group small adjacent

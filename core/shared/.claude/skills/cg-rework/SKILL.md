@@ -32,13 +32,14 @@ Not sure whether the PR/MR is merged: `/cg-merged` (below) first.
    staged by explicit path; audit lines per commit.
 4. **Delta check** — everything after `{dir}/checked-sha` (the last checked commit):
    - the tests of the code the delta touches, plus the new ones;
-   - the quality-gate sub-agent (`.claude/agents/quality-gate/prompt.md`) on the delta only:
-     `git diff <checked-sha>..HEAD`, the files it touches, and the sibling paths of what
-     changed. Reason `scope` → the full Phase 4 instead (skill `cg-phase-4`);
+   - the independent review (`.claude/agents/independent-review/prompt.md`, as in Phase 4 §5)
+     with base `<checked-sha>` and report `{dir}/rework-N.md`. Reason `scope` → also the
+     quality gate on the delta (skill `cg-phase-4`, §2–3, base `<checked-sha>`, report
+     `{dir}/rework-N-gate.md`) — without its state change and without Phase 5; then step 5 here;
    - diff coverage on the delta when production code changed: first the full suite with
      coverage (option `test_command`, as in Phase 4 — failing test names to
      `{dir}/test-results.txt`), then `diff-coverage.py --base <checked-sha>`.
-   Report in `{dir}/rework-N.md`. FAIL → fix and re-check the new commits, up to 3 rounds.
+   A critical, or a gate FAIL → fix and re-check the new commits, up to 3 rounds.
 5. Passed: write `git rev-parse HEAD` to `{dir}/checked-sha`, state `PR_UPDATED`, audit
    `[ts] Rework checked: <sha>`. Push (the push gate compares the pushed HEAD with
    `checked-sha`; commits that touch only `.ai/` do not count).

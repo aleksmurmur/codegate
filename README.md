@@ -29,7 +29,8 @@ Every task follows enforced phases before code reaches review:
    diff touched must assert something that could fail — coverage proves a line
    ran, not that anything would notice it being wrong). Then the LLM review
    across quality dimensions, reading whole files rather than only the diff,
-   with baseline-diffed test run and tech-debt log.
+   with baseline-diffed test run and tech-debt log. Last, an independent review: a
+   sub-agent that sees only the task and the code, not the plan or the author's reasoning.
 5. **PR creation** — PR/MR with the quality report; linked tracker tasks for the projects
    that consume the change (front end, mobile), after the user confirms the drafts.
 6. **After the PR/MR** — QA findings, review remarks and CI fixes are *rework*: same branch,

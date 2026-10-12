@@ -54,7 +54,7 @@
     twice per task: as the baseline before any code, and for diff coverage in the quality
     gate; each later coverage re-check (after a fix, in rework) is another full run.
   default: >
-    Empty: the stack's usual command (e.g. `./gradlew test jacocoTestReport --rerun-tasks`,
-    `npx vitest run --coverage`). Set it when the project runs its suite differently — a wrapper
+    Empty: the stack's usual command (`npx vitest run --coverage`, `npx jest --coverage`,
+    `./gradlew test jacocoTestReport`, `mvn test`). Set it when the project runs its suite differently — a wrapper
     script, another runner, extra flags. Codegate only calls the command;
     it must leave a coverage report where the stack's diff-coverage looks for it.

@@ -229,6 +229,17 @@ was written.
 
 ---
 
+## 5b. Ignore task worktrees
+
+Phase 0 creates task worktrees under `.claude/worktrees/`. Add that line to `.gitignore`
+when missing:
+
+```bash
+grep -qxF '.claude/worktrees/' .gitignore 2>/dev/null || printf '.claude/worktrees/\n' >> .gitignore
+```
+
+---
+
 ## 6. Post-install hint
 
 Tell the user one short line:
