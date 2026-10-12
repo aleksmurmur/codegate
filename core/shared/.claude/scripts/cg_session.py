@@ -17,6 +17,8 @@ Usage:
   cg_session.py state            its state; empty when there is no session
   cg_session.py sync             copy every session of this checkout into the shared store
   cg_session.py list [--json]    every known session: branch, state, worktree, last activity
+  cg_session.py base             the commit this task's diff starts from: the merge-base of HEAD
+                                 with its target branch (the remote one unless the local is ahead)
   cg_session.py facts            JSON facts about this checkout for the task-boundary decision
   cg_session.py claim --chat ID  record that chat ID is working in this checkout; prints the
                                  previous chat when another one was active here recently
@@ -251,6 +253,23 @@ def target_ref(target: str) -> str | None:
     return None
 
 
+def diff_base() -> str | None:
+    sid = current()
+    copies = session_dirs().get(sid, []) if sid else []
+    target = (read(newest(copies, "target-branch")) if copies else "") or option("base_branch", "main")
+    for name in [target] + (["master"] if target == "main" else []):
+        refs = [r for r in (f"origin/{name}", name) if git("rev-parse", "--verify", "--quiet", r + "^{commit}")]
+        if not refs:
+            continue
+        # A local target behind its remote (a worktree never pulls it) would put other people's
+        # commits into the diff; one ahead of it (a stacked task's unpushed parent) is the truth.
+        ref = refs[0]
+        if len(refs) == 2 and git("merge-base", "--is-ancestor", refs[0], refs[1]) is not None:
+            ref = refs[1]
+        return git("merge-base", ref, "HEAD")
+    return None
+
+
 def facts() -> dict:
     branch = current_branch()
     base = option("base_branch", "main")
@@ -349,6 +368,11 @@ def main(argv: list[str]) -> int:
             for r in rows:
                 print("  ".join(r[k] or "-" for k in ("id", "branch", "state", "worktree", "last_activity")))
         return 0
+    if cmd == "base":
+        b = diff_base()
+        if b:
+            print(b)
+        return 0 if b else 1
     if cmd == "facts":
         print(json.dumps(facts(), ensure_ascii=False))
         return 0

@@ -21,22 +21,24 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
      not yours: leave them.
 
 2a. **Sanity-check branch contents** (backstop against a polluted index)
-   - List what this branch actually changed: `git diff --name-only $(git merge-base "$TARGET" HEAD)..HEAD`
+   - List what this branch actually changed: `git diff --name-only $(python3 .claude/scripts/cg_session.py base)..HEAD`
    - Every path should be either a file from `PLAN.md`'s checklist or an intentional artifact of this task. If a file appears that isn't in the plan and wasn't intentionally touched (e.g. a local tool config, another task's notes), **STOP** and tell the user — the index was likely polluted by a blanket `git add`. Do not push until it's resolved.
 
 3. **Write the description first** — fill the template below into `.ai/sessions/{id}/pr-description.md`. Every path below uses it.
 
 4. **Push and create the PR/MR** — pick the path by the remote: `git remote get-url origin`.
    Always target `TARGET`, never the hosting default. Never request a squash: the commit split
-   is what the PR was reviewed on.
+   is what the PR was reviewed on. Write `TARGET` and `{branch}` out literally in every
+   command below: the push and PR/MR hooks read the command text, and an unexpanded variable
+   counts as a protected branch.
 
    **GitLab** (`gitlab.com` or a self-hosted GitLab in the URL) — two working paths, so a
    machine without `glab` still gets an MR:
    - `glab` installed and authenticated (`glab auth status` succeeds):
      `git push -u origin {branch}`, then
-     `glab mr create --source-branch {branch} --target-branch "$TARGET" --title "<title>" --description "$(cat .ai/sessions/{id}/pr-description.md)" --yes`.
+     `glab mr create --source-branch {branch} --target-branch <TARGET> --title "<title>" --description "$(cat .ai/sessions/{id}/pr-description.md)" --yes`.
    - otherwise, GitLab push options — the server creates the MR during the push:
-     `git push -u -o merge_request.create -o merge_request.target=<TARGET> -o merge_request.title="<title>" origin HEAD`, with the branch name written out literally — the pre-push hook reads the command text and treats an unexpanded `$TARGET` as a protected branch.
+     `git push -u -o merge_request.create -o merge_request.target=<TARGET> -o merge_request.title="<title>" origin HEAD`.
      The URL is in the push output (`View merge request … https://…/-/merge_requests/N`).
      Push options cannot carry a multi-line description: tell the user the MR exists without
      one and give them `.ai/sessions/{id}/pr-description.md` to paste.
@@ -44,7 +46,7 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
      manual URL `https://{host}/{owner}/{repo}/-/merge_requests/new?merge_request[source_branch]={branch}&merge_request[target_branch]=$TARGET`.
 
    **GitHub** (`github.com`): `git push -u origin {branch}`, then
-   `gh pr create --base "$TARGET" --head {branch} --title "<title>" --body-file .ai/sessions/{id}/pr-description.md`
+   `gh pr create --base <TARGET> --head {branch} --title "<title>" --body-file .ai/sessions/{id}/pr-description.md`
    when `gh` is installed and authenticated; otherwise the manual URL
    `https://github.com/{owner}/{repo}/compare/$TARGET...{branch}?expand=1`.
 

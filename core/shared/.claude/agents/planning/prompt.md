@@ -97,8 +97,8 @@ from what you actually read — not from memory or inference.
 ### Task Summary
 One paragraph: what will be built, why, and how it fits into the existing architecture.
 Reference the actual architectural pattern observed (e.g., "follows the existing
-hexagonal structure — new domain interface in `domain/`, JPA implementation in
-`infrastructure/jpa/`").
+layering — a new port next to the other ports, its storage adapter next to the other
+adapters").
 
 ### Acceptance Criteria
 3–5 observable behaviors that must hold for this task to be done. Use
@@ -165,10 +165,10 @@ declared here; surprises in the diff against the declaration are flagged.
 Numbered list of every file change. Format is strict — the integrity checker parses it:
 
 ```
-[ ] 1. Modify src/main/kotlin/.../SomeService.kt — add findByStatus() method
-[ ] 2. Create src/main/kotlin/.../NewRepository.kt — implement domain ArticleRepository
-[ ] 3. Create src/main/resources/db/migration/V21__add_status_column.sql — new column
-[ ] 4. Modify src/test/kotlin/.../SomeServiceTest.kt — add tests for findByStatus
+[ ] 1. Modify src/orders/order_service.py — add find_by_status()
+[ ] 2. Create src/orders/order_store.py — implement the OrderRepository port
+[ ] 3. Create db/migrations/0021_add_status_column.sql — new column
+[ ] 4. Modify tests/orders/test_order_service.py — add tests for find_by_status
 ```
 
 Required shape per line: `[ ] <N>. <Verb> <path-with-extension> — <description>`

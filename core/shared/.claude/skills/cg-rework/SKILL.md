@@ -32,15 +32,15 @@ Not sure whether the PR/MR is merged: `/cg-merged` (below) first.
 3. Fix test-first, as in Phase 3: a test that reproduces the report, then the fix; commits
    staged by explicit path; audit lines per commit.
 4. **Delta check** — everything after `{dir}/checked-sha` (the last checked commit). When
-   that commit is no longer in the branch (amend, rebase, reset), the base is
-   `git merge-base <target> HEAD` and the check covers the whole branch:
+   there is none, or it is no longer in the branch (amend, rebase, reset), the base is
+   `python3 .claude/scripts/cg_session.py base` and the check covers the whole branch:
    - the tests of the code the delta touches, plus the new ones;
    - the independent review (`.claude/agents/independent-review/prompt.md`, as in Phase 4 §5)
      with base `<checked-sha>` and report `{dir}/rework-N.md`. Reason `scope` → also the
      quality gate on the delta (skill `cg-phase-4`, §2b–3, the same base, report path
      `{dir}/rework-N-gate.md`) — without its state change and without Phase 5; then step 5 here;
    - diff coverage on the delta when production code changed: first the full suite with
-     coverage (option `test_command`, as in Phase 4 — failing test names to
+     coverage (the baseline's command, as in Phase 4 — failing test names to
      `{dir}/test-results.txt`), then `diff-coverage.py --base <checked-sha>`.
    A critical, or a gate FAIL → fix and re-check the new commits, up to 3 rounds; then
    escalate. Warnings only → as in Phase 4 §5 (`fast`: fix what is worth it now, the rest

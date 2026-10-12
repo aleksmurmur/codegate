@@ -370,6 +370,10 @@ did not. After the files are in place:
   `Branch <name> from` line of its audit log; without one, ask the user which branch it
   belongs to. Write it to the session's `branch` file, then delete `.ai/current-session` —
   a session naming no branch would otherwise count as the task of every branch.
+- That session past its gate (`QUALITY_REVIEWED`, `PR_CREATED`, `PR_UPDATED`) and without
+  `checked-sha`: the push gate would now hold back every push of it. Write the commit its PR/MR
+  already shows — `git rev-parse origin/<branch>`, or the branch tip when it was never
+  pushed — to `checked-sha`, and audit `[ts] checked-sha set by the upgrade: <sha>`.
 - `.gitignore`: add `.claude/worktrees/` when missing (Phase 0 creates task worktrees there).
 
 **Push and PR hooks start firing** — baseline `.claude/settings.json` registers `pre-push.sh` or

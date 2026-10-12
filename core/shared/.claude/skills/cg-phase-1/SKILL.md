@@ -55,9 +55,10 @@ user-invocable: false
   Phase 4 reads it instead of the elicitation file.
   A non-answer ("not sure", "TBD") gets the concrete options with their cost and one
   question "1, 2 or 3?" — never carried into planning open.
-- **No questions** (block 1 states its choice, block 2 is empty): `fast` — say
-  "No business questions; going ahead with the shape above — say if it is wrong.", write the
-  shape line to `{dir}/requirements.md`, and continue at once; `interactive` — wait for `/cg-approve elicit`.
+- **No questions** (block 1 states its choice, block 2 is empty): write the shape line to
+  `{dir}/requirements.md` in either mode. `fast` — say "No business questions; going ahead
+  with the shape above — say if it is wrong." and continue at once; `interactive` — wait for
+  `/cg-approve elicit`.
 - `fast` after answers: audit `[ts] fast-mode-auto-proceed: phase-1` and go to Phase 2
   (skill `cg-phase-2`). `interactive`: "Type `/cg-approve elicit` to plan." Wait.
 

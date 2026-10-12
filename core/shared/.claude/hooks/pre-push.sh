@@ -14,128 +14,70 @@
 INPUT=$(cat 2>/dev/null || echo "")
 case "$INPUT" in *push*) ;; *) exit 0 ;; esac
 
-# Python runs every check below. Without it the parsing silently yields nothing and the hook
-# would let everything through; the Windows Store stub `python3` exists but does not run.
+# Python runs every check below; the Windows Store stub `python3` exists but does not run.
+# Without it, only a call that looks like `git [options] push` is held back.
 PY=$(command -v python3 2>/dev/null)
 "${PY:-false}" -c "" 2>/dev/null || PY=$(command -v python 2>/dev/null)
 if ! "${PY:-false}" -c "" 2>/dev/null; then
-  echo "codegate: Python 3 not found (python3 or python) — this hook cannot check the call. Install Python 3." >&2
-  exit 2
+  if printf '%s' "$INPUT" | grep -qE '(^|[^[:alnum:]_.-]|\\n)git(\.exe)?([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+push([^[:alnum:]_-]|$)'; then
+    echo "codegate: Python 3 not found (python3 or python) — this hook cannot check the push. Install Python 3." >&2
+    exit 2
+  fi
+  exit 0
 fi
 
-COMMAND=$("$PY" -c "
-import json, sys
-try:
-    d = json.load(sys.stdin)
-    print(d.get('tool_input', {}).get('command', ''))
-except Exception:
-    print('')
-" <<< "$INPUT" 2>/dev/null || echo "")
+# Only a real `git [options] push`, in any part of a compound command, `bash -c` or `eval` —
+# not a commit message or a grep that mentions the word. One line per landing: `ref <branch>`
+# (HEAD for the current branch) and `mr <target>` for an MR the push opens.
+SCRIPTS="$(cd "$(dirname "$0")" && pwd)/../scripts"
+PUSH=$(printf '%s' "$INPUT" | "$PY" "$SCRIPTS/cg_cmd.py" push 2>/dev/null)
+case $? in
+  0) ;;
+  1) exit 0 ;;
+  *) echo "codegate: cannot parse this command ($SCRIPTS/cg_cmd.py failed) — the push is not checked." >&2; exit 2 ;;
+esac
+REF_TARGETS=$(printf '%s\n' "$PUSH" | sed -n 's/^ref //p')
+MR_TARGETS=$(printf '%s\n' "$PUSH" | sed -n 's/^mr //p')
 
-# Only a real `git [options] push`, in any segment of a compound command — not a commit
-# message or a grep that mentions the word.
-COMMAND="$COMMAND" "$PY" -c '
-import os, shlex, sys
-try:
-    words = shlex.split(os.environ["COMMAND"], posix=True)
-except ValueError:
-    words = os.environ["COMMAND"].split()
-seg, segs = [], []
-for w in words:
-    if w in ("&&", "||", ";", "|"):
-        segs.append(seg); seg = []
-    else:
-        seg.append(w)
-segs.append(seg)
-for s in segs:
-    for i, w in enumerate(s):
-        if w == "git" or w.endswith("/git"):
-            j = i + 1
-            while j < len(s) and s[j].startswith("-"):
-                j += 2 if s[j] in ("-C", "-c") else 1
-            if j < len(s) and s[j] == "push":
-                sys.exit(0)
-sys.exit(1)
-' 2>/dev/null || exit 0
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+cd "$ROOT" || exit 2
+# The markers are the user's one-shot approvals. Only a push that goes through uses them up:
+# one blocked by the second gate does not make the user approve the first one again.
+CONSUME=""
+trap 'rc=$?; [ $rc -eq 0 ] && [ -n "$CONSUME" ] && rm -f $CONSUME; exit $rc' EXIT
+
+SESSION_DIR=$("$PY" "$SCRIPTS/cg_session.py" dir 2>/dev/null)
+[ -n "$SESSION_DIR" ] && SESSION_DIR="$ROOT/$SESSION_DIR"
+SESSION_TARGET=""
+[ -n "$SESSION_DIR" ] && SESSION_TARGET=$(cat "$SESSION_DIR/target-branch" 2>/dev/null | tr -d '[:space:]')
 
 # --- Gate 1: protected-target landings ---
-# Determine target branch from the push command.
-# Strip "git push" and any flags, then look at remaining args:
-#   git push                       → target = current branch
-#   git push origin                → target = current branch
-#   git push origin main           → target = main
-#   git push origin HEAD:main      → target = main
-#   git push origin feat:main      → target = main
-#   git push origin :main          → target = main (delete)
-# Every branch this push can land on: the pushed refspec's destination, and the target of an
-# MR the push creates (GitLab `-o merge_request.target=X`) — a protected one either way is gated.
-# Parsed with shlex: option values may be quoted and contain spaces (`-o merge_request.title="A b"`).
-TARGETS=$(COMMAND="$COMMAND" "$PY" -c '
-import os, shlex
-try:
-    words = shlex.split(os.environ["COMMAND"])
-except ValueError:
-    words = os.environ["COMMAND"].split()
-if "push" in words:
-    words = words[words.index("push") + 1:]
-positional, options, i = [], [], 0
-while i < len(words):
-    w = words[i]
-    if w in ("-o", "--push-option") and i + 1 < len(words):
-        options.append(words[i + 1]); i += 1
-    elif w.startswith("--push-option="):
-        options.append(w.split("=", 1)[1])
-    elif w.startswith("-o") and len(w) > 2:
-        options.append(w[2:])
-    elif not w.startswith("-"):
-        positional.append(w)
-    i += 1
-
-def branch(ref):
-    ref = ref.lstrip("+")
-    for prefix in ("refs/heads/", "heads/"):
-        if ref.startswith(prefix):
-            return ref[len(prefix):]
-    return ref
-
-# Every refspec, not just the last: `git push origin a:main b:x` lands on main too.
-dests = [branch(r.rsplit(":", 1)[-1] if ":" in r else r) for r in positional[1:]]
-print(" ".join(d or "HEAD" for d in dests) or "HEAD")
-
-mr = [o.split("=", 1)[1] for o in options if o.startswith("merge_request.target=")]
-if mr:
-    print(mr[-1])
-elif "merge_request.create" in options:
-    print("@default")  # GitLab opens it against the default branch
-' 2>/dev/null)
-REF_TARGETS=$(echo "$TARGETS" | sed -n 1p)
-MR_TARGET=$(echo "$TARGETS" | sed -n 2p)
-
+# A pushed refspec that lands on a protected branch, or an MR the push opens against one. The
+# MR the task was set up for (Phase 0 recorded its target) is not a stray landing.
 CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
 CHECKS=""
 for t in $REF_TARGETS; do
   [ "$t" = "HEAD" ] && t="$CURRENT_BRANCH"
   CHECKS="$CHECKS $t"
 done
-[ -z "$REF_TARGETS" ] && CHECKS="$CURRENT_BRANCH"
-if [ "$MR_TARGET" = "@default" ]; then
-  MR_TARGET=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
-  # Unknown default branch: assume the worst rather than let the PR/MR through unchecked.
-  [ -z "$MR_TARGET" ] && MR_TARGET="main"
-fi
-case "$MR_TARGET" in
-  *'$'*|*'`'*) MR_TARGET="main" ;;  # an unexpanded variable can be anything — treat as protected
-esac
-CHECKS="$CHECKS $MR_TARGET"
+for t in $MR_TARGETS; do
+  case "$t" in
+    @default)
+      t=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
+      # Unknown default branch: assume the worst rather than let the MR through unchecked.
+      [ -z "$t" ] && t="main"
+      ;;
+    @unknown) t="main" ;;  # an unexpanded variable can be anything — treat as protected
+  esac
+  [ -n "$SESSION_TARGET" ] && [ "$t" = "$SESSION_TARGET" ] && continue
+  CHECKS="$CHECKS $t"
+done
 
 for CHECK in $CHECKS; do
-[ -z "$CHECK" ] && continue
 case "$CHECK" in
   main|master|release*)
-    MARKER=".ai/protected-target-allowed"
-    if [ -f "$MARKER" ]; then
-      rm -f "$MARKER"
-      # Continue to gate 2 (session check) — marker only bypasses gate 1
+    if [ -f .ai/protected-target-allowed ]; then
+      CONSUME=".ai/protected-target-allowed"
     else
       cat >&2 <<EOF
 Push blocked: target branch is '$CHECK' (protected).
@@ -153,11 +95,8 @@ esac
 done
 
 # --- Gate 2: the task's own checks ---
-ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-SESSION_DIR=$(cd "$ROOT" && "$PY" .claude/scripts/cg_session.py dir 2>/dev/null)
 [ -z "$SESSION_DIR" ] && exit 0
 SESSION=$(basename "$SESSION_DIR")
-SESSION_DIR="$ROOT/$SESSION_DIR"
 
 STATE=$(cat "$SESSION_DIR/state" 2>/dev/null | tr -d '[:space:]')
 
@@ -193,7 +132,7 @@ block() {
 }
 
 if [ -f .ai/push-unchecked-allowed ]; then
-  rm -f .ai/push-unchecked-allowed
+  CONSUME="$CONSUME .ai/push-unchecked-allowed"
   exit 0
 fi
 
@@ -231,10 +170,9 @@ if [ -n "$CHECKED" ] && [ -n "$TIP" ]; then
           "Treat it as rework: write REWORK and run the delta check against the target branch (skill cg-rework)."
   fi
   # Commits the target branch already has came in by a merge — not this task's to check.
-  TARGET=$(cat "$SESSION_DIR/target-branch" 2>/dev/null | tr -d '[:space:]')
   NOT_TARGET=""
-  for ref in "origin/$TARGET" "$TARGET"; do
-    [ -n "$TARGET" ] && git rev-parse --verify --quiet "$ref^{commit}" >/dev/null 2>&1 && { NOT_TARGET="--not $ref"; break; }
+  for ref in "origin/$SESSION_TARGET" "$SESSION_TARGET"; do
+    [ -n "$SESSION_TARGET" ] && git rev-parse --verify --quiet "$ref^{commit}" >/dev/null 2>&1 && { NOT_TARGET="--not $ref"; break; }
   done
   # A merge counts only for what its author changed while resolving it (--remerge-diff, git
   # 2.36+); older git cannot tell that apart, so merges are skipped there.

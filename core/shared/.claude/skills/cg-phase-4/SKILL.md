@@ -7,7 +7,8 @@ user-invocable: false
 # Phase 4 — Quality gate
 
 **Entry**: implementation complete. Session dir: `python3 .claude/scripts/cg_session.py dir` (`{dir}`).
-`BASE=$(git merge-base "$(cat {dir}/target-branch 2>/dev/null || .claude/scripts/cg-option.sh base_branch main)" HEAD)`.
+`BASE=$(python3 .claude/scripts/cg_session.py base)` — the merge-base with the task's target branch, taken from
+the remote when the local copy is behind it.
 
 Mechanical checks run once; the gate runs again only after FAIL, and only on what the fixes
 touched: fix commits get their own review.
@@ -22,18 +23,21 @@ task's files only (`git add -u` plus new plan files by path; never `-A`/`.`) and
 
 Both read committed history (`$BASE..HEAD`), not the working tree.
 
-**2a. Diff coverage.** Run the full test suite with coverage — the gate's full run; every later
-coverage re-check is a full run again. The project's command is the option `test_command`
-(`.claude/scripts/cg-option.sh test_command`); how it runs is the project's business. Without the option, detect: vitest `npx vitest run --coverage`; jest
-`npx jest --coverage`; Gradle + JaCoCo `./gradlew test jacocoTestReport`; Maven `mvn test`.
-None detected → skip, and the script falls back to `Mode: grep` (informational only — say
-coverage was not measured). A failing test is not a reason to skip coverage: write the failing test names (or
-`CLEAN`) to `{dir}/test-results.txt` — the gate compares them with `test-baseline.txt` —
-and still produce the report. Audit `[ts] coverage-refresh: <command|skipped:reason>`.
+**2a. Tests and diff coverage.** Run the full test suite — the gate's full run; every later
+coverage re-check is a full run again. The command is the one the baseline used (Phase 3,
+audit line `baseline:`); how it runs is the project's business. Write the failing test
+names (or `CLEAN`) to `{dir}/test-results.txt` — the gate compares them with
+`test-baseline.txt`. A failing test is not a reason to skip coverage. When the run produces
+no coverage report (the stack has no coverage tool), the script falls back to `Mode: grep`:
+informational only — say coverage was not measured. Audit
+`[ts] coverage-refresh: <command>, coverage <report|none>`.
 Then `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output {dir}/coverage-report.md`.
 - `0` CLEAN → 2b.
 - `1` FAIL → write the missing tests (not production code bent to the metric), commit, and
-  re-run **coverage only**. Up to 3 rounds; then escalate. Audit `[ts] Coverage check FAIL — N uncovered items`.
+  re-run **coverage only**. Up to 3 rounds; then escalate: show what is still uncovered; the
+  user says what to do, or accepts it — audit `[ts] Coverage accepted by user — N items`,
+  the report goes into the PR description, go on to 2b. Audit each FAIL
+  `[ts] Coverage check FAIL — N uncovered items`.
 - `2` "report is older than the last commit" → the coverage run did not finish: rebuild the
   report from that run without re-running the tests (the stack's report task), or run it
   again, then re-check.
@@ -42,7 +46,8 @@ Then `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output {dir}/cov
 **2b. Assertions.** `python3 .claude/scripts/test-assertions.py --base "$BASE" --output {dir}/assertion-report.md`.
 - `0` → go on; advisory existence-only findings go to the gate as context.
 - `1` → tests touched by this diff assert nothing that could fail: add real assertions,
-  commit, re-run this check only. Up to 3 rounds; then escalate.
+  commit, re-run this check only. Up to 3 rounds; then escalate as for coverage (accepted
+  → audit `[ts] Assertions accepted by user — N tests`, go on to §3).
 - `2` → warn, note, go on.
 
 ## 3. The gate
@@ -53,16 +58,18 @@ new method omits, a second copy of existing machinery), CODEBASE_CONTEXT.md, PLA
 `test-baseline.txt`, `test-results.txt`, `coverage-report.md`, `assertion-report.md`,
 `.ai/tech-debt/`.
 
-The gate writes the report path it is given: `{dir}/QUALITY_REPORT.md`. Before a re-run, move
-the previous report to `{dir}/QUALITY_REPORT-<N>.md`, so the latest verdict is always in
+The gate writes the report path it is given: `{dir}/QUALITY_REPORT.md`. Before a re-run, copy
+the previous report to `{dir}/QUALITY_REPORT-<N>.md` (copy, not move: the shared session
+store would bring a moved file back), so the latest verdict is always in
 `QUALITY_REPORT.md` and every round stays readable.
 
 - Default: one sub-agent, `.claude/agents/quality-gate/prompt.md`.
 - `.ai/multi-persona-qg-enabled` exists: in ONE message, three parallel sub-agents
   (`quality-gate-security`, `quality-gate-arch-code`, `quality-gate-testing`), each writing
   `{dir}/quality-findings-<lens>.md`; then `quality-gate-synthesis` writes the report (a missing
-  lens is noted, not blocking). Lenses run no tools: before synthesis, run the gate prompt's
-  Stage 2 (linters) and Stage 3 (smoke) yourself and pass their results to synthesis.
+  lens is noted, not blocking). Lenses read and search the code but do not run linters or smoke
+  checks: before synthesis, run the gate prompt's Stage 2 (linters) and Stage 3 (smoke)
+  yourself and pass their results to synthesis.
 
 Then: state `QUALITY_REVIEWED`; audit `[ts] Quality gate complete`; present the report;
 `bash .claude/scripts/notify.sh "Codegate" "Quality gate: {VERDICT}"`.

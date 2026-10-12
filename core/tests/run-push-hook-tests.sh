@@ -154,6 +154,64 @@ if git -C "$REPO" log -1 --remerge-diff --format= >/dev/null 2>&1; then
   push_check "a merge whose conflict resolution changes code blocks" 2
 fi
 
+# ── how the command is read: every hook call is a Bash call, so the parse decides ────────
+echo ""
+echo "-- command parsing --"
+gr rev-parse feat/x > "$REPO/.ai/sessions/s1/checked-sha"
+session IMPLEMENTING feat/x
+check "subshell push to main is blocked"           feat/x "(git push origin main)"         2
+check "push after && without spaces"               feat/x "cd .&&git push origin main"     2
+check "push inside bash -c"                        feat/x "bash -c 'git push origin main'" 2
+check "git.exe push"                               feat/x "git.exe push origin main"       2
+check "a later segment is not a refspec"           dev    "git push origin dev && git checkout main" 0
+check "variable destination is the current branch" feat/x 'git push -u origin \"$(git branch --show-current)\"' 2
+check "variable destination via assignment"        feat/x 'B=feat/x; git push origin $B'  2
+
+touch "$REPO/.ai/protected-target-allowed"
+printf '{"tool_input":{"command":"git push origin feat/x:main feat/x"}}' | ( cd "$REPO" && bash "$HOOK" >/dev/null 2>&1 ); got=$?
+if [ "$got" = 2 ] && [ -f "$REPO/.ai/protected-target-allowed" ]; then echo "PASS  a push blocked by gate 2 keeps the gate 1 approval"; PASS=$((PASS + 1))
+else echo "FAIL  a push blocked by gate 2 keeps the gate 1 approval (exit=$got)"; FAIL=$((FAIL + 1)); fi
+rm -f "$REPO/.ai/protected-target-allowed"
+
+session PR_CREATED feat/x
+echo main > "$REPO/.ai/sessions/s1/target-branch"
+check "MR into the task's own target needs no marker" feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD" 0
+check "a direct push to that target is still blocked" feat/x "git push origin HEAD:main" 2
+
+check "git stash push is not a push"               main   "git stash push"                 0
+
+# ── pre-pr.sh ──────────────────────────────────────────────────────────────────────────
+echo ""
+echo "-- pre-pr --"
+PRHOOK="$(dirname "$HOOK")/pre-pr.sh"
+pr_check() {
+    local name="$1" cmd="$2" want="$3" got
+    rm -f "$REPO/.ai/protected-target-allowed"
+    printf '{"tool_input":{"command":"%s"}}' "$cmd" | ( cd "$REPO" && bash "$PRHOOK" >/dev/null 2>&1 )
+    got=$?
+    if [ "$got" = "$want" ]; then echo "PASS  $name"; PASS=$((PASS + 1))
+    else echo "FAIL  $name  (want exit=$want, got exit=$got)"; FAIL=$((FAIL + 1)); fi
+}
+git -C "$REPO" checkout -q feat/x
+echo dev > "$REPO/.ai/sessions/s1/target-branch"
+pr_check "quoted protected base is blocked"  'gh pr create --base \"main\"'      2
+pr_check "base dev passes"                   'gh pr create --base dev'           0
+pr_check "glab -b is the target branch"      'glab mr create -b dev'             0
+pr_check "a variable base is blocked"        'gh pr create --base \"$TARGET\"'   2
+pr_check "an echo of the command is no PR"   'echo gh pr create --base main'     0
+echo main > "$REPO/.ai/sessions/s1/target-branch"
+pr_check "the task's own target passes"      'gh pr create --base main'          0
+
+# ── without Python only what looks like a push is held back ─────────────────────────────
+if ! env PATH=/usr/bin bash -c 'command -v python3 || command -v python' >/dev/null 2>&1; then
+    printf '{"tool_input":{"command":"git stash push"},"description":"push it"}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?
+    if [ "$got" = 0 ]; then echo "PASS  no Python: an unrelated command passes"; PASS=$((PASS + 1))
+    else echo "FAIL  no Python: an unrelated command passes (exit=$got)"; FAIL=$((FAIL + 1)); fi
+    printf '{"tool_input":{"command":"git -C . push origin x"}}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?
+    if [ "$got" = 2 ]; then echo "PASS  no Python: a push is blocked"; PASS=$((PASS + 1))
+    else echo "FAIL  no Python: a push is blocked (exit=$got)"; FAIL=$((FAIL + 1)); fi
+fi
+
 SETTINGS="$(dirname "$HOOK")/../settings.json"
 if grep -q '"matcher": *"[^"]*(' "$SETTINGS"; then
   echo "FAIL  a hook matcher uses Bash(...) syntax, which never matches"; FAIL=$((FAIL + 1))

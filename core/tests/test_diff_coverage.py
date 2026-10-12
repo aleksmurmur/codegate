@@ -6,8 +6,8 @@ bare declaration headers) must NOT be reported as uncovered. JaCoCo emits no
 <line> for them, so they carry no bytecode and cannot be "uncovered".
 
 Models the the original false positive:
-  - ErrorDetails.kt:15      -> `JsonSubTypes.Type(...)` annotation entry
-  - LimitationType.kt:3     -> `enum class LimitationType {`
+  - ApiError.kt:15      -> `JsonSubTypes.Type(...)` annotation entry
+  - WidgetStatus.kt:3     -> `enum class WidgetStatus {`
 both of which `is_meaningful` flags as meaningful, but JaCoCo never tracks.
 
 Run directly:  python3 core/tests/test_diff_coverage.py      (from the cg-core checkout)
@@ -48,16 +48,16 @@ def check(name: str, condition: bool, detail: str = "") -> None:
 
 
 # A JaCoCo report shaped like the the original run:
-#   - LimitationType.kt: the enum's <clinit>/synthetic methods attribute to the
+#   - WidgetStatus.kt: the enum's <clinit>/synthetic methods attribute to the
 #     first constant line (4), fully covered. NO <line> for the `enum class` header (3).
 #   - Widget.kt: one covered executable line (11) and one genuinely
 #     uncovered executable line (10) -- the regression guard.
-#   - ErrorDetails.kt: a pure sealed interface with annotations -> JaCoCo emits
+#   - ApiError.kt: a pure sealed interface with annotations -> JaCoCo emits
 #     no <line> at all, so it is absent from the report entirely.
 JACOCO_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <report name="test">
-  <package name="com/example/app/core/product/domain">
-    <sourcefile name="LimitationType.kt">
+  <package name="com/example/app/core/widget/domain">
+    <sourcefile name="WidgetStatus.kt">
       <line nr="4" mi="0" ci="37" mb="0" cb="0"/>
     </sourcefile>
     <sourcefile name="Widget.kt">
@@ -70,14 +70,14 @@ JACOCO_XML = """<?xml version="1.0" encoding="UTF-8"?>
 
 # Added/modified meaningful lines from the diff (path -> {line: text}).
 ADDED = {
-    "src/main/kotlin/com/example/app/core/product/domain/LimitationType.kt": {
-        3: "enum class LimitationType {",
+    "src/main/kotlin/com/example/app/core/widget/domain/WidgetStatus.kt": {
+        3: "enum class WidgetStatus {",
     },
-    "src/main/kotlin/com/example/app/core/common/dto/error/ErrorDetails.kt": {
+    "src/main/kotlin/com/example/app/core/api/ApiError.kt": {
         15: '    JsonSubTypes.Type(value = WidgetLimitDetails::class, name = "WIDGET_LIMIT"),',
     },
-    "src/main/kotlin/com/example/app/core/product/domain/Widget.kt": {
-        10: "        val violations = limitationViolationsFor(payment)",
+    "src/main/kotlin/com/example/app/core/widget/domain/Widget.kt": {
+        10: "        val violations = violationsFor(order)",
         11: "        return violations.isEmpty()",
     },
 }
@@ -95,7 +95,7 @@ def run() -> None:
 
     # parse_jacoco now carries (mi, ci) per tracked line, and only tracked lines exist.
     lt = dc.match_jacoco_path(
-        "src/main/kotlin/com/example/app/core/product/domain/LimitationType.kt",
+        "src/main/kotlin/com/example/app/core/widget/domain/WidgetStatus.kt",
         tracked,
     )
     check("parse: enum constant line tracked with instructions", lt.get(4) == (0, 37), f"got {lt.get(4)}")
@@ -108,12 +108,12 @@ def run() -> None:
     # The two the original false positives must NOT be reported.
     check(
         "enum class header not flagged uncovered",
-        "LimitationType.kt:3" not in joined,
+        "WidgetStatus.kt:3" not in joined,
         f"uncovered={uncovered}",
     )
     check(
         "annotation entry not flagged uncovered",
-        "ErrorDetails.kt:15" not in joined,
+        "ApiError.kt:15" not in joined,
         f"uncovered={uncovered}",
     )
 

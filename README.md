@@ -63,7 +63,8 @@ Add to your `.gitignore` (session data is ephemeral; codebase context and tech d
 Sessions are also copied into the repository's git directory (`.git/codegate/sessions/`),
 shared by all worktrees, so removing a worktree does not lose its task.
 
-Python 3 must be available for hooks and integrity/coverage scripts (standard on Linux/Mac).
+Python 3 is required: the hooks parse every call with it. Without it, every Write/Edit and
+every push or PR/MR creation is blocked (standard on Linux/Mac; on Windows install it).
 
 ## Usage
 
@@ -205,6 +206,7 @@ your-project/
 │   ├── commands/                      # slash commands (cg-*)
 │   ├── scripts/
 │   │   ├── cg_session.py              # which task belongs to this checkout; shared store
+│   │   ├── cg_cmd.py                  # what a Bash call runs: pushes and PR/MR creations, for the hooks
 │   │   ├── tracker.py                 # tracker bridge (actions → project adapter)
 │   │   ├── plan-integrity.py          # mechanical path/symbol/migration check (Phase 2)
 │   │   ├── test-assertions.py         # mechanical no-op-assertion check (Phase 4)
@@ -240,6 +242,6 @@ your-project/
 ## Requirements
 
 - Claude Code CLI
-- Python 3 (for hooks and integrity/coverage scripts — standard on Linux/Mac)
+- Python 3 — required: the hooks block writes and pushes without it (standard on Linux/Mac)
 - `git` (always present)
 - `gh` or `glab` optional — PR creation falls back to a manual URL if neither is installed
