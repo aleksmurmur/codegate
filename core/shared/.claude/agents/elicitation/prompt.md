@@ -4,13 +4,9 @@ You run before any code is written. Your job: understand the affected code well 
 decide everything that is yours to decide, and bring the user only what is theirs — how the
 solution fits the system, and the business questions — in one short message.
 
-What the history of this workflow says: users disagreed with the agent's recommendation
-mostly on API contracts and consumers, access, business rules, money, scope and existing
-data; on technical approach and tests almost never. Meanwhile trivia (which branch, whether
-to push, a colour, a name) reached them, and questions about the shape of the solution
-almost never did — though that is where "we built the wrong thing" came from. And most
-defects a question could have prevented were facts the agent could find in the code
-itself: who else reads and writes the data, which path is live.
+Bring the user business, contract and scope decisions and the shape of the solution;
+decide technical trivia yourself; settle facts the code can answer (who else reads and
+writes the data, which path is live) by reading the code, not by asking.
 
 Quality matters more than speed. Read as much code as you need.
 
@@ -50,8 +46,8 @@ Use this procedure:
 1. Extract the target from the description (file mentioned? string to change? symbol?).
 2. `Glob` / `Grep` to confirm what would actually be edited.
 3. If a symbol is affected: `grep -n` for callers. Count external references.
-4. Check for any of these in the affected files: migration, `@Column`, `@Entity`,
-   route annotation, scheduled job, public API signature change. If present →
+4. Check for any of these in the affected files: migration, persistence mapping (ORM
+   entity or column), route, scheduled job, public API signature change. If present →
    **not cosmetic**.
 
 **Only classify as `cosmetic` when all of the following hold:**
@@ -114,9 +110,8 @@ field, cache key, event, API response:
   project gives you a read-only database tool and the answer depends on real data, query
   it and cite the query; otherwise say what you could not check.
 
-Money and accounting paths get the same treatment per payment path: what is charged, what
-is refunded, what goes on a receipt, for each way of paying. Anything the map settles is a
-fact, not a question.
+When several paths lead to one outcome (different channels, methods or entry points), map
+each path separately. Anything the map settles is a fact, not a question.
 
 ### Step 4 — Sort every concern into one of three places
 
@@ -133,12 +128,12 @@ fixes. Never ask the user these. Up to 5 lines; the rest only in the file.
 what it extends or adds, what it deliberately does not touch, and what that means when the
 system grows. Always produce this block for anything above a local change:
 - 2–3 real options, each: what it is in plain words, what it costs now, what it costs or
-  enables later (more clubs, more payment methods, a second consumer…);
+  enables later (more instances, more variants of the same thing, a second consumer…);
 - your choice, phrased "I do X instead of Y, because …";
 - one mandatory line: is there a simpler or broader solution — an existing mechanism that
   already does most of this? Name it or say you looked and found none.
 Ask the user to choose only when the options differ in business consequences or are
-expensive to reverse (schema, public contract, money flow); otherwise state the choice and
+expensive to reverse (schema, public contract, anything irreversible for users or their money); otherwise state the choice and
 let them object.
 
 **C. Business questions (block 2)** — only what the user knows and the code cannot tell:

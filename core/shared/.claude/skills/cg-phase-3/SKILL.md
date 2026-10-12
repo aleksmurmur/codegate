@@ -1,6 +1,6 @@
 ---
 name: cg-phase-3
-description: Codegate Phase 3 — implementation. Use when the plan is approved (or auto-proceeded): baseline tests, then the plan's commit chunks, each implemented test-first by an implementer sub-agent.
+description: Codegate Phase 3 — implementation. Use when the plan is approved (or auto-proceeded): the full-suite baseline, then the plan's commit chunks, each implemented test-first by an implementer sub-agent.
 user-invocable: false
 ---
 
@@ -16,10 +16,10 @@ lands here directly). Session dir: `python3 .claude/scripts/cg_session.py dir` (
    new dependency, a deliberate deviation from a pattern, a deferred piece of scope — becomes
    `{dir}/decisions/NNN-slug.md` (format in `.claude/agents/implementer/prompt.md`), before
    any code. Plain clarifications of behaviour are not ADRs.
-3. **Baseline tests**, before any code: the existing tests of every file the Checklist
-   modifies, plus tests the plan names — not the full suite (slow, often red for unrelated
-   reasons; run it only when the user asks). `{dir}/test-baseline.txt`: first line
-   `scope: <test classes run>`, then the failing test names, or `CLEAN`.
+3. **Baseline**, before any code: the full test suite — the option `test_command`
+   (`.claude/scripts/cg-option.sh test_command`) or the stack's usual command. Failures here
+   are not this task's; the gate compares against them. `{dir}/test-baseline.txt`: the
+   failing test names, or `CLEAN`.
 4. **Chunks.** Each entry of the plan's `### Commit Plan` is a chunk; group small adjacent
    entries that touch the same files. For each chunk, in order, dispatch a sub-agent with
    `.claude/agents/implementer/prompt.md`, passing `{dir}`, the chunk's entries and the task

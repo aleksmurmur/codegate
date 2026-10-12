@@ -374,6 +374,26 @@ def write_report(
 
 # --- Main --------------------------------------------------------------------
 
+def stale_report(report: Path, base: str, files: list[str]) -> str | None:
+    """A failed test run leaves the previous report in place; judging the diff by it gives a
+    verdict about code that is no longer there. Returns why the report is stale, or None."""
+    try:
+        changed = run_git("log", "-1", "--format=%ct", f"{base}..HEAD", "--", *files).strip()
+    except SystemExit:
+        return None
+    if changed and report.stat().st_mtime < int(changed):
+        return (f"{report} is older than the last commit changing production code in this diff. "
+                "The test run that should have refreshed it did not finish: rebuild the report "
+                "from the latest run, or run the tests again, then re-run this check.")
+    return None
+
+
+def stale_exit(output: Path, mode: str, why: str) -> None:
+    print(f"error: {why}", file=sys.stderr)
+    write_report(output, mode=mode, result="ERROR", summary=[why], uncovered=[])
+    sys.exit(2)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Diff coverage check")
     parser.add_argument("--base", required=True, help="Base commit (e.g. merge-base with main)")
@@ -393,6 +413,8 @@ def main() -> None:
         sys.exit(0)
 
     jacoco = find_jacoco_report()
+    if jacoco is not None and (why := stale_report(jacoco, args.base, list(added))):
+        stale_exit(output, f"JaCoCo ({jacoco})", why)
 
     if jacoco is not None:
         try:

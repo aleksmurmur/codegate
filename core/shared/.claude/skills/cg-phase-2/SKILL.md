@@ -14,8 +14,7 @@ Session dir: `python3 .claude/scripts/cg_session.py dir` (below: `{dir}`).
    (answers and the data map), CODEBASE_CONTEXT.md. Write its plan to `{dir}/PLAN.md`.
 3. Integrity check (deterministic): `python3 .claude/scripts/plan-integrity.py {dir}/PLAN.md`
    → `{dir}/integrity-report.md`. It checks that Modify paths exist, Create paths do not,
-   and Flyway versions do not collide. Its findings are warnings for you, not a gate: in two
-   developers' history it caught no real mirage. On `MIRAGES_FOUND` fix the plan yourself
+   and Flyway versions do not collide. Its findings are warnings for you to fix, not a gate. On `MIRAGES_FOUND` fix the plan yourself
    (edit the line, or re-run planning with the report) and re-run the check once; on
    `PARSE_FAILED` bring the Checklist to the format `[ ] N. Verb path.ext — description`.
    Stop and ask only when the fix changes what the task delivers.

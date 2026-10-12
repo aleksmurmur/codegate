@@ -359,7 +359,7 @@ phase is now `.claude/skills/cg-phase-N/SKILL.md`.
 - A local edit the project had made inside an old phase section is not dropped: carry it into
   the matching skill file in `$STAGING` (it then shows as a local modification in the
   manifest) and list each one to the user: "kept your change to Phase N in cg-phase-N".
-- Project rules that are not about a phase (git hosting, MR rules, domain notes) stay in the
+- Project rules that are not about a phase (git hosting, PR/MR rules, domain notes) stay in the
   project's part of CLAUDE.md.
 
 **Sessions bound to branches** — upstream has `.claude/scripts/cg_session.py` and baseline

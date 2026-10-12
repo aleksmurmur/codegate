@@ -47,7 +47,7 @@ Otherwise, infer the phase from session state and dispatch:
    | QUALITY_REVIEWED | QUALITY_REPORT.md verdict is `PASS` | "Quality gate passed; Phase 5 (PR creation) auto-runs. Nothing to approve." Stop. |
    | QUALITY_REVIEWED | verdict is `WARN` | run `/cg-approve quality`, but FIRST print: "⚠ Overriding WARN findings via /ok. Read QUALITY_REPORT.md if you haven't." |
    | QUALITY_REVIEWED | verdict is `FAIL` | **refuse**: "Quality gate is FAIL. /ok will not override FAIL — type `/cg-approve quality` explicitly to override (note: critical SQL/security FAILs cannot be overridden at all)." Stop. |
-   | PR_CREATED / PR_UPDATED | — | "The PR/MR exists — nothing to approve. Fixes to it are rework; `/cg-mr` checks for a merge." Stop. |
+   | PR_CREATED / PR_UPDATED | — | "The PR/MR exists — nothing to approve. Fixes to it are rework; `/cg-merged` checks for a merge." Stop. |
    | REWORK | — | "Rework in progress — the delta check runs before the push (skill `cg-rework`). Nothing to approve." Stop. |
    | MERGED / ABANDONED | — | "The task is closed. New work starts a new task." Stop. |
 

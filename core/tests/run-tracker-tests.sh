@@ -154,8 +154,8 @@ rm -f "$CALLS"
 OUT=$(cd "$PROJECT" && CALLS="$CALLS" ADAPTER_MODE=modern "$PY" .claude/scripts/tracker.py comment --body-file body.md 2>/dev/null); CODE=$?
 expect "comment gets the body file and the session's item" 0 "calls == [['comment', '--body-file', 'body.md', '--id', 'item-42']]"
 rm -f "$CALLS"
-OUT=$(cd "$PROJECT" && CALLS="$CALLS" ADAPTER_MODE=modern "$PY" .claude/scripts/tracker.py create --title Front --project admin-front --relates X-42:relates --link https://mr/1 --body-file body.md 2>/dev/null); CODE=$?
-expect "create for a consumer passes project, relation and link" 0 "calls == [['create', '--title', 'Front', '--project', 'admin-front', '--relates', 'X-42:relates', '--link', 'https://mr/1', '--body-file', 'body.md']]"
+OUT=$(cd "$PROJECT" && CALLS="$CALLS" ADAPTER_MODE=modern "$PY" .claude/scripts/tracker.py create --title Front --project web --relates X-42:relates --link https://mr/1 --body-file body.md 2>/dev/null); CODE=$?
+expect "create for a consumer passes project, relation and link" 0 "calls == [['create', '--title', 'Front', '--project', 'web', '--relates', 'X-42:relates', '--link', 'https://mr/1', '--body-file', 'body.md']]"
 rm -f "$CALLS"
 OUT=$(cd "$PROJECT" && CALLS="$CALLS" ADAPTER_MODE=modern "$PY" .claude/scripts/tracker.py list --mine 2>/dev/null); CODE=$?
 expect "list needs no item" 0 "calls == [['list', '--mine']]"

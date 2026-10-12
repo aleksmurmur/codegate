@@ -106,7 +106,7 @@ to override quality `FAIL` — the long form is required for that, by design.
 ```
 /cg-status   # this branch's task: state and next action
 /cg-tasks    # every task in the repository: branch, state, worktree
-/cg-mr       # is this task's MR merged? closes the task when it is
+/cg-merged       # is this task's MR merged? closes the task when it is
 /cg-next     # tracker items assigned to you, and which are already started
 /cg-explain  # read-only: state + audit + checklist + diff so far
 /cg-timeline # cross-session chronological view (--since 7d, --full)

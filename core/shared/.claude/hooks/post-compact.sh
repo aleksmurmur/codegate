@@ -46,7 +46,7 @@ STATE=$(cat "$SESSION_DIR/state" 2>/dev/null | tr -d '[:space:]')
 
 # Commits the session logged that no branch holds any more. Usually a squash, amend or rebase
 # rewrote them; sometimes work was really reset. Report only: rewriting the state on a guess
-# stranded sessions with an open MR in PLAN_APPROVED. `rev-parse`: in a worktree .git is a file.
+# stranded sessions with an open PR/MR in PLAN_APPROVED. `rev-parse`: in a worktree .git is a file.
 AUDIT_LOG="$SESSION_DIR/audit.log"
 if [ -f "$AUDIT_LOG" ] && git rev-parse --git-dir >/dev/null 2>&1; then
   LOGGED_SHAS=$(grep -oE 'commit: [a-f0-9]{7,40}' "$AUDIT_LOG" 2>/dev/null | awk '{print $2}' | sort -u)
@@ -105,10 +105,10 @@ case "$STATE" in
     echo "▶ Quality gate done (report: $REL_DIR/QUALITY_REPORT.md). Next: fix rounds (skill cg-phase-4) or the PR/MR (skill cg-phase-5)."
     ;;
   PR_CREATED|PR_UPDATED)
-    echo "▶ The PR/MR exists. Fixes to it are rework (skill cg-rework); other work is a new task (skill cg-phase-0)."
+    echo "▶ The PR/MR exists. Fixes to it are rework (skill cg-rework); other code changes are a new task (skill cg-phase-0)."
     ;;
   REWORK)
-    echo "▶ Rework on the open MR (skill cg-rework): finish the fix and the delta check before pushing."
+    echo "▶ Rework on the open PR/MR (skill cg-rework): finish the fix and the delta check before pushing."
     ;;
   *)
     echo "▶ State '$STATE' — check /cg-status."

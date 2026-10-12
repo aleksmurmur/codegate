@@ -46,4 +46,14 @@
     Give each a short alias; the tracker adapter maps aliases to tracker projects.
   default: >
     Empty (none). Propose aliases only if the project's own docs or the tracker clearly
-    name consumers (e.g. admin-front, mobile). Format: comma-separated aliases.
+    name consumers (e.g. web, mobile). Format: comma-separated aliases.
+
+- key: test_command
+  question: >
+    How is the project's full test suite run, with coverage? The workflow runs it twice per
+    task: as the baseline before any code, and once more for diff coverage in the quality gate.
+  default: >
+    Empty: the stack's usual command (e.g. `./gradlew test jacocoTestReport --rerun-tasks`,
+    `npx vitest run --coverage`). Set it when the project runs its suite differently — a script
+    that runs it in batches, under a lock, with a time limit. Codegate only calls the command;
+    it must leave a coverage report where the stack's diff-coverage looks for it.

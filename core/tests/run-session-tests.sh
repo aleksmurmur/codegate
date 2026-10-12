@@ -153,7 +153,7 @@ agent() {
     ( cd "$REPO" && printf '%s' "$json" | bash .claude/hooks/pre-agent.sh >/dev/null 2>&1 ); echo $?
 }
 is "elicitation without a task is blocked"     "$(agent 'Use .claude/agents/elicitation/prompt.md for X')" 2
-is "any other sub-agent is not this hook's business" "$(agent 'Explore the payment code')" 0
+is "any other sub-agent is not this hook's business" "$(agent 'Explore the auth code')" 0
 g checkout -q feature/A-1-a
 echo IDLE > "$REPO/.ai/sessions/20261001-100000-a/state"
 is "elicitation inside a task passes"          "$(agent 'Use .claude/agents/elicitation/prompt.md')" 0

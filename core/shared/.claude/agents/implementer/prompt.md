@@ -43,8 +43,7 @@ c. **Commit the tests**: `git add <test paths> && git commit -m "test: <what is 
    `[ts] test-commit-includes-stubs: <reason>`.
 
 d. **Production code** to make them pass; mark its items `[x]`. Run the chunk's tests and
-   the baseline scope from `test-baseline.txt`; a failure that the baseline did not list is
-   yours.
+   the tests of the code it changed; a failure that `test-baseline.txt` does not list is yours.
 
 e. **Commit**: `git add <production paths> && git commit -m "{type}: <description>"`.
 

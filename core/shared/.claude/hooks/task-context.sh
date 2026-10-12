@@ -2,7 +2,7 @@
 # task-context.sh
 # Fires on every user message (UserPromptSubmit); stdout reaches the model as context.
 # One line: which task this checkout holds and in what state, so the agent can tell whether
-# the message continues it, concerns its open MR, or is another task. It also records which
+# the message continues it, concerns its open PR/MR, or is another task. It also records which
 # chat works in this folder, and warns when another chat did so recently.
 
 PY=$(command -v python3 2>/dev/null)
@@ -39,9 +39,9 @@ if [ -n "$REL_DIR" ]; then
     MERGED|ABANDONED)
       LINE="codegate: task $NAME on '$BRANCH' is closed ($STATE). Code changes need a new task (skill cg-phase-0)." ;;
     PR_CREATED|PR_UPDATED|REWORK)
-      LINE="codegate: task $NAME on '$BRANCH', state $STATE (MR open). A fix to that MR is rework (skill cg-rework); other work is a new task (skill cg-phase-0)." ;;
+      LINE="codegate: task $NAME on '$BRANCH', state $STATE (PR/MR open). A fix to that PR/MR is rework (skill cg-rework); other code changes are a new task (skill cg-phase-0)." ;;
     *)
-      LINE="codegate: task $NAME on '$BRANCH', state ${STATE:-IDLE}, mode ${MODE:-interactive}. Other work is a new task (skill cg-phase-0)." ;;
+      LINE="codegate: task $NAME on '$BRANCH', state ${STATE:-IDLE}, mode ${MODE:-interactive}. Other code changes are a new task (skill cg-phase-0)." ;;
   esac
 else
   LINE="codegate: no task on '${BRANCH:-detached HEAD}'. Code changes start with a task (skill cg-phase-0)."

@@ -5,7 +5,7 @@ Focus: non-executable diff lines (annotation entries, `enum class X {` and other
 bare declaration headers) must NOT be reported as uncovered. JaCoCo emits no
 <line> for them, so they carry no bytecode and cannot be "uncovered".
 
-Models the BACK-853 false positive:
+Models the the original false positive:
   - ErrorDetails.kt:15      -> `JsonSubTypes.Type(...)` annotation entry
   - LimitationType.kt:3     -> `enum class LimitationType {`
 both of which `is_meaningful` flags as meaningful, but JaCoCo never tracks.
@@ -47,7 +47,7 @@ def check(name: str, condition: bool, detail: str = "") -> None:
         FAIL += 1
 
 
-# A JaCoCo report shaped like the BACK-853 run:
+# A JaCoCo report shaped like the the original run:
 #   - LimitationType.kt: the enum's <clinit>/synthetic methods attribute to the
 #     first constant line (4), fully covered. NO <line> for the `enum class` header (3).
 #   - OneTimeProduct.kt: one covered executable line (11) and one genuinely
@@ -105,7 +105,7 @@ def run() -> None:
 
     joined = "\n".join(uncovered)
 
-    # The two BACK-853 false positives must NOT be reported.
+    # The two the original false positives must NOT be reported.
     check(
         "enum class header not flagged uncovered",
         "LimitationType.kt:3" not in joined,
@@ -136,8 +136,8 @@ def run() -> None:
         k: v for k, v in ADDED.items() if "OneTimeProduct.kt" not in k
     }
     unc2, _, _, nonexec2 = dc.evaluate_jacoco(clean_added, tracked)
-    check("BACK-853 repro: only non-exec lines -> CLEAN", unc2 == [], f"uncovered={unc2}")
-    check("BACK-853 repro: both lines excluded as non-exec", nonexec2 == 2, f"got {nonexec2}")
+    check("the original repro: only non-exec lines -> CLEAN", unc2 == [], f"uncovered={unc2}")
+    check("the original repro: both lines excluded as non-exec", nonexec2 == 2, f"got {nonexec2}")
 
 
 def run_parse_error() -> None:
@@ -167,8 +167,55 @@ def run_parse_error() -> None:
     check("unparseable JaCoCo report -> non-zero exit, no silent CLEAN", code == 2, f"exit={code}")
 
 
+def run_stale_report() -> None:
+    """A failed test run leaves the previous report behind. Judged by it, the diff gets a
+    verdict about code that is gone: the check must refuse (exit 2), not FAIL or pass."""
+    import os
+    import subprocess
+    import tempfile
+
+    repo = Path(tempfile.mkdtemp())
+    git = lambda *a: subprocess.check_output(["git", "-C", str(repo), *a], text=True).strip()
+    git("init", "-q")
+    git("config", "user.email", "t@t"); git("config", "user.name", "t")
+    src = repo / "src/main/kotlin/Foo.kt"
+    src.parent.mkdir(parents=True)
+    src.write_text("class Foo\n", encoding="utf-8")
+    git("add", "."); git("commit", "-qm", "base")
+    base = git("rev-parse", "HEAD")
+    src.write_text("class Foo {\n    fun bar() = 1\n}\n", encoding="utf-8")
+    git("add", "."); git("commit", "-qm", "change")
+    changed_at = int(git("log", "-1", "--format=%ct"))
+    report = repo / "jacoco.xml"
+    report.write_text(
+        '<report name="t"><package name=""><sourcefile name="Foo.kt">'
+        '<line nr="2" mi="0" ci="3" mb="0" cb="0"/></sourcefile></package></report>',
+        encoding="utf-8",
+    )
+
+    def verdict(mtime: int) -> int:
+        os.utime(report, (mtime, mtime))
+        out = repo / "out.md"
+        orig_find, orig_argv, cwd = dc.find_jacoco_report, sys.argv[:], os.getcwd()
+        dc.find_jacoco_report = lambda: report
+        sys.argv[:] = ["diff-coverage.py", "--base", base, "--output", str(out)]
+        os.chdir(repo)
+        try:
+            dc.main()
+        except SystemExit as e:
+            return e.code if isinstance(e.code, int) else 1
+        finally:
+            os.chdir(cwd)
+            dc.find_jacoco_report, sys.argv[:] = orig_find, orig_argv
+        return 0
+
+    check("report older than the last production commit -> exit 2", verdict(changed_at - 100) == 2)
+    check("report newer than the last production commit -> judged", verdict(changed_at + 100) != 2)
+
+
 if __name__ == "__main__":
     run()
     run_parse_error()
+    run_stale_report()
     print(f"\nResults: {PASS} passed, {FAIL} failed")
     sys.exit(1 if FAIL else 0)

@@ -9,10 +9,8 @@ user-invocable: false
 **Entry**: implementation complete. Session dir: `python3 .claude/scripts/cg_session.py dir` (`{dir}`).
 `BASE=$(git merge-base "$(cat {dir}/target-branch 2>/dev/null || echo main)" HEAD)`.
 
-What repeats and what does not — from two developers' history: a gate re-run after FAIL
-found a new real defect in about one case in five, usually in the previous fix; re-runs
-after anything else, and coverage re-measured after every change, found next to nothing.
-So: mechanical checks once, the gate again only after FAIL and only on what the fixes touched.
+Mechanical checks run once; the gate runs again only after FAIL, and only on what the fixes
+touched — a fix is where a new defect most often hides.
 
 ## 1. Leftovers
 
@@ -24,17 +22,22 @@ task's files only (`git add -u` plus new plan files by path; never `-A`/`.`) and
 
 Both read committed history (`$BASE..HEAD`), not the working tree.
 
-**2a. Diff coverage.** Refresh the coverage data first, forcing the tests to run again
-(an up-to-date build skips them and leaves an old report — the most common false FAIL):
-vitest `npx vitest run --coverage`; jest `npx jest --coverage`; Gradle + JaCoCo
-`./gradlew test jacocoTestReport --rerun-tasks` (or the project's documented equivalent);
-Maven `mvn test`; none detected → skip, and the script falls back to `Mode: grep`
-(informational only — say coverage was not measured). Audit `[ts] coverage-refresh: <command|skipped:reason>`.
+**2a. Diff coverage.** Run the full test suite with coverage — this is the task's one full
+run after the baseline. The project's command is the option `test_command`
+(`.claude/scripts/cg-option.sh test_command`); how it runs (batches, time limits, locks) is
+the project's business. Without the option, detect: vitest `npx vitest run --coverage`; jest
+`npx jest --coverage`; Gradle + JaCoCo `./gradlew test jacocoTestReport --rerun-tasks`; Maven
+`mvn test`. Force the tests to run: an up-to-date build skips them and leaves an old report.
+None detected → skip, and the script falls back to `Mode: grep` (informational only — say
+coverage was not measured). A failing test is not a reason to skip coverage: compare the
+failures with `test-baseline.txt` and still produce the report. Audit `[ts] coverage-refresh: <command|skipped:reason>`.
 Then `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output {dir}/coverage-report.md`.
 - `0` CLEAN → 2b.
 - `1` FAIL → write the missing tests (not production code bent to the metric), commit, and
   re-run **coverage only**. Audit `[ts] Coverage check FAIL — N uncovered items`.
-- `2` script error → warn, note in the audit, go on.
+- `2` "report is older than the last commit" → the coverage run did not finish: rebuild the
+  report from that run (Gradle: `jacocoTestReport -x test`) or run it again, then re-check.
+  Any other `2` (script error) → warn, note in the audit, go on.
 
 **2b. Assertions.** `python3 .claude/scripts/test-assertions.py --base "$BASE" --output {dir}/assertion-report.md`.
 - `0` → go on; advisory existence-only findings go to the gate as context.
@@ -62,7 +65,7 @@ Then: state `QUALITY_REVIEWED`; audit `[ts] Quality gate complete`; present the 
 
 - **PASS** → audit `[ts] Quality gate passed — verdict: PASS`, write `git rev-parse HEAD` to
   `{dir}/checked-sha`, go to Phase 5 (skill `cg-phase-5`). Both modes.
-- **WARN** → fix what is worth fixing now (these fixes are not re-gated: the MR review sees
+- **WARN** → fix what is worth fixing now (these fixes are not re-gated: the PR/MR review sees
   them), log the rest as tech debt or in the PR description. `fast`: audit
   `[ts] fast-mode-auto-proceed: phase-4-warn`, write `checked-sha`, Phase 5. `interactive`:
   "Type `/cg-approve quality` to proceed." Wait.

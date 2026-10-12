@@ -2,9 +2,8 @@
 # pre-agent.sh
 # Fires before a sub-agent is dispatched (PreToolUse on Task|Agent).
 # Elicitation and planning belong to a task: dispatching them on a branch with no task, or
-# for a task whose MR already exists, means a new task was started without Phase 0 — the
-# work would land on the wrong branch. In practice that was how follow-up tasks crept into
-# the previous task's chat and branch.
+# for a task whose PR/MR already exists, means a new task was started without Phase 0 — the
+# work would land on the wrong branch.
 
 PY=$(command -v python3 2>/dev/null)
 "${PY:-false}" -c "" 2>/dev/null || PY=$(command -v python 2>/dev/null)
@@ -40,7 +39,7 @@ fi
 STATE=$(cat "$REL_DIR/state" 2>/dev/null | tr -d '[:space:]')
 case "$STATE" in
   PR_CREATED|PR_UPDATED|MERGED|ABANDONED)
-    echo "The task on '$BRANCH' is past its PR/MR ($STATE). New work is a new task with its own branch (skill cg-phase-0); a scoped extension of this MR is rework (skill cg-rework)." >&2
+    echo "The task on '$BRANCH' is past its PR/MR ($STATE). New work is a new task with its own branch (skill cg-phase-0); a scoped extension of this PR/MR is rework (skill cg-rework)." >&2
     exit 2
     ;;
 esac

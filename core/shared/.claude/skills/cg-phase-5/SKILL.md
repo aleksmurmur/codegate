@@ -28,14 +28,14 @@ user-invocable: false
    work because of this change): for each, draft a task in markdown with the sections
    `## Context` (one paragraph), `## Contract` (endpoints, fields, types, errors — as built,
    from the diff, not as planned), `## Semantics` (edge cases, what each value means),
-   `## Rollout order` (relative to this MR), `## Acceptance`, `## Links` (the MR, this task).
+   `## Rollout order` (relative to this PR/MR), `## Acceptance`, `## Links` (the PR/MR, this task).
    Consuming repositories are told to read exactly these sections (`/cg-tracker snippet`). Show the drafts together and ask once: "Create these tasks?" (the user may edit
    or drop any). Then for each confirmed draft, written to `{dir}/consumer-<alias>.md`:
    `python3 .claude/scripts/tracker.py create --project <alias> --type feature --title "<title>" --body-file {dir}/consumer-<alias>.md --relates <KEY>:relates --link <PR url>`.
    Record the created keys in the audit log and add a `## Consumers` list to the PR/MR
    description where the host CLI allows (`gh pr edit`, `glab mr update`); otherwise give the
    user the list. No tracker → leave the drafts in `{dir}` and say where they are.
-6. Tell the user in one line what is next: QA or review findings on this MR are fixed on this
-   branch (rework, skill `cg-rework`); `/cg-mr` checks whether it is merged.
+6. Tell the user in one line what is next: QA or review findings on this PR/MR are fixed on this
+   branch (rework, skill `cg-rework`); `/cg-merged` checks whether it is merged.
 
 Debug mode: skill `cg-flow-feedback`, Phase 5 block and the session summary.

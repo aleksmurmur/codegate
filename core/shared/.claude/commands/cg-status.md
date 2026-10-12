@@ -12,8 +12,8 @@ Next step by state:
 - ELICITED → planning
 - PLAN_APPROVED / IMPLEMENTING → implementation in progress
 - QUALITY_REVIEWED → gate report in QUALITY_REPORT.md; fixes or the PR/MR next
-- PR_CREATED / PR_UPDATED → MR open (url); fixes to it are rework; `/cg-mr` checks for a merge
-- REWORK → a fix to the open MR is in progress; the delta check comes before the push
+- PR_CREATED / PR_UPDATED → PR/MR open (url); fixes to it are rework; `/cg-merged` checks for a merge
+- REWORK → a fix to the open PR/MR is in progress; the delta check comes before the push
 - MERGED / ABANDONED → closed; new work starts a new task
 
 Interactive sessions: name the `/cg-approve` the state is waiting for.

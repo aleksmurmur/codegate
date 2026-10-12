@@ -1,6 +1,6 @@
 ---
 name: cg-rework
-description: Codegate after the PR/MR exists — a fix to the open MR (QA bug, review remark, CI failure, deploy check), the delta check before pushing it, and closing the task when the MR is merged. Use when a message concerns the current task's PR/MR.
+description: Codegate after the PR/MR exists — a fix to the open PR/MR (QA bug, review remark, CI failure, deploy check), the delta check before pushing it, and closing the task when the PR/MR is merged. Use when a message concerns the current task's PR/MR.
 user-invocable: false
 ---
 
@@ -15,12 +15,12 @@ Session dir: `python3 .claude/scripts/cg_session.py dir` (`{dir}`).
 
 | The message | What it is |
 |---|---|
-| A defect or remark about this task's MR, MR **not merged** (QA, review, CI, deploy check) | **rework** — same branch, same MR, no new task |
-| A defect in this task, MR **merged** | a new bug task linked to this one: skill `cg-phase-0`, `--relates <KEY>:caused_by` |
-| An extension — more than the task asked for — merged or not | a new task linked to this one (`--relates <KEY>:relates`). Into the same MR only when the user says so explicitly; then it is rework with reason `scope` |
+| A defect or remark about this task's PR/MR, PR/MR **not merged** (QA, review, CI, deploy check) | **rework** — same branch, same PR/MR, no new task |
+| A defect in this task, PR/MR **merged** | a new bug task linked to this one: skill `cg-phase-0`, `--relates <KEY>:caused_by` |
+| An extension — more than the task asked for — merged or not | a new task linked to this one (`--relates <KEY>:relates`). Into the same PR/MR only when the user says so explicitly; then it is rework with reason `scope` |
 | Unrelated work | a new task: skill `cg-phase-0` |
 
-Not sure whether the MR is merged: `/cg-mr` (below) first.
+Not sure whether the PR/MR is merged: `/cg-merged` (below) first.
 
 ## Rework
 
@@ -31,7 +31,7 @@ Not sure whether the MR is merged: `/cg-mr` (below) first.
 3. Fix test-first, as in Phase 3: a test that reproduces the report, then the fix; commits
    staged by explicit path; audit lines per commit.
 4. **Delta check** — everything after `{dir}/checked-sha` (the last checked commit):
-   - the tests of the classes the delta touches, plus the new ones;
+   - the tests of the code the delta touches, plus the new ones;
    - the quality-gate sub-agent (`.claude/agents/quality-gate/prompt.md`) on the delta only:
      `git diff <checked-sha>..HEAD`, the files it touches, and the sibling paths of what
      changed. Reason `scope` → the full Phase 4 instead (skill `cg-phase-4`);
@@ -44,14 +44,14 @@ Not sure whether the MR is merged: `/cg-mr` (below) first.
 6. A merge of the target branch into this one is not rework; only conflict resolutions
    that change code are, and they get the delta check like any fix.
 
-## Merged — `/cg-mr`
+## Merged — `/cg-merged`
 
 `git fetch origin`, then `python3 .claude/scripts/cg_session.py facts`:
 - `merged: true` → state `MERGED`, audit `[ts] Merged into <target>`,
   `python3 .claude/scripts/tracker.py event merged`. The task is closed; the next one starts
   from a fresh base branch (skill `cg-phase-0`).
-- not merged → report the MR as open (url from `{dir}/pr-url`), commits since `checked-sha`
+- not merged → report the PR/MR as open (url from `{dir}/pr-url`), commits since `checked-sha`
   if any, and the state.
 
 Merge detection compares commits, so a squash merge does not show as merged: then ask the
-user, or check the MR on the host.
+user, or check the PR/MR on the host.

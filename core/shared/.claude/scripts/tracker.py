@@ -5,7 +5,7 @@ Codegate knows no tracker. It asks for abstract actions; the project's adapter d
 they mean in its tracker. Events:
   started     — a task began (Phase 0): an item is created, or an existing one taken up
   pr_created  — its PR/MR exists (Phase 5)
-  merged      — its PR/MR is merged (/cg-mr)
+  merged      — its PR/MR is merged (/cg-merged)
 
 Usage:
   tracker.py create --title T [--description D | --body-file F] [--type feature|bugfix|refactor]
@@ -23,7 +23,7 @@ Usage:
 Bodies (--body-file, --body) are markdown; turning them into the tracker's format is the
 adapter's job. TYPE of a relation is one of: relates, blocks, blocked_by, caused_by — how
 each maps onto the tracker is the adapter's business too. ALIAS is a name the project gave
-another project (option `consumers`, e.g. admin-front); the adapter knows which tracker
+another project (option `consumers`, e.g. web); the adapter knows which tracker
 project it is. Without --project an action is about this repository's own project.
 
 Without --id, `event`/`move`/`status`/`comment`/`link` use the item of the task on the

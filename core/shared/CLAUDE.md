@@ -24,8 +24,8 @@ loaded when the phase starts.
    rework, skill `cg-rework`.
 3. It is other work — a new feature, an unrelated bug, a defect in an already merged task,
    an extension of the task → a **new task**, skill `cg-phase-0`. A defect after merge is a
-   new bug task linked to the original; an extension is a new linked task even while the MR
-   is open, unless the user explicitly wants it in the same MR.
+   new bug task linked to the original; an extension is a new linked task even while the PR/MR
+   is open, unless the user explicitly wants it in the same PR/MR.
 4. A question, an investigation, a review, no code change → just answer; no task.
 
 In doubt between 1–3, ask one short question. Never fold another task into this branch, and
@@ -41,7 +41,7 @@ never write code without a task on the branch.
 | 3 Implementation | plan approved | `cg-phase-3` |
 | 4 Quality gate | implementation complete | `cg-phase-4` |
 | 5 PR/MR | gate passed | `cg-phase-5` |
-| After the MR | rule 2 above, `/cg-mr` | `cg-rework` |
+| After the PR/MR | rule 2 above, `/cg-merged` | `cg-rework` |
 
 On entering a phase, invoke its skill and follow it. After compaction the recovery note
 names the skill to load.
@@ -85,7 +85,7 @@ workflow on it beyond the question in Phase 0.
 ## Hard rules
 
 1. Never start a task on the base branch; Phase 0 creates the task branch first.
-2. Never write source files in `IDLE` or `ELICITED`, nor after the MR exists outside rework.
+2. Never write source files in `IDLE` or `ELICITED`, nor after the PR/MR exists outside rework.
 3. **Edit source files only with the Edit and Write tools** — never through the shell
    (redirects, `sed -i`, python, heredoc). Hooks and editor diagnostics see only those tools;
    a shell write is invisible to them.
@@ -109,7 +109,7 @@ workflow on it beyond the question in Phase 0.
   `/cg-approve quality` also overrides a FAIL in either mode).
 - `/cg-status`, `/cg-explain` — the current task; `/cg-tasks` — all tasks; `/cg-resume` — pick
   up the task of this checkout after `/clear` or in a new window.
-- `/cg-mr` — is this task's MR merged; closes the task when it is.
+- `/cg-merged` — is this task's PR/MR merged; closes the task when it is.
 - `/cg-next` — tracker items assigned to you in this project.
 - `/cg-tracker`, `/cg-debt`, `/cg-timeline`, `/cg-debug [on|off]` — tracker item by hand, tech
   debt list, timeline across sessions, flow-feedback mode (skill `cg-flow-feedback`).

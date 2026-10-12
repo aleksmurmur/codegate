@@ -90,7 +90,7 @@ done
 [ -z "$REF_TARGETS" ] && CHECKS="$CURRENT_BRANCH"
 if [ "$MR_TARGET" = "@default" ]; then
   MR_TARGET=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
-  # Unknown default branch: assume the worst rather than let the MR through unchecked.
+  # Unknown default branch: assume the worst rather than let the PR/MR through unchecked.
   [ -z "$MR_TARGET" ] && MR_TARGET="main"
 fi
 case "$MR_TARGET" in
@@ -173,14 +173,13 @@ case "$STATE" in
           "Finish implementation and the quality gate (skills cg-phase-3, cg-phase-4); Phase 5 pushes."
     ;;
   REWORK)
-    block "rework on this MR has not been checked." \
+    block "rework on this PR/MR has not been checked." \
           "Run the delta check (skill cg-rework), write checked-sha and PR_UPDATED, then push."
     ;;
 esac
 
 # Commits after the last check (checked-sha, written by the gate and the rework check) reach
-# the MR unreviewed: in practice most post-MR fixes were pushed that way. Merges of the target
-# branch and commits touching only .ai/ do not count.
+# the PR/MR unreviewed. Merges of the target branch and commits touching only .ai/ do not count.
 CHECKED=$(cat "$SESSION_DIR/checked-sha" 2>/dev/null | tr -d '[:space:]')
 if [ -z "$CHECKED" ] && [ -n "$SESSION_BRANCH" ]; then
   # A session bound to a branch records checked-sha whenever the gate concludes (PASS, WARN

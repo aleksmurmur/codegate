@@ -33,7 +33,7 @@ new one goes:
 | `in-progress` | paused, untouched | **new worktree** |
 | a live chat works here (the `codegate:` line says so, or `ListAgents` shows a busy session in this repo) | untouched | **new worktree** |
 | `merged` | write `MERGED` to its state, `tracker.py event merged` | this folder, new branch from fresh `BASE` |
-| `mr-open` | stays as is (its MR is open) | this folder, new branch from fresh `BASE` |
+| `mr-open` | stays as is (its PR/MR is open) | this folder, new branch from fresh `BASE` |
 | `stale` | ask one line: "close `<branch>` as no longer relevant?" — yes → write `ABANDONED` to its state; no → paused | this folder, new branch from fresh `BASE` |
 | `paused`, `no-session` | paused | this folder, new branch from fresh `BASE` |
 
@@ -47,7 +47,7 @@ changes the decision and it is idle. By default go to a new worktree without ask
 
 ## 2. Ticket
 
-- **The task is a tracker key** (`/cg-feature BACK-1234 …`): `python3 .claude/scripts/tracker.py get <KEY>`.
+- **The task is a tracker key** (`/cg-feature ABC-123 …`): `python3 .claude/scripts/tracker.py get <KEY>`.
   - `{"ok": true}` → the task is its `name` and `description` plus the user's notes; the
     ticket is the key. Show the title and first lines of the description; keep `id`, `key`,
     `url`; after the branch exists run `tracker.py event started --id <id>`.
@@ -79,7 +79,7 @@ changes the decision and it is idle. By default go to a new worktree without ask
   — session files, hooks, commits — happens there.
 - Never `git checkout -b <name> origin/$BASE` (without `--no-track`): `origin/$BASE` would become
   the upstream and a bare `git push` would target the shared branch.
-- The task's **target** (where its MR goes) is `BASE` (or `CURRENT` for a stacked task).
+- The task's **target** (where its PR/MR goes) is `BASE` (or `CURRENT` for a stacked task).
 
 Switching to a new task in the same chat carries the old task's conversation along. Say in
 one line that `/clear` then `/cg-resume` starts this task with a clean context — cheaper and

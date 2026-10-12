@@ -17,7 +17,7 @@ user-invocable: false
    - `task.md` — the task text (from the tracker item when Phase 0 took one);
    - `branch` — `git branch --show-current`. This binds the session to the branch: hooks,
      commands and the push gate find the session through it;
-   - `target-branch` — where the MR goes (Phase 0); `ticket` — the key, if any;
+   - `target-branch` — where the PR/MR goes (Phase 0); `ticket` — the key, if any;
    - `mode` — `fast` or `interactive` (the starting command decides);
    - `tracker.json` — `{"id", "key", "url"}` when Phase 0 created or took an item;
    - `state` — `IDLE`.
