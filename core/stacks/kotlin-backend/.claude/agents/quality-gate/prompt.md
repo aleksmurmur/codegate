@@ -74,6 +74,17 @@ mark as "Not applicable".
 Read the full git diff carefully. Read CODEBASE_CONTEXT.md. Review across these
 dimensions. For each dimension: assign PASS / WARN / FAIL and list specific findings.
 
+**Before the dimensions — who else reads and writes what this diff changes.** For every
+table, column, entity field, cache key, event or API response the diff changes the meaning
+or the writing of: find the other code that reads or writes it (grep the name, follow the
+repository / mapper / consumer), and check those paths still hold — the old reader that now
+gets a new value, the second writer that skips the new rule, the sibling endpoint that
+returns the same data unchanged. Of 38 defects found after merge or by a human in two
+developers' history, 7 were on such a neighbouring path, findable by reading code. Put what you
+checked in the report (one line per path); a broken neighbour is a finding of the dimension
+it falls under. During a re-run on fix commits, the paths next to the fixed code are the
+scope.
+
 ### 4.1 Convention Consistency
 
 Compare new code against CODEBASE_CONTEXT.md:

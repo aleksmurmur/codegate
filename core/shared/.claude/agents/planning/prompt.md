@@ -254,6 +254,14 @@ Anything outside the immediate task that could be affected:
 
 If none: "No systems affected beyond the implementation boundary."
 
+### Consumers
+Only when elicitation named consumers — other projects (front end, mobile app, another
+service) that need work because of this change. Per consumer, by the alias the project uses
+(option `consumers`, e.g. `admin-front`): what they need to do, the contract they depend on
+(endpoints, fields, types, errors), and the rollout order relative to this task ("this MR
+first, then theirs" / "together" / "theirs first"). Phase 5 turns each into a linked task in
+the tracker. If none: omit this section.
+
 ### Scope Boundary
 One explicit sentence: "Everything not in the checklist above is out of scope for
 this task."

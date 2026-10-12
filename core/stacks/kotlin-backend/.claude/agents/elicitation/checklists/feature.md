@@ -1,6 +1,8 @@
 # Feature Elicitation Checklist
 
-Each item is a trigger. Ask it only if the condition is true.
+Each item is a trigger for a concern, not a question to copy. When its condition is true,
+sort the concern as the elicitation prompt's Step 4 says: most become your own decisions or
+data-map facts; only business ones reach the user.
 Replace bracketed placeholders with actual names from CODEBASE_CONTEXT.md.
 
 ---
