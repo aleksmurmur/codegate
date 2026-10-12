@@ -23,6 +23,8 @@ Usage:
   cg_session.py target-ref [--branch B]
                                  that target branch as a ref (see `base`); exit 1 when there is none
   cg_session.py branch           the branch this checkout's session is bound to; exit 1 when none
+  cg_session.py checked          exit 0 when checked-sha covers HEAD: nothing but `.ai/` and
+                                 merges of the target branch changed since it
   cg_session.py facts            JSON facts about this checkout for the task-boundary decision
   cg_session.py claim --chat ID  record that chat ID is working in this checkout; prints the
                                  previous chat when another one was active here recently
@@ -277,6 +279,16 @@ def diff_base() -> str | None:
     return None
 
 
+def checked() -> bool:
+    sid = current()
+    sha = read(newest(session_dirs()[sid], "checked-sha")) if sid else ""
+    if not sha or git("merge-base", "--is-ancestor", sha, "HEAD") is None:
+        return False
+    ref = target_ref(session_target())
+    changed = git("log", "--no-merges", "--format=", "--name-only", f"{sha}..HEAD", *(["--not", ref] if ref else []))
+    return not [f for f in (changed or "").splitlines() if f and not f.startswith(".ai/")]
+
+
 def facts() -> dict:
     branch = current_branch()
     base = option("base_branch", "main")
@@ -391,6 +403,8 @@ def main(argv: list[str]) -> int:
         if b:
             print(b)
         return 0 if b else 1
+    if cmd == "checked":
+        return 0 if checked() else 1
     if cmd == "facts":
         print(json.dumps(facts(), ensure_ascii=False))
         return 0

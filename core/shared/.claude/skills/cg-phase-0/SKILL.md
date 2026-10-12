@@ -78,7 +78,8 @@ it only when its answer changes the decision and it is idle. By default go to a 
   `git worktree add --no-track -b <name> "$MAIN/.claude/worktrees/<slug>" <from>`, where `<from>` is
   `origin/$BASE` (or `CURRENT` for a stacked task), and move
   the conversation into it with `EnterWorktree` (`path` = that directory). Everything after this
-  — session files, hooks, commits — happens there.
+  — session files, hooks, commits — happens there. Without that tool (or when it fails): `cd`
+  into the directory and check that `git branch --show-current` prints `<name>` before Phase 1.
 - Never `git checkout -b <name> origin/$BASE` (without `--no-track`): `origin/$BASE` would become
   the upstream and a bare `git push` would target the shared branch.
 - The task's **target** (where its PR/MR goes) is `BASE` (or `CURRENT` for a stacked task).

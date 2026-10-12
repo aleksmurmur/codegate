@@ -12,7 +12,8 @@ Next step by state:
 - ELICITED → planning
 - PLAN_APPROVED / IMPLEMENTING → implementation in progress
 - QUALITY_REVIEWED → gate report in QUALITY_REPORT.md; no `checked-sha` yet → fix rounds or
-  the independent review next (Phase 4 §5); `checked-sha` present → the PR/MR next
+  the independent review next (Phase 4 §5); `cg_session.py checked` succeeds → the PR/MR next;
+  `checked-sha` present but `checked` fails → the review again on the commits since (§5)
 - PR_CREATED / PR_UPDATED → PR/MR open (url); fixes to it are rework; `/cg-merged` checks for a merge
 - REWORK → a fix to the open PR/MR is in progress; the delta check comes before the push
 - MERGED / ABANDONED → closed; new work starts a new task

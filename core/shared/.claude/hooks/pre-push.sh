@@ -33,7 +33,7 @@ case $RC in
   3) echo "codegate: this command looks like a push or a PR/MR creation but cannot be parsed (unbalanced quotes?). Run it as a plain command." >&2; exit 2 ;;
   *)
     # Hold back only what starts a command as a push or a PR/MR creation.
-    START='("command": *"|;|&|\||\(|\\n|\\")[[:space:]]*([^[:space:]"]*/)?'
+    START='("command": *"|;|&|\||\(|\\n)[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+|(timeout|env|nice|command|exec)[[:space:]]+([0-9][^[:space:]]*[[:space:]]+)?)*([^[:space:]"]*/)?'
     if printf '%s' "$INPUT" | grep -qE "${START}git(\.exe)?([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+push([^[:alnum:]_-]|\$)|${START}(gh|glab)(\.exe)?[[:space:]]+(pr|mr)[[:space:]]+(create|new)"; then
       echo "codegate: Python 3 not found (python3 or python), or $SCRIPTS/cg_cmd.py failed — this hook cannot check the push or PR/MR." >&2
       exit 2
@@ -42,6 +42,9 @@ case $RC in
     ;;
 esac
 
+# Like the other hooks: the checkout the call runs in is the `cwd` the hook is given.
+CWD=$("$PY" -c "import json,sys; print(json.load(sys.stdin).get('cwd') or '')" <<< "$INPUT" 2>/dev/null)
+[ -n "$CWD" ] && cd "$CWD" 2>/dev/null
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 cd "$ROOT" || exit 2
 # The markers are the user's one-shot approvals. Only a call that goes through uses them up:
@@ -158,7 +161,7 @@ Blocked: target branch is '$CHECK' (protected).
 Landing on a protected branch bypasses review. Either:
   - push to a feature branch and open the PR/MR against a non-protected base, or
   - if you really mean to land on '$CHECK', approve once:
-      touch .ai/protected-target-allowed
+      touch $ROOT/.ai/protected-target-allowed
     then re-run the command. The marker is one-shot.
 EOF
     exit 2
@@ -183,7 +186,7 @@ block() {
     echo ""
     echo "$2"
     echo ""
-    echo "Only if the user explicitly wants this unchecked: touch .ai/push-unchecked-allowed"
+    echo "Only if the user explicitly wants this unchecked: touch $ROOT/.ai/push-unchecked-allowed"
     echo "and run it again (one-shot), and record their reason in the audit log."
     echo ""
   } >&2

@@ -16,7 +16,9 @@ user-invocable: false
 2. `.ai/sessions/{id}/`, and in it:
    - `task.md` — the task text (from the tracker item when Phase 0 took one);
    - `branch` — `git branch --show-current`. This binds the session to the branch: hooks,
-     commands and the push gate find the session through it;
+     commands and the push gate find the session through it. A branch already bound to an
+     open session (`cg_session.py current` prints one that is not MERGED or ABANDONED) means
+     Phase 0 did not reach the new branch: stop and report;
    - `target-branch` — where the PR/MR goes (Phase 0); `ticket` — the key, if any;
    - `mode` — `fast` or `interactive` (the starting command decides);
    - `tracker.json` — `{"id", "key", "url"}` when Phase 0 created or took an item;

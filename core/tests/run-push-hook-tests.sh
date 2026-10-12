@@ -255,6 +255,7 @@ git -C "$REPO" checkout -q feat/x
 session PR_CREATED feat/x
 gr rev-parse feat/x > "$REPO/.ai/sessions/s1/checked-sha"
 echo main > "$REPO/.ai/sessions/s1/target-branch"
+check "pushing tags pushes no branch"                   main   'git push origin --tags'            0
 check "Phase 5's push written over several lines"       feat/x 'git push -u -o merge_request.create \\\n  -o merge_request.target=main \\\n  origin HEAD' 0
 check "a commit message with an open parenthesis"       feat/x 'git commit -m \"$(cat <<'"'"'EOF'"'"'\nfix: retry the push (see #12\nEOF\n)\"' 0
 
@@ -266,6 +267,12 @@ if ! env PATH=/usr/bin bash -c 'command -v python3 || command -v python' >/dev/n
     printf '{"tool_input":{"command":"git -C . push origin x"}}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?
     if [ "$got" = 2 ]; then echo "PASS  no Python: a push is blocked"; PASS=$((PASS + 1))
     else echo "FAIL  no Python: a push is blocked (exit=$got)"; FAIL=$((FAIL + 1)); fi
+    printf '{"tool_input":{"command":"timeout 60 git push origin x"}}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?
+    if [ "$got" = 2 ]; then echo "PASS  no Python: a push behind timeout is blocked"; PASS=$((PASS + 1))
+    else echo "FAIL  no Python: a push behind timeout is blocked (exit=$got)"; FAIL=$((FAIL + 1)); fi
+    printf '{"tool_input":{"command":"echo \\"git push\\""}}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?
+    if [ "$got" = 0 ]; then echo "PASS  no Python: an echoed string passes"; PASS=$((PASS + 1))
+    else echo "FAIL  no Python: an echoed string passes (exit=$got)"; FAIL=$((FAIL + 1)); fi
     printf '{"tool_input":{"command":"git commit -m \\"docs: explain git push flow\\""}}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?
     if [ "$got" = 0 ]; then echo "PASS  no Python: a commit message mentioning git push passes"; PASS=$((PASS + 1))
     else echo "FAIL  no Python: a commit message mentioning git push passes (exit=$got)"; FAIL=$((FAIL + 1)); fi

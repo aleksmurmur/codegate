@@ -32,7 +32,7 @@ Every task follows enforced phases before code reaches review:
    with baseline-diffed test run and tech-debt log. Last, an independent review: a
    sub-agent that sees only the task and the code, not the plan or the author's reasoning.
 5. **PR creation** — PR/MR with the quality report; linked tracker tasks for the projects
-   that consume the change (front end, mobile), after the user confirms the drafts.
+   that consume the change (another service, an app), after the user confirms the drafts.
 6. **After the PR/MR** — QA findings, review remarks and CI fixes are *rework*: same branch,
    a check of only the new commits before they are pushed. A defect found after the merge, or
    an extension, is a new task linked to the original.

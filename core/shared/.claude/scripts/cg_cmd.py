@@ -277,7 +277,7 @@ def known(value: str) -> str:
 def push_lines(args: list[str]) -> list[str]:
     positional: list[str] = []
     options: list[str] = []
-    repo_given = every_branch = False
+    repo_given = every_branch = tags_only = False
     i = 0
     while i < len(args):
         w = args[i]
@@ -295,6 +295,8 @@ def push_lines(args: list[str]) -> list[str]:
             repo_given = True
         elif w in ("--all", "--mirror", "--branches"):
             every_branch = True
+        elif w == "--tags":
+            tags_only = True
         elif w in ("--receive-pack", "--exec") and i + 1 < len(args):
             i += 1
         elif not w.startswith("-"):
@@ -310,7 +312,7 @@ def push_lines(args: list[str]) -> list[str]:
         dst = branch(dst)
         dst = "@unknown" if unexpanded(dst) else (dst or "HEAD")
         lines.append(f"ref {dst} {known(src.lstrip('+')) if src else '-'}")
-    if not refspecs and not every_branch:
+    if not refspecs and not every_branch and not tags_only:
         lines.append("ref HEAD HEAD")
     mr = [o.split("=", 1)[1] for o in options if o.startswith("merge_request.target=")]
     if mr:

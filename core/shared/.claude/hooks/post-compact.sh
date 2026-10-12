@@ -108,7 +108,7 @@ case "$STATE" in
     fi
     ;;
   QUALITY_REVIEWED)
-    if [ -s "$SESSION_DIR/checked-sha" ]; then
+    if "$PY" .claude/scripts/cg_session.py checked 2>/dev/null; then
       echo "▶ Gate and independent review done. Next: the PR/MR (skill cg-phase-5)."
     else
       echo "▶ Quality gate done (report: $REL_DIR/QUALITY_REPORT.md). Next: fix rounds, then the independent review (skill cg-phase-4, §4–5)."

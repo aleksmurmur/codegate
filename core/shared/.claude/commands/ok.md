@@ -46,7 +46,8 @@ Otherwise, infer the phase from session state and dispatch:
    | ELICITED | — | run `/cg-approve plan` |
    | PLAN_APPROVED | — | run `/cg-approve implementation` (rare — state usually transitions to IMPLEMENTING immediately) |
    | IMPLEMENTING | — | run `/cg-approve implementation` |
-   | QUALITY_REVIEWED | `checked-sha` present | run Phase 5 (skill `cg-phase-5`) |
+   | QUALITY_REVIEWED | `python3 .claude/scripts/cg_session.py checked` succeeds (the checked commit is what would be delivered) | run Phase 5 (skill `cg-phase-5`) |
+   | QUALITY_REVIEWED | `checked-sha` present but `checked` fails — commits since the review | Phase 4 §5 again on the new commits |
    | QUALITY_REVIEWED | audit has `Independent review started` | the review is under way: continue Phase 4 §5; when it is waiting on "fix or proceed?", `/ok` means proceed |
    | QUALITY_REVIEWED | verdict `PASS`, or the audit has `WARN accepted` / `Quality gate override` | start Phase 4 §5 (the independent review) |
    | QUALITY_REVIEWED | verdict is `WARN` | run `/cg-approve quality`, but FIRST print: "⚠ Accepting WARN findings via /ok. Read QUALITY_REPORT.md if you haven't." |
