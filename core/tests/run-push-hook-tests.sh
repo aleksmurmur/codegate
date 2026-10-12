@@ -183,7 +183,7 @@ check "git stash push is not a push"               main   "git stash push"      
 # ── pre-pr.sh ──────────────────────────────────────────────────────────────────────────
 echo ""
 echo "-- pre-pr --"
-PRHOOK="$(dirname "$HOOK")/pre-pr.sh"
+PRHOOK="$HOOK"  # pre-push.sh checks PR/MR creation too
 pr_check() {
     local name="$1" cmd="$2" want="$3" got
     rm -f "$REPO/.ai/protected-target-allowed"
@@ -201,6 +201,46 @@ pr_check "a variable base is blocked"        'gh pr create --base \"$TARGET\"'  
 pr_check "an echo of the command is no PR"   'echo gh pr create --base main'     0
 echo main > "$REPO/.ai/sessions/s1/target-branch"
 pr_check "the task's own target passes"      'gh pr create --base main'          0
+
+# ── sixth audit: shell forms, the target exemption, the pushed commit ───────────────────
+echo ""
+echo "-- shell forms and deliveries --"
+rm -f "$REPO/.ai/sessions/s1/target-branch"
+check "push inside if/then"                  feat/x 'if true; then git push origin main; fi'   2
+check "push inside a for loop"               feat/x 'for b in x; do git push origin main; done' 2
+check "push behind timeout"                  feat/x 'timeout 60 git push origin main'          2
+check "push --all"                           feat/x 'git push --all origin'                    2
+check "push after a comment line"            feat/x 'echo hi # it is\ngit push origin main'    2
+check "a comment mentioning push is ignored" main   'ls # then git push origin main'           0
+check "a heredoc body is not a command"      main   'cat > n.md <<EOF\ngit push origin main\nEOF' 0
+pr_check "gh pr new is a PR creation"        'gh pr new --base main'                           2
+
+echo main > "$REPO/.ai/sessions/s1/target-branch"
+session IMPLEMENTING feat/x
+check "MR to the target from another branch name" feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD:feat/x-copy" 2
+pr_check "PR to the target from another head"     'gh pr create --base main --head feat/x-copy'  2
+pr_check "the task's own PR before the gate"      'gh pr create --base main'                      2
+
+session QUALITY_REVIEWED feat/x
+gr rev-parse feat/x > "$REPO/.ai/sessions/s1/checked-sha"
+git -C "$REPO" checkout -q --detach
+echo detached > "$REPO/detached.kt" && gr add detached.kt && gr commit -q -m "unchecked on a detached HEAD"
+printf '{"tool_input":{"command":"git push origin HEAD:feat/x"}}' | ( cd "$REPO" && bash "$HOOK" >/dev/null 2>&1 ); got=$?
+if [ "$got" = 2 ]; then echo "PASS  the pushed commit is checked, not the branch tip"; PASS=$((PASS + 1))
+else echo "FAIL  the pushed commit is checked, not the branch tip (exit=$got)"; FAIL=$((FAIL + 1)); fi
+git -C "$REPO" checkout -q feat/x
+gr merge -q --ff-only "HEAD@{1}" 2>/dev/null || git -C "$REPO" reset -q --hard "HEAD@{1}"
+ERR=$(printf '{"tool_input":{"command":"git push origin feat/x"}}' | ( cd "$REPO" && bash "$HOOK" 2>&1 >/dev/null ))
+case "$ERR" in *"independent review again"*) echo "PASS  new commits before the PR/MR go back to the review"; PASS=$((PASS + 1)) ;;
+  *) echo "FAIL  new commits before the PR/MR go back to the review ($ERR)"; FAIL=$((FAIL + 1)) ;; esac
+gr rev-parse feat/x > "$REPO/.ai/sessions/s1/checked-sha"
+
+rm -f "$REPO/.ai/sessions/s1/target-branch"
+touch "$REPO/.ai/protected-target-allowed"
+printf '{"tool_input":{"command":"git push origin HEAD:main; git push origin HEAD:master"}}' | ( cd "$REPO" && bash "$HOOK" >/dev/null 2>&1 ); got=$?
+if [ "$got" = 2 ]; then echo "PASS  one marker does not cover two protected landings"; PASS=$((PASS + 1))
+else echo "FAIL  one marker does not cover two protected landings (exit=$got)"; FAIL=$((FAIL + 1)); fi
+rm -f "$REPO/.ai/protected-target-allowed"
 
 # ── without Python only what looks like a push is held back ─────────────────────────────
 if ! env PATH=/usr/bin bash -c 'command -v python3 || command -v python' >/dev/null 2>&1; then

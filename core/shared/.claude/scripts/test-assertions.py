@@ -668,6 +668,9 @@ def main() -> None:
     parser.add_argument("--base", required=True, help="commit to diff against")
     parser.add_argument("--output", help="path to write the markdown report")
     args = parser.parse_args()
+    if not args.base.strip():
+        print("error: --base is empty: no diff base (is the target branch gone?)", file=sys.stderr)
+        sys.exit(2)
 
     try:
         added = added_lines_by_file(args.base)

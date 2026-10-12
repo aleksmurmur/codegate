@@ -8,7 +8,9 @@ user-invocable: false
 
 **Entry**: implementation complete. Session dir: `python3 .claude/scripts/cg_session.py dir` (`{dir}`).
 `BASE=$(python3 .claude/scripts/cg_session.py base)` — the merge-base with the task's target branch, taken from
-the remote when the local copy is behind it.
+the remote when the local copy is behind it. It fails (the target branch is gone, e.g. a
+merged parent of a stacked task was deleted) → stop and ask the user which branch the task
+now targets; write it to `{dir}/target-branch`.
 
 Mechanical checks run once; the gate runs again only after FAIL, and only on what the fixes
 touched: fix commits get their own review.
@@ -116,6 +118,8 @@ Audit `[ts] Independent review: <verdict> — C critical, W warnings`. Then writ
 `git rev-parse HEAD` to `{dir}/checked-sha` and go to Phase 5 (skill `cg-phase-5`).
 
 `checked-sha` is what the push gate compares against: commits after it that touch more than
-`.ai/` block the push until they are checked (skill `cg-rework`).
+`.ai/` block the push until they are checked. Before the PR/MR exists (state still
+`QUALITY_REVIEWED` — e.g. changes the PR creator stopped on, committed since) that is this
+section again on the new commits, which rewrites `checked-sha`; after it, skill `cg-rework`.
 
 Debug mode: skill `cg-flow-feedback`, Phase 4 block.

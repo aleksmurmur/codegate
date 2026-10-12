@@ -32,7 +32,7 @@ new one goes:
 |---|---|---|
 | `base` | — | this folder, new branch from fresh `BASE` |
 | `in-progress` | paused, untouched | **new worktree** |
-| a live chat works here (the `codegate:` line says so, or `ListAgents` shows a busy session in this repo) | untouched | **new worktree** |
+| a live chat works here (the `codegate:` line says so, or the harness can list sessions and one is busy in this repo) | untouched | **new worktree** |
 | `merged` | write `MERGED` to its state, `tracker.py event merged` | this folder, new branch from fresh `BASE` |
 | `review-open` | stays as is (its PR/MR is open) | this folder, new branch from fresh `BASE` |
 | `stale` | ask one line: "close `<branch>` as no longer relevant?" — yes → write `ABANDONED` to its state; no → paused | this folder, new branch from fresh `BASE` |
@@ -43,8 +43,8 @@ only when the user says so, or the task text plainly builds on the current branc
 from `CURRENT` instead of `BASE`; its **target** is then `CURRENT`. If unsure, ask:
 "Build on top of `<CURRENT>` or start from `<BASE>`?"
 
-Another chat in this folder: you may ask it through `SendMessage` only when its answer
-changes the decision and it is idle. By default go to a new worktree without asking.
+Another chat in this folder: when the harness lets you message other sessions, you may ask
+it only when its answer changes the decision and it is idle. By default go to a new worktree without asking.
 
 ## 2. Ticket
 

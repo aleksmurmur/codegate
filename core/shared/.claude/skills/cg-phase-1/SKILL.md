@@ -63,7 +63,7 @@ user-invocable: false
   (skill `cg-phase-2`). `interactive`: "Type `/cg-approve elicit` to plan." Wait.
 
 Answers that pick one approach over another with real consequences become ADRs in Phase 3
-(step "backfill"). The "consumers and rollout order" answer feeds the plan's `## Consumers`
+(step "backfill"). The "consumers and rollout order" answer feeds the plan's Consumers
 section and, in Phase 5, the linked tasks for those consumers.
 
 Debug mode (`.ai/cg-debug-mode` exists): skill `cg-flow-feedback`, Phase 1 block.

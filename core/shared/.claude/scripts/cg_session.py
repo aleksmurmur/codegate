@@ -13,12 +13,15 @@ worktree, kept when a worktree is removed. The two are merged file by file, newe
 
 Usage:
   cg_session.py current          the session id for this checkout; exit 1 if there is none
-  cg_session.py dir              its directory, restored from the shared copy when missing
+  cg_session.py dir [--branch B] its directory, restored from the shared copy when missing
+                                 (--branch: the session of branch B instead of the checked-out one)
   cg_session.py state            its state; empty when there is no session
   cg_session.py sync             copy every session of this checkout into the shared store
   cg_session.py list [--json]    every known session: branch, state, worktree, last activity
   cg_session.py base             the commit this task's diff starts from: the merge-base of HEAD
                                  with its target branch (the remote one unless the local is ahead)
+  cg_session.py target-ref       that target branch as a ref (see `base`); exit 1 when there is none
+  cg_session.py branch           the branch this checkout's session is bound to; exit 1 when none
   cg_session.py facts            JSON facts about this checkout for the task-boundary decision
   cg_session.py claim --chat ID  record that chat ID is working in this checkout; prints the
                                  previous chat when another one was active here recently
@@ -137,8 +140,8 @@ def current_branch() -> str:
     return ""
 
 
-def current() -> str | None:
-    branch = current_branch()
+def current(branch: str | None = None) -> str | None:
+    branch = branch or current_branch()
     dirs = session_dirs()
     if branch:
         mine = [sid for sid, copies in dirs.items() if session_branch(copies) == branch]
@@ -247,26 +250,29 @@ def claim(chat: str) -> dict:
 
 
 def target_ref(target: str) -> str | None:
-    for ref in (f"origin/{target}", target):
-        if git("rev-parse", "--verify", "--quiet", ref + "^{commit}"):
-            return ref
-    return None
+    """The ref that stands for the target branch: the remote one, unless the local one is ahead."""
+    refs = [r for r in (f"origin/{target}", target) if git("rev-parse", "--verify", "--quiet", r + "^{commit}")]
+    if not refs:
+        return None
+    # A local target behind its remote (a worktree never pulls it) would put other people's
+    # commits into the diff; one ahead of it (a stacked task's unpushed parent) is the truth.
+    if len(refs) == 2 and git("merge-base", "--is-ancestor", refs[0], refs[1]) is not None:
+        return refs[1]
+    return refs[0]
+
+
+def session_target() -> str:
+    sid = current()
+    copies = session_dirs().get(sid, []) if sid else []
+    return (read(newest(copies, "target-branch")) if copies else "") or option("base_branch", "main")
 
 
 def diff_base() -> str | None:
-    sid = current()
-    copies = session_dirs().get(sid, []) if sid else []
-    target = (read(newest(copies, "target-branch")) if copies else "") or option("base_branch", "main")
+    target = session_target()
     for name in [target] + (["master"] if target == "main" else []):
-        refs = [r for r in (f"origin/{name}", name) if git("rev-parse", "--verify", "--quiet", r + "^{commit}")]
-        if not refs:
-            continue
-        # A local target behind its remote (a worktree never pulls it) would put other people's
-        # commits into the diff; one ahead of it (a stacked task's unpushed parent) is the truth.
-        ref = refs[0]
-        if len(refs) == 2 and git("merge-base", "--is-ancestor", refs[0], refs[1]) is not None:
-            ref = refs[1]
-        return git("merge-base", ref, "HEAD")
+        ref = target_ref(name)
+        if ref:
+            return git("merge-base", ref, "HEAD")
     return None
 
 
@@ -346,7 +352,7 @@ def main(argv: list[str]) -> int:
             print(sid)
         return 0 if sid else 1
     if cmd == "dir":
-        sid = current()
+        sid = current(argv[argv.index("--branch") + 1] if "--branch" in argv[:-1] else None)
         if not sid:
             return 1
         reconcile(sid)
@@ -370,6 +376,17 @@ def main(argv: list[str]) -> int:
         return 0
     if cmd == "base":
         b = diff_base()
+        if b:
+            print(b)
+        return 0 if b else 1
+    if cmd == "target-ref":
+        ref = target_ref(session_target())
+        if ref:
+            print(ref)
+        return 0 if ref else 1
+    if cmd == "branch":
+        sid = current(argv[argv.index("--branch") + 1] if "--branch" in argv[:-1] else None)
+        b = session_branch(session_dirs()[sid]) if sid else ""
         if b:
             print(b)
         return 0 if b else 1

@@ -88,8 +88,8 @@ mv "$PROJECT/adapter.bak" "$PROJECT/.claude/tracker-adapter.py"
 echo ""
 echo "-- what the adapter receives --"
 rm -f "$CALLS"
-run create --title "Починить чек" --type bugfix
-expect "create passes its arguments verbatim"   0 "calls == [['create', '--title', 'Починить чек', '--type', 'bugfix']] and j['name'] == 'Задача'"
+run create --title "Починить вход" --type bugfix
+expect "create passes its arguments verbatim"   0 "calls == [['create', '--title', 'Починить вход', '--type', 'bugfix']] and j['name'] == 'Задача'"
 rm -f "$CALLS"
 run get ABC-12
 expect "get passes the key"                     0 "calls == [['get', 'ABC-12']]"

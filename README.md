@@ -82,7 +82,7 @@ Commit `CODEBASE_CONTEXT.md` so your team shares the same baseline.
 ```
 /cg-feature  add date filter to the results page
 /cg-bugfix   users can't log in after password reset
-/cg-refactor extract payment logic into its own service
+/cg-refactor extract the export logic into its own module
 ```
 
 Answer the elicitation questions, then follow the prompts.

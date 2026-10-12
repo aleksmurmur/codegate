@@ -33,7 +33,8 @@ Not sure whether the PR/MR is merged: `/cg-merged` (below) first.
    staged by explicit path; audit lines per commit.
 4. **Delta check** — everything after `{dir}/checked-sha` (the last checked commit). When
    there is none, or it is no longer in the branch (amend, rebase, reset), the base is
-   `python3 .claude/scripts/cg_session.py base` and the check covers the whole branch:
+   `python3 .claude/scripts/cg_session.py base` (fails → ask the user for the target, as in
+   Phase 4) and the check covers the whole branch:
    - the tests of the code the delta touches, plus the new ones;
    - the independent review (`.claude/agents/independent-review/prompt.md`, as in Phase 4 §5)
      with base `<checked-sha>` and report `{dir}/rework-N.md`. Reason `scope` → also the

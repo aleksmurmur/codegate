@@ -378,8 +378,9 @@ did not. After the files are in place:
 
 **Push and PR hooks start firing** — baseline `.claude/settings.json` registers `pre-push.sh` or
 `pre-pr.sh` under a matcher like `Bash(git push*)`. A matcher names a tool only, so those hooks
-never ran: no push or PR/MR was ever checked. Upstream registers them under `Bash` and each
-script filters its own command. Tell the user in one line that pushes and PR/MR creation are
+never ran: no push or PR/MR was ever checked. Upstream registers one hook, `pre-push.sh`, under
+`Bash`; it filters its own commands and checks PR/MR creation too (`pre-pr.sh` is a no-op now).
+In the project's settings, replace the old entries for both scripts with upstream's one. Tell the user in one line that pushes and PR/MR creation are
 checked from now on (protected targets, the task's gate and review). If the project's own
 settings carry such matchers for its own hooks, point out that they never fired either.
 

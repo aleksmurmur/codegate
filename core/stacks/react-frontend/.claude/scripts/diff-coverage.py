@@ -456,6 +456,9 @@ def main() -> None:
     parser.add_argument("--base", required=True, help="Base commit (e.g. merge-base with main)")
     parser.add_argument("--output", required=True, help="Path to write coverage-report.md")
     args = parser.parse_args()
+    if not args.base.strip():
+        print("error: --base is empty: no diff base (is the target branch gone?)", file=sys.stderr)
+        sys.exit(2)
 
     output = Path(args.output)
     added = get_added_lines(args.base)

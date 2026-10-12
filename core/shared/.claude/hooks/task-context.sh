@@ -52,7 +52,7 @@ if [ -n "$CHAT" ] && [ "$CHAT" != "-" ]; then
   case "$OTHER" in
     *minutes_ago*)
       MIN=$(printf '%s' "$OTHER" | sed -E 's/.*"minutes_ago": ?([0-9]+).*/\1/')
-      LINE="$LINE Another chat worked in this folder $MIN min ago: if it is still busy (ListAgents), start new tasks in a new worktree." ;;
+      LINE="$LINE Another chat worked in this folder $MIN min ago: if it may still be busy, start new tasks in a new worktree." ;;
   esac
 fi
 

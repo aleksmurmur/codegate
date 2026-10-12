@@ -83,7 +83,13 @@ echo ""
 
 case "$STATE" in
   IDLE)
-    echo "▶ Elicitation (skill cg-phase-1). Answers so far: $REL_DIR/elicitation.md"
+    if [ -f "$SESSION_DIR/PLAN.md" ] && [ ! -f "$SESSION_DIR/elicitation.md" ]; then
+      echo "▶ Cosmetic fast path proposed (mini-plan: $REL_DIR/PLAN.md): /cg-approve quick to implement, /cg-approve elicit for the full workflow."
+    elif [ -f "$SESSION_DIR/elicitation.md" ]; then
+      echo "▶ Elicitation (skill cg-phase-1). Answers so far: $REL_DIR/elicitation.md"
+    else
+      echo "▶ Elicitation (skill cg-phase-1): not started."
+    fi
     ;;
   ELICITED)
     echo "▶ Planning (skill cg-phase-2). Elicitation is in $REL_DIR/elicitation.md"

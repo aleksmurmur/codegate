@@ -25,7 +25,7 @@ review concluded (Phase 4 §5). Session dir:
    `python3 .claude/scripts/tracker.py comment --body "PR/MR: <url>"`; audit the outcome.
    `{"delegate": "agent", …}` → do it yourself as the named file says. A tracker failure
    never fails the PR.
-5. **Consumers.** When PLAN.md has `## Consumers` (elicitation found other projects that need
+5. **Consumers.** When PLAN.md has a Consumers section (elicitation found other projects that need
    work because of this change): for each, draft a task in markdown with the sections
    `## Context` (one paragraph), `## Contract` (the interface they depend on — e.g. endpoints,
    fields, types, errors, events — as built, from the diff, not as planned), `## Semantics` (edge cases, what each value means),

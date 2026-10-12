@@ -38,6 +38,6 @@ Session dir: `python3 .claude/scripts/cg_session.py dir` (below: `{dir}`).
 The plan must include: a numbered Checklist of files (exact paths); tests first, with
 scenarios; schema changes with migration versions; optional smoke commands; affected systems
 beyond this task; an explicit scope boundary; and, when elicitation named consumers,
-`## Consumers` — who needs follow-up work, what exactly, and the rollout order.
+a Consumers section — who needs follow-up work, what exactly, and the rollout order.
 
 Debug mode: skill `cg-flow-feedback`, Phase 2 block.

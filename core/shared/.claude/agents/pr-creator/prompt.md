@@ -5,7 +5,7 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
 ## Inputs you receive
 
 - Session directory path: `.ai/sessions/{id}/`
-- The session contains: `task.md`, `elicitation.md`, `PLAN.md`, `decisions/` (ADR files, one per non-obvious decision), `integrity-report.md` (with its `## Pattern Review` section), `QUALITY_REPORT.md` (and `QUALITY_REPORT-<N>.md` for earlier rounds), `REVIEW.md` (and `REVIEW-N.md` for repeats)
+- The session contains: `task.md`, `elicitation.md`, `PLAN.md`, `decisions/` (ADR files, one per non-obvious decision), `integrity-report.md` (with its `## Pattern Review` section), `QUALITY_REPORT.md` (and `QUALITY_REPORT-<N>.md` for earlier rounds), `REVIEW.md` (and `REVIEW-N.md` for repeats), `coverage-report.md`, `assertion-report.md`, `audit.log`
 
 ## Steps
 
@@ -99,6 +99,9 @@ was asked about them, so this is where a reviewer sees them. If there were none:
 round). When `QUALITY_REPORT-<N>.md` exist, one line on what the earlier rounds found and fixed.
 If verdict is PASS: "All quality checks passed."
 If verdict is WARN: paste the warnings with a note they were reviewed and accepted.
+Coverage and assertions: the verdict lines of `coverage-report.md` and `assertion-report.md`;
+items the user accepted (`Coverage accepted by user`, `Assertions accepted by user` in the
+audit log) listed one per line, so the reviewer sees what is knowingly untested.
 Do not paste the full report — summary only.]
 
 ## Independent Review
