@@ -29,9 +29,21 @@
     when the task's PR/MR exists.
   choices: none, adapter
   default: >
-    none. On `adapter`, the project provides .claude/tracker-adapter.py: a Python script
-    for its own tracker that honours the contract in .claude/scripts/tracker.py's
-    docstring. Codegate ships no adapter and knows no tracker. If the project has none
-    yet, say so and offer to write one with the user — its config and credentials are
+    none. On `adapter`, the project provides its own adapter, in one or both forms:
+    .claude/tracker-adapter.py — a Python script for its tracker that honours the contract
+    in .claude/scripts/tracker.py's docstring (used by hooks and events); and/or
+    .claude/tracker.md — how to perform each action (create, get, comment, link, list mine)
+    with the tools the user's AI already has for that tracker, e.g. an MCP server. Codegate
+    ships no adapter and knows no tracker. Ask what the user's AI uses to reach the tracker
+    (MCP, API, CLI) and offer to write the adapter together — config and credentials are
     the project's business, credentials never in the repo. Verify with
-    `python3 .claude/scripts/tracker.py check`.
+    `python3 .claude/scripts/tracker.py check` and `tracker.py capabilities`.
+
+- key: consumers
+  question: >
+    Which other projects consume this repository's changes — a front end, a mobile app,
+    another service — and so may need a linked task when an API or shared data changes?
+    Give each a short alias; the tracker adapter maps aliases to tracker projects.
+  default: >
+    Empty (none). Propose aliases only if the project's own docs or the tracker clearly
+    name consumers (e.g. admin-front, mobile). Format: comma-separated aliases.
