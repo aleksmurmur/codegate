@@ -347,6 +347,33 @@ explicitly says "wait, redo".
 
 ---
 
+## 6b. Steps tied to a particular upgrade
+
+Run each block whose condition holds for this update.
+
+**Phases moved from CLAUDE.md to skills** — baseline `CLAUDE.md` has `## Phase 0:` and
+upstream does not. The codegate part of the project's CLAUDE.md shrinks to the core; each
+phase is now `.claude/skills/cg-phase-N/SKILL.md`.
+- In `$STAGING/CLAUDE.md`: the project's own sections stay; the codegate part becomes
+  upstream's text. Do not keep old phase sections next to the new core.
+- A local edit the project had made inside an old phase section is not dropped: carry it into
+  the matching skill file in `$STAGING` (it then shows as a local modification in the
+  manifest) and list each one to the user: "kept your change to Phase N in cg-phase-N".
+- Project rules that are not about a phase (git hosting, MR rules, domain notes) stay in the
+  project's part of CLAUDE.md.
+
+**Sessions bound to branches** — upstream has `.claude/scripts/cg_session.py` and baseline
+did not. After the files are in place:
+- `python3 .claude/scripts/cg_session.py sync` — copies the existing sessions into the shared
+  store in the git directory.
+- Bind the session `.ai/current-session` points at, if it is not closed: its branch is the
+  `Branch <name> from` line of its audit log; without one, ask the user which branch it
+  belongs to. Write it to the session's `branch` file, then delete `.ai/current-session` —
+  a session naming no branch would otherwise count as the task of every branch.
+- `.gitignore`: add `.claude/worktrees/` when missing (Phase 0 creates task worktrees there).
+
+---
+
 ## 7. Build the new manifest
 
 Walk the staged tree, attribute each file (stack first, else shared),
