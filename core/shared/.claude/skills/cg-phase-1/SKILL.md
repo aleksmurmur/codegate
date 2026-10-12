@@ -49,12 +49,15 @@ user-invocable: false
   elicitation prompt); the data map stays in the file unless a question refers to it.
 - **Block 2 has questions, or block 1 asks the user to choose**: wait for the answer,
   in either mode — this is the one boundary fast mode never skips. "All as recommended
-  except N" is a complete answer. Record answers under each question in `elicitation.md`.
+  except N" is a complete answer. Record answers under each question in `elicitation.md`,
+  and the settled outcome — one line per answered question, plus the chosen shape — in
+  `{dir}/requirements.md`: what was decided, not why or how. The independent review in
+  Phase 4 reads it instead of the elicitation file.
   A non-answer ("not sure", "TBD") gets the concrete options with their cost and one
   question "1, 2 or 3?" — never carried into planning open.
 - **No questions** (block 1 states its choice, block 2 is empty): `fast` — say
-  "No business questions; going ahead with the shape above — say if it is wrong." and
-  continue at once; `interactive` — wait for `/cg-approve elicit`.
+  "No business questions; going ahead with the shape above — say if it is wrong.", write the
+  shape line to `{dir}/requirements.md`, and continue at once; `interactive` — wait for `/cg-approve elicit`.
 - `fast` after answers: audit `[ts] fast-mode-auto-proceed: phase-1` and go to Phase 2
   (skill `cg-phase-2`). `interactive`: "Type `/cg-approve elicit` to plan." Wait.
 

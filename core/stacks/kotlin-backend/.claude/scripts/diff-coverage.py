@@ -134,10 +134,10 @@ TRIVIAL_LINE = re.compile(
     r"data\s+class\s+\w+\s*\(?\s*|"  # kotlin `data class Foo(` declaration line — properties inside are instrumented separately
     r"val\s+\w+\s*:\s*[\w<>.?,]+\s*$|"  # kotlin abstract `val name: Type` (interface property — abstract getter, no body); `\s` deliberately not in char class to avoid matching initialized `val foo: Type = …`
     r"\w+\s*=\s*\[\s*$|"          # array literal opener inside annotation values, e.g. `scanBasePackages = [`
-    r"[\"'][^\"']*[\"']\s*,?\s*|"  # bare string literal entry inside an array/annotation, e.g. `"dev.codefish.foo",`
+    r"[\"'][^\"']*[\"']\s*,?\s*|"  # bare string literal entry inside an array/annotation, e.g. `"com.example.foo",`
     r"[A-Z_][A-Z0-9_]+\s*,?\s*$|"  # const-style identifier as array/list entry, e.g. `TMA_HEALTH_V1_PATH,` — references inlined compile-time constants
     r"(@\w+\s*(\([^)]*\))?\s+)+\w+\s*:\s*[\w<>.?,\s]+,?\s*|"  # annotated kotlin parameter (`@Param("x") name: Type`, `@PathVariable id: String,`, `@Valid @RequestBody body: T`) — annotations carry no bytecode
-    r"\w+\s*:\s*[\w<>.?,\s]+,?\s*|"  # kotlin multi-line signature parameter (`timetableId: UUID,`) — declarative, not bytecode-instrumented
+    r"\w+\s*:\s*[\w<>.?,\s]+,?\s*|"  # kotlin multi-line signature parameter (`orderId: UUID,`) — declarative, not bytecode-instrumented
     r"\)\s*:\s*[\w<>.?,\s]+\s*[\{=]?\s*|"  # kotlin multi-line signature closer (`): Type {` or `): Type =`)
     r"\}\s*else\s*\{?\s*|"        # `} else {` continuation — JaCoCo instruments the branch body, not the keyword line
     r"\.\w+\([^)]*\)\s*|"         # dangling method-chain continuation (`.toResponse()`, `.filter { … }`); JaCoCo often attributes chain bytecode to the root line

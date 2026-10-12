@@ -11,7 +11,8 @@ Next step by state:
 - IDLE → elicitation is open: answer its questions
 - ELICITED → planning
 - PLAN_APPROVED / IMPLEMENTING → implementation in progress
-- QUALITY_REVIEWED → gate report in QUALITY_REPORT.md; fixes or the PR/MR next
+- QUALITY_REVIEWED → gate report in QUALITY_REPORT.md; no `checked-sha` yet → fix rounds or
+  the independent review next (Phase 4 §5); `checked-sha` present → the PR/MR next
 - PR_CREATED / PR_UPDATED → PR/MR open (url); fixes to it are rework; `/cg-merged` checks for a merge
 - REWORK → a fix to the open PR/MR is in progress; the delta check comes before the push
 - MERGED / ABANDONED → closed; new work starts a new task

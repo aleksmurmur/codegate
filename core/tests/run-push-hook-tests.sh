@@ -80,6 +80,11 @@ session QUALITY_REVIEWED feat/x
 git -C "$REPO" rev-parse feat/x > "$REPO/.ai/sessions/s1/checked-sha"
 check "own branch after the gate passes"          feat/x "git push -u origin feat/x"  0
 rm -f "$REPO/.ai/sessions/s1/checked-sha"
+session IMPLEMENTING feat/x
+check "a commit mentioning push is not a push"    feat/x "git commit -m 'push it later'"  0
+check "a grep for push is not a push"            feat/x "grep -rn push .claude"  0
+check "push after && is still checked"           feat/x "git add a.kt && git push -u origin feat/x"  2
+check "git -C dir push is still checked"         feat/x "git -C . push -u origin feat/x"  2
 session IMPLEMENTING feat/other
 check "another task's branch is not held back"    feat/x "git push -u origin feat/x"  0
 session IMPLEMENTING ""
@@ -147,6 +152,13 @@ gr merge -q main >/dev/null 2>&1
 echo resolved > "$REPO/fix.kt" && gr add fix.kt && gr commit -q -m "merge main"
 if git -C "$REPO" log -1 --remerge-diff --format= >/dev/null 2>&1; then
   push_check "a merge whose conflict resolution changes code blocks" 2
+fi
+
+SETTINGS="$(dirname "$HOOK")/../settings.json"
+if grep -q '"matcher": *"[^"]*(' "$SETTINGS"; then
+  echo "FAIL  a hook matcher uses Bash(...) syntax, which never matches"; FAIL=$((FAIL + 1))
+else
+  echo "PASS  hook matchers name tools only"; PASS=$((PASS + 1))
 fi
 
 echo ""

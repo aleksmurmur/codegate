@@ -372,6 +372,13 @@ did not. After the files are in place:
   a session naming no branch would otherwise count as the task of every branch.
 - `.gitignore`: add `.claude/worktrees/` when missing (Phase 0 creates task worktrees there).
 
+**Push and PR hooks start firing** — baseline `.claude/settings.json` registers `pre-push.sh` or
+`pre-pr.sh` under a matcher like `Bash(git push*)`. A matcher names a tool only, so those hooks
+never ran: no push or PR/MR was ever checked. Upstream registers them under `Bash` and each
+script filters its own command. Tell the user in one line that pushes and PR/MR creation are
+checked from now on (protected targets, the task's gate and review). If the project's own
+settings carry such matchers for its own hooks, point out that they never fired either.
+
 **Independent review** — upstream has `.claude/agents/independent-review/prompt.md` and
 baseline did not. Phase 4 now ends with a review by a sub-agent that sees only the task and
 the code. If the project has its own review before the PR/MR (a command, an agent, a hook

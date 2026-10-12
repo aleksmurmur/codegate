@@ -27,19 +27,24 @@ Not sure whether the PR/MR is merged: `/cg-merged` (below) first.
 1. Write `REWORK` to `{dir}/state`; audit `[ts] Rework: <qa|review|ci|self|scope> — <one line>`.
    Tracker (when `tracker.json` exists): `python3 .claude/scripts/tracker.py comment --body "Rework: <reason> — <one line>"`.
 2. Reason `scope`: a short elicitation first — only the new questions, same format — and an
-   addendum to PLAN.md (`## Addendum N`), then implement.
+   addendum to PLAN.md (`## Addendum N`); the settled answers are appended to
+   `{dir}/requirements.md`. Then implement.
 3. Fix test-first, as in Phase 3: a test that reproduces the report, then the fix; commits
    staged by explicit path; audit lines per commit.
-4. **Delta check** — everything after `{dir}/checked-sha` (the last checked commit):
+4. **Delta check** — everything after `{dir}/checked-sha` (the last checked commit). When
+   that commit is no longer in the branch (amend, rebase, reset), the base is
+   `git merge-base <target> HEAD` and the check covers the whole branch:
    - the tests of the code the delta touches, plus the new ones;
    - the independent review (`.claude/agents/independent-review/prompt.md`, as in Phase 4 §5)
      with base `<checked-sha>` and report `{dir}/rework-N.md`. Reason `scope` → also the
-     quality gate on the delta (skill `cg-phase-4`, §2–3, base `<checked-sha>`, report
+     quality gate on the delta (skill `cg-phase-4`, §2b–3, the same base, report path
      `{dir}/rework-N-gate.md`) — without its state change and without Phase 5; then step 5 here;
    - diff coverage on the delta when production code changed: first the full suite with
      coverage (option `test_command`, as in Phase 4 — failing test names to
      `{dir}/test-results.txt`), then `diff-coverage.py --base <checked-sha>`.
-   A critical, or a gate FAIL → fix and re-check the new commits, up to 3 rounds.
+   A critical, or a gate FAIL → fix and re-check the new commits, up to 3 rounds; then
+   escalate. Warnings only → as in Phase 4 §5 (`fast`: fix what is worth it now, the rest
+   in a PR/MR comment; `interactive`: ask).
 5. Passed: write `git rev-parse HEAD` to `{dir}/checked-sha`, state `PR_UPDATED`, audit
    `[ts] Rework checked: <sha>`. Push (the push gate compares the pushed HEAD with
    `checked-sha`; commits that touch only `.ai/` do not count).

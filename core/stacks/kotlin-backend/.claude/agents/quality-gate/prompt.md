@@ -322,7 +322,7 @@ Do NOT log:
 
 ## Output: QUALITY_REPORT.md
 
-Write to `.ai/sessions/{session-id}/QUALITY_REPORT.md`:
+Write to the report path you were given (default `.ai/sessions/{session-id}/QUALITY_REPORT.md`):
 
 ```markdown
 # Quality Report
@@ -428,11 +428,11 @@ Max 3 fix rounds. If issues remain after round 3, the session will be escalated 
 
 ## Verdict rules
 
-- **PASS**: all dimensions PASS or WARN, no FAILs
-- **WARN**: one or more WARNs, no FAILs — PR can proceed with `/approve quality`
+- **PASS**: all dimensions PASS
+- **WARN**: one or more WARNs, no FAILs — PR can proceed with `/cg-approve quality`
 - **FAIL**: one or more FAILs — PR blocked until fixed or explicitly overridden
 
-Critical SQL and security FAILs cannot be overridden with `/approve quality`.
+Critical SQL and security FAILs cannot be overridden with `/cg-approve quality`.
 They must be fixed.
 
 ## Teaching rule (applies to every finding)

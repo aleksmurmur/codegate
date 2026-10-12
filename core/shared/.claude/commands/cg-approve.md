@@ -30,8 +30,8 @@ when the user explicitly opted in via `--interactive`).
 | `quick` | IDLE (fast-path proposal pending) | → IMPLEMENTING | Run Phase 3 (skill `cg-phase-3`, fast-path) |
 | `elicit` | IDLE | → ELICITED | Run Phase 2 (skill `cg-phase-2`) |
 | `plan` | ELICITED | → PLAN_APPROVED → IMPLEMENTING | Run Phase 3 (skill `cg-phase-3`) |
-| `implementation` | IMPLEMENTING | (no state change yet) | Run Phase 4 (skill `cg-phase-4`) |
-| `quality` | QUALITY_REVIEWED | (accept WARN / override FAIL) | Run the independent review (skill `cg-phase-4`, §5) — it writes `checked-sha`, which the push gate requires — then Phase 5 (skill `cg-phase-5`) |
+| `implementation` | IMPLEMENTING or PLAN_APPROVED | (no state change yet) | Run Phase 4 (skill `cg-phase-4`) |
+| `quality` | QUALITY_REVIEWED | (accept WARN / override FAIL) | Run the independent review (skill `cg-phase-4`, §5) — it writes `checked-sha`, which the push gate requires — then Phase 5 (skill `cg-phase-5`). `checked-sha` already equal to HEAD → the review has run: straight to Phase 5 |
 
 For each transition: write the new state to `.ai/sessions/{id}/state`, append to audit log with timestamp.
 

@@ -157,6 +157,7 @@ your-project/
 │       ├── implementer/               # Фаза 3, один кусок плана, тест первым
 │       ├── plan-review/               # Фаза 2, advisory-поиск прежней реализации
 │       ├── quality-gate/              # Фаза 4
+│       ├── independent-review/        # Фаза 4, последний шаг: видит только задачу и код
 │       └── pr-creator/                # Фаза 5
 └── .ai/                               # runtime-состояние
     ├── CODEBASE_CONTEXT.md            # коммитить

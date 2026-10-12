@@ -9,6 +9,11 @@
 #      and when it carries commits made after the last check (checked-sha).
 #      Exit 2: Claude Code blocks on nothing else.
 
+# Runs on every Bash call (a hook matcher names a tool, not a command): anything that is not a
+# git push leaves at once, before Python is even looked for.
+INPUT=$(cat 2>/dev/null || echo "")
+case "$INPUT" in *push*) ;; *) exit 0 ;; esac
+
 # Python runs every check below. Without it the parsing silently yields nothing and the hook
 # would let everything through; the Windows Store stub `python3` exists but does not run.
 PY=$(command -v python3 2>/dev/null)
@@ -18,7 +23,6 @@ if ! "${PY:-false}" -c "" 2>/dev/null; then
   exit 2
 fi
 
-INPUT=$(cat 2>/dev/null || echo "")
 COMMAND=$("$PY" -c "
 import json, sys
 try:
@@ -27,6 +31,32 @@ try:
 except Exception:
     print('')
 " <<< "$INPUT" 2>/dev/null || echo "")
+
+# Only a real `git [options] push`, in any segment of a compound command — not a commit
+# message or a grep that mentions the word.
+COMMAND="$COMMAND" "$PY" -c '
+import os, shlex, sys
+try:
+    words = shlex.split(os.environ["COMMAND"], posix=True)
+except ValueError:
+    words = os.environ["COMMAND"].split()
+seg, segs = [], []
+for w in words:
+    if w in ("&&", "||", ";", "|"):
+        segs.append(seg); seg = []
+    else:
+        seg.append(w)
+segs.append(seg)
+for s in segs:
+    for i, w in enumerate(s):
+        if w == "git" or w.endswith("/git"):
+            j = i + 1
+            while j < len(s) and s[j].startswith("-"):
+                j += 2 if s[j] in ("-C", "-c") else 1
+            if j < len(s) and s[j] == "push":
+                sys.exit(0)
+sys.exit(1)
+' 2>/dev/null || exit 0
 
 # --- Gate 1: protected-target landings ---
 # Determine target branch from the push command.

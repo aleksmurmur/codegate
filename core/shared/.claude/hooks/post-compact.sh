@@ -102,7 +102,11 @@ case "$STATE" in
     fi
     ;;
   QUALITY_REVIEWED)
-    echo "▶ Quality gate done (report: $REL_DIR/QUALITY_REPORT.md). Next: fix rounds (skill cg-phase-4) or the PR/MR (skill cg-phase-5)."
+    if [ -s "$SESSION_DIR/checked-sha" ]; then
+      echo "▶ Gate and independent review done. Next: the PR/MR (skill cg-phase-5)."
+    else
+      echo "▶ Quality gate done (report: $REL_DIR/QUALITY_REPORT.md). Next: fix rounds, then the independent review (skill cg-phase-4, §4–5)."
+    fi
     ;;
   PR_CREATED|PR_UPDATED)
     echo "▶ The PR/MR exists. Fixes to it are rework (skill cg-rework); other code changes are a new task (skill cg-phase-0)."

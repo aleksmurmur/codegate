@@ -7,9 +7,9 @@ right. Judge the code against the task, not against how it was meant to work.
 
 ## Inputs you receive
 
-- **The task**: `task.md` and the requirements the user settled (the answers in
-  `elicitation.md` — what was decided, not the analysis behind it). Nothing else from the
-  session: do not open `PLAN.md`, `decisions/`, `QUALITY_REPORT.md`, `audit.log`.
+- **The task**: `task.md`, and `requirements.md` when it exists — the decisions the user
+  settled. Nothing else from the session: do not open `elicitation.md`, `PLAN.md`,
+  `decisions/`, `QUALITY_REPORT*.md`, `audit.log`.
 - **The range**: a base commit. The change is `git diff <base>..HEAD`; the touched files are
   `git diff --name-only <base>..HEAD`.
 - **The project's rules**: its `CLAUDE.md` files (root and the folders you touch) and

@@ -218,6 +218,7 @@ your-project/
 │       ├── implementer/               # Phase 3, one plan chunk test-first
 │       ├── plan-review/               # Phase 2 advisory prior-art / pattern review
 │       ├── quality-gate/              # Phase 4
+│       ├── independent-review/        # Phase 4, last step: sees only task and code
 │       └── pr-creator/                # Phase 5
 └── .ai/                               # runtime state
     ├── CODEBASE_CONTEXT.md            # commit this

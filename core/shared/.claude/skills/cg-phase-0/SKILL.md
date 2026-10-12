@@ -75,7 +75,8 @@ changes the decision and it is idle. By default go to a new worktree without ask
 - **New worktree**:
   `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')` (the main checkout — not
   the current one, which may itself be a worktree), then
-  `git worktree add --no-track -b <name> "$MAIN/.claude/worktrees/<slug>" origin/$BASE`, and move
+  `git worktree add --no-track -b <name> "$MAIN/.claude/worktrees/<slug>" <from>`, where `<from>` is
+  `origin/$BASE` (or `CURRENT` for a stacked task), and move
   the conversation into it with `EnterWorktree` (`path` = that directory). Everything after this
   — session files, hooks, commits — happens there.
 - Never `git checkout -b <name> origin/$BASE` (without `--no-track`): `origin/$BASE` would become

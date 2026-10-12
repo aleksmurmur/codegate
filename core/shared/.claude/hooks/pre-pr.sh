@@ -6,14 +6,17 @@
 # whose target is a protected branch — the typical case is to land on a
 # dev / staging / integration branch first.
 
+# Runs on every Bash call (a hook matcher names a tool, not a command): leave at once unless it
+# can be a PR/MR creation.
+INPUT=$(cat)
+case "$INPUT" in *"pr create"*|*"mr create"*) ;; *) exit 0 ;; esac
+
 PY=$(command -v python3 2>/dev/null)
 "${PY:-false}" -c "" 2>/dev/null || PY=$(command -v python 2>/dev/null)
 if ! "${PY:-false}" -c "" 2>/dev/null; then
   echo "codegate: Python 3 not found (python3 or python) — this hook cannot check the call. Install Python 3." >&2
   exit 2
 fi
-
-INPUT=$(cat)
 
 COMMAND=$("$PY" -c "
 import json, sys

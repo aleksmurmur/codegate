@@ -33,15 +33,16 @@ and still produce the report. Audit `[ts] coverage-refresh: <command|skipped:rea
 Then `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output {dir}/coverage-report.md`.
 - `0` CLEAN → 2b.
 - `1` FAIL → write the missing tests (not production code bent to the metric), commit, and
-  re-run **coverage only**. Audit `[ts] Coverage check FAIL — N uncovered items`.
+  re-run **coverage only**. Up to 3 rounds; then escalate. Audit `[ts] Coverage check FAIL — N uncovered items`.
 - `2` "report is older than the last commit" → the coverage run did not finish: rebuild the
-  report from that run (Gradle: `jacocoTestReport -x test`) or run it again, then re-check.
+  report from that run without re-running the tests (the stack's report task), or run it
+  again, then re-check.
   Any other `2` (script error) → warn, note in the audit, go on.
 
 **2b. Assertions.** `python3 .claude/scripts/test-assertions.py --base "$BASE" --output {dir}/assertion-report.md`.
 - `0` → go on; advisory existence-only findings go to the gate as context.
 - `1` → tests touched by this diff assert nothing that could fail: add real assertions,
-  commit, re-run this check only.
+  commit, re-run this check only. Up to 3 rounds; then escalate.
 - `2` → warn, note, go on.
 
 ## 3. The gate
@@ -52,11 +53,16 @@ new method omits, a second copy of existing machinery), CODEBASE_CONTEXT.md, PLA
 `test-baseline.txt`, `test-results.txt`, `coverage-report.md`, `assertion-report.md`,
 `.ai/tech-debt/`.
 
-- Default: one sub-agent, `.claude/agents/quality-gate/prompt.md`; it writes `{dir}/QUALITY_REPORT.md`.
+The gate writes the report path it is given: `{dir}/QUALITY_REPORT.md`. Before a re-run, move
+the previous report to `{dir}/QUALITY_REPORT-<N>.md`, so the latest verdict is always in
+`QUALITY_REPORT.md` and every round stays readable.
+
+- Default: one sub-agent, `.claude/agents/quality-gate/prompt.md`.
 - `.ai/multi-persona-qg-enabled` exists: in ONE message, three parallel sub-agents
   (`quality-gate-security`, `quality-gate-arch-code`, `quality-gate-testing`), each writing
-  `{dir}/quality-findings-<lens>.md`; then `quality-gate-synthesis` writes QUALITY_REPORT.md
-  (a missing lens is noted, not blocking).
+  `{dir}/quality-findings-<lens>.md`; then `quality-gate-synthesis` writes the report (a missing
+  lens is noted, not blocking). Lenses run no tools: before synthesis, run the gate prompt's
+  Stage 2 (linters) and Stage 3 (smoke) yourself and pass their results to synthesis.
 
 Then: state `QUALITY_REVIEWED`; audit `[ts] Quality gate complete`; present the report;
 `bash .claude/scripts/notify.sh "Codegate" "Quality gate: {VERDICT}"`.
@@ -88,7 +94,7 @@ reviewer who did not write the code reads it against the task. It catches what a
 shares the author's plan and reasoning does not.
 
 Sub-agent `.claude/agents/independent-review/prompt.md`, given **only**: `{dir}/task.md`,
-`{dir}/elicitation.md`, the base `$BASE`, and the report path `{dir}/REVIEW.md`. Not the
+`{dir}/requirements.md` when it exists, the base `$BASE`, and the report path `{dir}/REVIEW.md`. Not the
 plan, the ADRs, the gate report, or your own account of how it was built.
 - **CLEAN** → go on.
 - **HAS CRITICAL** → each critical is either fixed test-first (commit
