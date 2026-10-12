@@ -26,8 +26,8 @@ user-invocable: false
    never fails the PR.
 5. **Consumers.** When PLAN.md has `## Consumers` (elicitation found other projects that need
    work because of this change): for each, draft a task in markdown with the sections
-   `## Context` (one paragraph), `## Contract` (endpoints, fields, types, errors — as built,
-   from the diff, not as planned), `## Semantics` (edge cases, what each value means),
+   `## Context` (one paragraph), `## Contract` (the interface they depend on — e.g. endpoints,
+   fields, types, errors, events — as built, from the diff, not as planned), `## Semantics` (edge cases, what each value means),
    `## Rollout order` (relative to this PR/MR), `## Acceptance`, `## Links` (the PR/MR, this task).
    Consuming repositories are told to read exactly these sections (`/cg-tracker snippet`). Show the drafts together and ask once: "Create these tasks?" (the user may edit
    or drop any). Then for each confirmed draft, written to `{dir}/consumer-<alias>.md`:

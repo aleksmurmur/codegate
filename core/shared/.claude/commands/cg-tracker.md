@@ -33,13 +33,13 @@ need an item id: ask the user for it and pass `--id`.
 
 ## Snippet for consuming repositories
 
-Repositories that receive tasks from this one (front end, mobile) may not run codegate. Give
+Repositories that receive tasks from this one (option `consumers`) may not run codegate. Give
 the user this paragraph to put in their `AGENTS.md` or `CLAUDE.md`, with the tracker named:
 
-> Tasks for this repository may come from the backend as tracker items linked to a backend
-> task. Given an item key, read it with your tracker tool: its "Contract" section is the API
-> as built (endpoints, fields, types, errors), "Rollout order" says what must be deployed
-> first, and the linked backend item has the merge request. Ask before deviating from the
+> Tasks for this repository may come from an upstream repository as tracker items linked to
+> an upstream task. Given an item key, read it with your tracker tool: its "Contract" section
+> is the interface as built (e.g. endpoints, fields, types, errors), "Rollout order" says what
+> must be deployed first, and the linked upstream item has the PR/MR. Ask before deviating from the
 > contract; report contract problems as a comment on the item.
 
 Respond in the user's language.
