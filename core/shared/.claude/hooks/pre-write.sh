@@ -3,10 +3,19 @@
 # Blocks Write/Edit on source files until plan is approved.
 # Writes to .ai/ are always allowed (session state, plans, reports).
 
+# Python runs every check below. Without it the parsing silently yields nothing and the hook
+# would let everything through; the Windows Store stub `python3` exists but does not run.
+PY=$(command -v python3 2>/dev/null)
+"${PY:-false}" -c "" 2>/dev/null || PY=$(command -v python 2>/dev/null)
+if ! "${PY:-false}" -c "" 2>/dev/null; then
+  echo "codegate: Python 3 not found (python3 or python) — this hook cannot check the call. Install Python 3." >&2
+  exit 2
+fi
+
 INPUT=$(cat)
 
 # Extract file path from tool input (works for both Write and Edit)
-FILE=$(python3 -c "
+FILE=$("$PY" -c "
 import json, sys
 try:
     data = json.load(sys.stdin)
@@ -26,15 +35,15 @@ except Exception:
 # Matching on a forward-slash copy makes one set of patterns work on Windows, macOS and Linux.
 FILE_NORM=$(printf '%s' "$FILE" | tr '\' '/' 2>/dev/null)
 
-# Always allow writes to .ai/ (state files, plans, reports, audit logs)
-if [[ "$FILE_NORM" == .ai/* ]] || [[ "$FILE_NORM" == */.ai/* ]] || [[ -z "$FILE" ]]; then
-  exit 0
-fi
+[ -z "$FILE" ] && exit 0
 
 # Guard this repository only. A file in another directory (/tmp, a sibling project, another
 # worktree) is not this task's source; blocking it only taught agents to write through the shell.
 # Compare git's own answers rather than path strings: one path arrives in several spellings.
+# REL is the path inside this checkout, so the allowlists below cannot be satisfied by a
+# directory that merely contains `.claude/` — task worktrees live under .claude/worktrees/.
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+REL="$FILE_NORM"
 if [ -n "$REPO_ROOT" ]; then
   case "$FILE_NORM" in
     /*|?:/*)
@@ -42,13 +51,23 @@ if [ -n "$REPO_ROOT" ]; then
       while [ ! -d "$DIR" ] && [ "$DIR" != "$(dirname "$DIR")" ]; do DIR=$(dirname "$DIR"); done
       FILE_ROOT=$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null)
       [ "$FILE_ROOT" != "$REPO_ROOT" ] && exit 0
+      REL="$(git -C "$DIR" rev-parse --show-prefix 2>/dev/null)${FILE_NORM#"$DIR"/}"
+      ;;
+    *)
+      REL="$(git rev-parse --show-prefix 2>/dev/null)${FILE_NORM#./}"
       ;;
   esac
-fi
-
-# Always allow writes to .claude/ (agent prompts, commands, hooks)
-if [[ "$FILE_NORM" == .claude/* ]] || [[ "$FILE_NORM" == */.claude/* ]]; then
-  exit 0
+  # Session data and the workflow's own files: always writable.
+  case "$REL" in
+    .ai/*) exit 0 ;;
+    .claude/worktrees/*) ;;
+    .claude/*) exit 0 ;;
+  esac
+else
+  # Outside git there is no root to anchor on: match anywhere in the path.
+  if [[ "$FILE_NORM" == .ai/* ]] || [[ "$FILE_NORM" == */.ai/* ]] ||      [[ "$FILE_NORM" == .claude/* ]] || [[ "$FILE_NORM" == */.claude/* ]]; then
+    exit 0
+  fi
 fi
 
 # Always allow writes to workflow-config files at the project root. These define the
@@ -74,32 +93,34 @@ case "$BASENAME" in
     ;;
 esac
 
-# Check active session
-CURRENT_SESSION_FILE=".ai/current-session"
-if [ ! -f "$CURRENT_SESSION_FILE" ]; then
-  echo "No active session. Start a task with /cg-feature, /cg-bugfix, or /cg-refactor before editing source files." >&2
+# The task of this checkout: the session bound to the branch checked out here.
+ROOT=${REPO_ROOT:-$(pwd)}
+SESSION_DIR=$(cd "$ROOT" && "$PY" .claude/scripts/cg_session.py dir 2>/dev/null)
+if [ -z "$SESSION_DIR" ]; then
+  echo "No task on branch '$(git branch --show-current 2>/dev/null)'. Start one (/cg-feature, /cg-bugfix, /cg-refactor — skill cg-phase-0) before editing source files." >&2
   exit 2
 fi
 
-SESSION=$(cat "$CURRENT_SESSION_FILE" 2>/dev/null | tr -d '[:space:]')
-if [ -z "$SESSION" ]; then
-  echo "Current session file is empty. Start a new task with /cg-feature or /cg-bugfix." >&2
-  exit 2
-fi
-
-STATE_FILE=".ai/sessions/$SESSION/state"
-STATE=$(cat "$STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "IDLE")
+STATE=$(cat "$ROOT/$SESSION_DIR/state" 2>/dev/null | tr -d '[:space:]')
 
 case "$STATE" in
-  PLAN_APPROVED|IMPLEMENTING|QUALITY_REVIEWED|PR_CREATED)
+  PLAN_APPROVED|IMPLEMENTING|QUALITY_REVIEWED|REWORK)
     exit 0
     ;;
-  IDLE)
-    echo "Cannot modify '$FILE': state is IDLE. Complete elicitation questions first, then run /cg-approve elicit." >&2
+  IDLE|"")
+    echo "Cannot modify '$FILE': state is IDLE. Finish elicitation first (skill cg-phase-1)." >&2
     exit 2
     ;;
   ELICITED)
-    echo "Cannot modify '$FILE': state is ELICITED. A plan must be created and approved. Run /cg-approve plan after reviewing the plan." >&2
+    echo "Cannot modify '$FILE': state is ELICITED. The plan comes first (skill cg-phase-2)." >&2
+    exit 2
+    ;;
+  PR_CREATED|PR_UPDATED)
+    echo "Cannot modify '$FILE': this task's PR/MR is open. A fix to it (QA, review, CI) is rework: write REWORK to $SESSION_DIR/state with the reason in the audit log (skill cg-rework). Other work is a new task (skill cg-phase-0)." >&2
+    exit 2
+    ;;
+  MERGED|ABANDONED)
+    echo "Cannot modify '$FILE': this task is closed ($STATE). A defect in it is a new bug task linked to it; other work is a new task (skill cg-phase-0)." >&2
     exit 2
     ;;
   *)

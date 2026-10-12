@@ -11,7 +11,9 @@ a new Claude Code window, or an unexpected stop.
 
 1. **Find the active session**
 
-   Read `.ai/current-session` to get the session ID.
+   `python3 .claude/scripts/cg_session.py dir` → the session of the branch checked out here
+   (restored from the shared copy if this worktree lost it). Not this branch's task? `/cg-tasks`
+   lists all of them; switch to that task's worktree or branch first.
    If the file doesn't exist or is empty: say "No active session found. Start a new
    task with /cg-feature, /cg-bugfix, or /cg-refactor."
 
@@ -57,4 +59,4 @@ a new Claude Code window, or an unexpected stop.
    After reporting, immediately continue from the next step without waiting for the
    user to say "continue" — they ran /cg-resume because they want to keep going.
 
-   Follow CLAUDE.md phase instructions for the current state.
+   Load the skill of the current phase (`cg-phase-N`, or `cg-rework` after the PR/MR) and follow it.

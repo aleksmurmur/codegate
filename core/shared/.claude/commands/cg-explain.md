@@ -6,7 +6,7 @@ when reviewing someone else's in-flight session.
 
 Steps:
 
-1. Read `.ai/current-session`. If missing or empty: say "No active session."
+1. `python3 .claude/scripts/cg_session.py dir` → this checkout's session. Empty: say "No task on this branch."
    and stop.
 
 2. Otherwise read:

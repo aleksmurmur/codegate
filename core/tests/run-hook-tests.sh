@@ -23,7 +23,9 @@ FAIL=0
 
 PROJECT=$(mktemp -d)
 trap 'rm -rf "$PROJECT"' EXIT
-mkdir -p "$PROJECT/.ai/sessions/s1" "$PROJECT/.claude/hooks" "$PROJECT/src"
+mkdir -p "$PROJECT/.ai/sessions/s1" "$PROJECT/.claude/hooks" "$PROJECT/.claude/scripts" "$PROJECT/src"
+SCRIPTS_DIR="$(cd "$SCRIPT_DIR/../shared/.claude/scripts" && pwd)"
+cp "$SCRIPTS_DIR/cg_session.py" "$PROJECT/.claude/scripts/"
 
 # check <name> <file-path> <want_exit>
 check() {
@@ -85,7 +87,8 @@ REPO=$(mktemp -d)
 OTHER=$(mktemp -d)
 trap 'rm -rf "$PROJECT" "$REPO" "$OTHER"' EXIT
 git -C "$REPO" init -q
-mkdir -p "$REPO/.ai/sessions/s1" "$REPO/src"
+mkdir -p "$REPO/.ai/sessions/s1" "$REPO/src" "$REPO/.claude/scripts"
+cp "$SCRIPTS_DIR/cg_session.py" "$REPO/.claude/scripts/"
 echo "s1" > "$REPO/.ai/current-session"
 echo "ELICITED" > "$REPO/.ai/sessions/s1/state"
 REPO_ABS=$(cd "$REPO" && pwd -W 2>/dev/null || pwd)
@@ -120,6 +123,42 @@ case "$OTHER_ABS" in
     done
     ;;
 esac
+
+# ── the session that counts is the one bound to the checked-out branch ──────────────────
+echo ""
+echo "-- session bound to the branch --"
+rm -f "$REPO/.ai/current-session"
+git -C "$REPO" symbolic-ref HEAD refs/heads/feat/a
+mkdir -p "$REPO/.ai/sessions/a1"
+echo "feat/a" > "$REPO/.ai/sessions/a1/branch"
+st() { echo "$1" > "$REPO/.ai/sessions/a1/state"; }
+st IMPLEMENTING; check_in "the branch's task in IMPLEMENTING allows source" "src/Main.kt" 0
+st REWORK;       check_in "rework allows source"                           "src/Main.kt" 0
+st PR_CREATED;   check_in "open MR blocks source until rework"             "src/Main.kt" 2
+st PR_UPDATED;   check_in "checked rework blocks source again"             "src/Main.kt" 2
+st MERGED;       check_in "a merged task blocks source"                    "src/Main.kt" 2
+st IMPLEMENTING
+echo "feat/other" > "$REPO/.ai/sessions/a1/branch"
+check_in "another branch's task does not unlock this one" "src/Main.kt" 2
+
+# ── a task worktree lives under .claude/worktrees/: its sources are still sources ───────
+echo ""
+echo "-- inside a task worktree --"
+git -C "$REPO" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+WTREE="$REPO/.claude/worktrees/w"
+git -C "$REPO" worktree add -q -b feat/w "$WTREE" 2>/dev/null
+mkdir -p "$WTREE/.claude/scripts" "$WTREE/src" && cp "$SCRIPTS_DIR/cg_session.py" "$WTREE/.claude/scripts/"
+WT_ABS=$(cd "$WTREE" && pwd -W 2>/dev/null || pwd)
+in_wt() {
+    local name="$1" path="$2" want="$3" got
+    printf '{"tool_input":{"file_path":"%s"}}' "$path" | ( cd "$WTREE" && bash "$HOOK" >/dev/null 2>&1 )
+    got=$?
+    if [ "$got" = "$want" ]; then echo "PASS  $name"; PASS=$((PASS + 1))
+    else echo "FAIL  $name  (want exit=$want, got exit=$got)"; FAIL=$((FAIL + 1)); fi
+}
+in_wt "worktree source without a task is blocked" "$WT_ABS/src/Foo.kt"            2
+in_wt "the worktree's own .claude/ is allowed"    "$WT_ABS/.claude/settings.json" 0
+in_wt "the worktree's own .ai/ is allowed"        "$WT_ABS/.ai/sessions/x/PLAN.md" 0
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

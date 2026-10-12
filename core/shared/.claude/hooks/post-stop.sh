@@ -1,35 +1,29 @@
 #!/bin/bash
 # post-stop.sh
-# Fires when the agent stops (Stop event).
-# If a session is in IMPLEMENTING state, remind the user to approve implementation.
+# Fires when the agent stops (Stop event). Copies this checkout's sessions into the shared
+# store (most session writes go through the shell, so no write hook sees them), and in
+# interactive mode reminds the user that implementation waits for approval.
 
-CURRENT_SESSION_FILE=".ai/current-session"
-if [ ! -f "$CURRENT_SESSION_FILE" ]; then
-  exit 0
-fi
+PY=$(command -v python3 2>/dev/null)
+"${PY:-false}" -c "" 2>/dev/null || PY=$(command -v python 2>/dev/null)
+"${PY:-false}" -c "" 2>/dev/null || exit 0
 
-SESSION=$(cat "$CURRENT_SESSION_FILE" 2>/dev/null | tr -d '[:space:]')
-if [ -z "$SESSION" ]; then
-  exit 0
-fi
+cat >/dev/null 2>&1
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+cd "$ROOT" || exit 0
+[ -f .claude/scripts/cg_session.py ] || exit 0
 
-STATE_FILE=".ai/sessions/$SESSION/state"
-STATE=$(cat "$STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "")
+"$PY" .claude/scripts/cg_session.py sync >/dev/null 2>&1
+REL_DIR=$("$PY" .claude/scripts/cg_session.py dir 2>/dev/null)
+[ -z "$REL_DIR" ] && exit 0
 
-if [ "$STATE" = "IMPLEMENTING" ]; then
-  TASK=$(cat ".ai/sessions/$SESSION/task.md" 2>/dev/null | head -1 || echo "unknown task")
+STATE=$(cat "$REL_DIR/state" 2>/dev/null | tr -d '[:space:]')
+MODE=$(cat "$REL_DIR/mode" 2>/dev/null | tr -d '[:space:]')
+
+if [ "$STATE" = "IMPLEMENTING" ] && [ "${MODE:-interactive}" = "interactive" ]; then
   echo ""
-  echo "IMPLEMENTATION AWAITING APPROVAL"
-  echo ""
-  echo "Session : $SESSION"
-  echo "Task    : $TASK"
-  echo ""
-  echo "When implementation is complete, type:"
-  echo ""
-  echo "  /cg-approve implementation"
-  echo ""
-  echo "This will run the quality gate (commits are made per chunk during Phase 3)."
-  echo "Do NOT push manually — the quality gate must pass first."
+  echo "IMPLEMENTATION AWAITING APPROVAL — $(head -1 "$REL_DIR/task.md" 2>/dev/null)"
+  echo "When it is complete, type /cg-approve implementation to run the quality gate."
   echo ""
 fi
 

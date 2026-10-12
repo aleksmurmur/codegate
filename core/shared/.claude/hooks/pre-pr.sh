@@ -6,9 +6,16 @@
 # whose target is a protected branch — the typical case is to land on a
 # dev / staging / integration branch first.
 
+PY=$(command -v python3 2>/dev/null)
+"${PY:-false}" -c "" 2>/dev/null || PY=$(command -v python 2>/dev/null)
+if ! "${PY:-false}" -c "" 2>/dev/null; then
+  echo "codegate: Python 3 not found (python3 or python) — this hook cannot check the call. Install Python 3." >&2
+  exit 2
+fi
+
 INPUT=$(cat)
 
-COMMAND=$(python3 -c "
+COMMAND=$("$PY" -c "
 import json, sys
 try:
     d = json.load(sys.stdin)
@@ -33,7 +40,7 @@ if [ -z "$BASE" ]; then
   fi
   if [ -z "$BASE" ] && command -v glab >/dev/null 2>&1; then
     BASE=$(glab repo view --output json 2>/dev/null \
-           | python3 -c "import json,sys; print(json.load(sys.stdin).get('default_branch',''))" 2>/dev/null \
+           | "$PY" -c "import json,sys; print(json.load(sys.stdin).get('default_branch',''))" 2>/dev/null \
            || echo "")
   fi
   [ -z "$BASE" ] && BASE="main"

@@ -8,7 +8,7 @@ Otherwise, infer the phase from session state and dispatch:
 
 ## Steps (no-arg form)
 
-1. Read `.ai/current-session`. If missing or empty:
+1. `python3 .claude/scripts/cg_session.py dir` → this checkout's session. If empty:
    - Say "No active session. Start with `/cg-feature`, `/cg-bugfix`, or
      `/cg-refactor`."
    - Stop.
@@ -29,7 +29,7 @@ Otherwise, infer the phase from session state and dispatch:
    - `.ai/sessions/{id}/state` — current phase
    - Existence of `.ai/sessions/{id}/elicitation.md`
    - Existence of `.ai/sessions/{id}/PLAN.md` (and check whether it begins
-     with the fast-path classification line — see Phase 1 in CLAUDE.md)
+     with the fast-path classification line — see skill `cg-phase-1`)
    - Existence and content of `.ai/sessions/{id}/QUALITY_REPORT.md`
    - Last 5 lines of `.ai/sessions/{id}/audit.log`
 
@@ -47,7 +47,9 @@ Otherwise, infer the phase from session state and dispatch:
    | QUALITY_REVIEWED | QUALITY_REPORT.md verdict is `PASS` | "Quality gate passed; Phase 5 (PR creation) auto-runs. Nothing to approve." Stop. |
    | QUALITY_REVIEWED | verdict is `WARN` | run `/cg-approve quality`, but FIRST print: "⚠ Overriding WARN findings via /ok. Read QUALITY_REPORT.md if you haven't." |
    | QUALITY_REVIEWED | verdict is `FAIL` | **refuse**: "Quality gate is FAIL. /ok will not override FAIL — type `/cg-approve quality` explicitly to override (note: critical SQL/security FAILs cannot be overridden at all)." Stop. |
-   | PR_CREATED | — | "Session is complete — PR already created. Nothing to approve." Stop. |
+   | PR_CREATED / PR_UPDATED | — | "The PR/MR exists — nothing to approve. Fixes to it are rework; `/cg-mr` checks for a merge." Stop. |
+   | REWORK | — | "Rework in progress — the delta check runs before the push (skill `cg-rework`). Nothing to approve." Stop. |
+   | MERGED / ABANDONED | — | "The task is closed. New work starts a new task." Stop. |
 
 4. Before running the inferred `/cg-approve XXX`, **announce it**:
 
@@ -58,7 +60,7 @@ Otherwise, infer the phase from session state and dispatch:
    This gives the user a one-line audit and a chance to interrupt if
    the state was misread.
 
-5. Then run `/cg-approve {phase}` per CLAUDE.md §Slash Command Handlers
+5. Then run `/cg-approve {phase}` (see `.claude/commands/cg-approve.md`)
    (i.e. trigger the same handler that the long form invokes — there is
    no separate code path).
 

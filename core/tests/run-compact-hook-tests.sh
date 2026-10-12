@@ -15,6 +15,7 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 HOOK="$(cd "$SCRIPT_DIR/../shared/.claude/hooks" && pwd)/post-compact.sh"
+SCRIPTS_DIR="$(cd "$SCRIPT_DIR/../shared/.claude/scripts" && pwd)"
 PASS=0
 FAIL=0
 
@@ -29,7 +30,8 @@ g commit -q --allow-empty -m init
 
 # session <dir> <state> <sha> — a session in <dir> that logged commit <sha>
 session() {
-    mkdir -p "$1/.ai/sessions/s1"
+    mkdir -p "$1/.ai/sessions/s1" "$1/.claude/scripts"
+    cp "$SCRIPTS_DIR/cg_session.py" "$1/.claude/scripts/"
     echo "s1" > "$1/.ai/current-session"
     echo "$2" > "$1/.ai/sessions/s1/state"
     echo "task" > "$1/.ai/sessions/s1/task.md"
