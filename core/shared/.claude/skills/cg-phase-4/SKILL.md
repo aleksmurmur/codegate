@@ -102,7 +102,7 @@ Once the gate has concluded (PASS, WARN accepted, FAIL overridden), in both mode
 reviewer who did not write the code reads it against the task. It catches what a gate that
 shares the author's plan and reasoning does not.
 
-Sub-agent `.claude/agents/independent-review/prompt.md`, given **only**: `{dir}/task.md`,
+Audit `[ts] Independent review started`. Sub-agent `.claude/agents/independent-review/prompt.md`, given **only**: `{dir}/task.md`,
 `{dir}/requirements.md` when it exists, the base `$BASE`, and the report path `{dir}/REVIEW.md`. Not the
 plan, the ADRs, the gate report, or your own account of how it was built.
 - **CLEAN** → go on.

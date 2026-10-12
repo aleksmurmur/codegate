@@ -35,6 +35,8 @@ Otherwise, infer the phase from session state and dispatch:
 
 3. Determine the right `/cg-approve` action by state:
 
+   QUALITY_REVIEWED rows are checked top to bottom; the first that matches decides.
+
    | State | Other signal | Action |
    |---|---|---|
    | (no session) | — | `No active session.` (handled in step 1) |
@@ -44,9 +46,10 @@ Otherwise, infer the phase from session state and dispatch:
    | ELICITED | — | run `/cg-approve plan` |
    | PLAN_APPROVED | — | run `/cg-approve implementation` (rare — state usually transitions to IMPLEMENTING immediately) |
    | IMPLEMENTING | — | run `/cg-approve implementation` |
-   | QUALITY_REVIEWED | verdict `PASS`, no `checked-sha` | continue Phase 4 §5 (the independent review); when it is waiting on "fix or proceed?", `/ok` means proceed |
    | QUALITY_REVIEWED | `checked-sha` present | run Phase 5 (skill `cg-phase-5`) |
-   | QUALITY_REVIEWED | verdict is `WARN` | run `/cg-approve quality`, but FIRST print: "⚠ Overriding WARN findings via /ok. Read QUALITY_REPORT.md if you haven't." |
+   | QUALITY_REVIEWED | audit has `Independent review started` | the review is under way: continue Phase 4 §5; when it is waiting on "fix or proceed?", `/ok` means proceed |
+   | QUALITY_REVIEWED | verdict `PASS`, or the audit has `WARN accepted` / `Quality gate override` | start Phase 4 §5 (the independent review) |
+   | QUALITY_REVIEWED | verdict is `WARN` | run `/cg-approve quality`, but FIRST print: "⚠ Accepting WARN findings via /ok. Read QUALITY_REPORT.md if you haven't." |
    | QUALITY_REVIEWED | verdict is `FAIL` | **refuse**: "Quality gate is FAIL. /ok will not override FAIL — type `/cg-approve quality` explicitly to override (note: critical SQL/security FAILs cannot be overridden at all)." Stop. |
    | PR_CREATED / PR_UPDATED | — | "The PR/MR exists — nothing to approve. Fixes to it are rework; `/cg-merged` checks for a merge." Stop. |
    | REWORK | — | "Rework in progress — the delta check runs before the push (skill `cg-rework`). Nothing to approve." Stop. |

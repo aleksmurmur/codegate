@@ -242,6 +242,22 @@ if [ "$got" = 2 ]; then echo "PASS  one marker does not cover two protected land
 else echo "FAIL  one marker does not cover two protected landings (exit=$got)"; FAIL=$((FAIL + 1)); fi
 rm -f "$REPO/.ai/protected-target-allowed"
 
+# ── seventh audit: the target branch, the pushed branch's session, commands the flow writes ──
+echo ""
+echo "-- target branch and the pushed branch's session --"
+echo dev > "$REPO/.ai/sessions/s1/target-branch"
+session IMPLEMENTING feat/x
+check "a direct push onto the task's target is blocked" feat/x 'git push origin HEAD:dev'          2
+check "a variable destination is blocked"               feat/x 'T=main; git push origin HEAD:$T'   2
+check "pushing the task's branch from another branch"   main   'git push -u origin feat/x'         2
+pr_check "its PR from another branch"                   'gh pr create --base dev --head feat/x' 2
+git -C "$REPO" checkout -q feat/x
+session PR_CREATED feat/x
+gr rev-parse feat/x > "$REPO/.ai/sessions/s1/checked-sha"
+echo main > "$REPO/.ai/sessions/s1/target-branch"
+check "Phase 5's push written over several lines"       feat/x 'git push -u -o merge_request.create \\\n  -o merge_request.target=main \\\n  origin HEAD' 0
+check "a commit message with an open parenthesis"       feat/x 'git commit -m \"$(cat <<'"'"'EOF'"'"'\nfix: retry the push (see #12\nEOF\n)\"' 0
+
 # ── without Python only what looks like a push is held back ─────────────────────────────
 if ! env PATH=/usr/bin bash -c 'command -v python3 || command -v python' >/dev/null 2>&1; then
     printf '{"tool_input":{"command":"git stash push"},"description":"push it"}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?
@@ -250,6 +266,9 @@ if ! env PATH=/usr/bin bash -c 'command -v python3 || command -v python' >/dev/n
     printf '{"tool_input":{"command":"git -C . push origin x"}}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?
     if [ "$got" = 2 ]; then echo "PASS  no Python: a push is blocked"; PASS=$((PASS + 1))
     else echo "FAIL  no Python: a push is blocked (exit=$got)"; FAIL=$((FAIL + 1)); fi
+    printf '{"tool_input":{"command":"git commit -m \\"docs: explain git push flow\\""}}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?
+    if [ "$got" = 0 ]; then echo "PASS  no Python: a commit message mentioning git push passes"; PASS=$((PASS + 1))
+    else echo "FAIL  no Python: a commit message mentioning git push passes (exit=$got)"; FAIL=$((FAIL + 1)); fi
 fi
 
 SETTINGS="$(dirname "$HOOK")/../settings.json"

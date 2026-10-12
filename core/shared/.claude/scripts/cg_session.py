@@ -20,7 +20,8 @@ Usage:
   cg_session.py list [--json]    every known session: branch, state, worktree, last activity
   cg_session.py base             the commit this task's diff starts from: the merge-base of HEAD
                                  with its target branch (the remote one unless the local is ahead)
-  cg_session.py target-ref       that target branch as a ref (see `base`); exit 1 when there is none
+  cg_session.py target-ref [--branch B]
+                                 that target branch as a ref (see `base`); exit 1 when there is none
   cg_session.py branch           the branch this checkout's session is bound to; exit 1 when none
   cg_session.py facts            JSON facts about this checkout for the task-boundary decision
   cg_session.py claim --chat ID  record that chat ID is working in this checkout; prints the
@@ -261,8 +262,8 @@ def target_ref(target: str) -> str | None:
     return refs[0]
 
 
-def session_target() -> str:
-    sid = current()
+def session_target(branch: str | None = None) -> str:
+    sid = current(branch)
     copies = session_dirs().get(sid, []) if sid else []
     return (read(newest(copies, "target-branch")) if copies else "") or option("base_branch", "main")
 
@@ -380,7 +381,7 @@ def main(argv: list[str]) -> int:
             print(b)
         return 0 if b else 1
     if cmd == "target-ref":
-        ref = target_ref(session_target())
+        ref = target_ref(session_target(argv[argv.index("--branch") + 1] if "--branch" in argv[:-1] else None))
         if ref:
             print(ref)
         return 0 if ref else 1

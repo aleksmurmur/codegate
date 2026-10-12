@@ -10,8 +10,8 @@ runs anything. It guards against an agent's mistakes, not against a determined a
 
 Usage: cg_cmd.py
   One line per landing:
-    ref <branch> <source>   a `git push` refspec; `HEAD` for the current branch (also when the
-                            destination is a variable), `@all` for --all / --mirror
+    ref <branch> <source>   a `git push` refspec; `HEAD` for the current branch, `@all` for
+                            --all / --mirror
     mr <target>             an MR the push opens (GitLab push options)
     base <branch> <head>    a `gh pr create` / `glab mr create` (`new` too)
   `@default` when no target is given, `@unknown` when it is a variable.
@@ -37,13 +37,63 @@ WRAPPERS = {
 }
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 GIT_VALUE_OPTIONS = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}
-LOOKS_RELEVANT = re.compile(r"\bgit\b.*\bpush\b|\b(gh|glab)\b.*\b(pr|mr)\b.*\b(create|new)\b", re.S)
+# A push or PR/MR creation at the start of a command, for a command that cannot be parsed.
+LOOKS_RELEVANT = re.compile(
+    r"(^|[;&|(\n`]|\$\()\s*(\S*/)?(git(\.exe)?(\s+-\S+(\s+[^-\s]\S*)?)*\s+push\b"
+    r"|(gh|glab)(\.exe)?\s+(pr|mr)\s+(create|new)\b)")
 HEREDOC = re.compile(r"<<-?[ \t]*(['\"]?)([A-Za-z0-9_]+)\1")
 SUBSTITUTED = "$S"
 
 
 class Unparsable(Exception):
     pass
+
+
+def skip_heredocs(cmd: str, i: int, tags: list[str]) -> int:
+    """From the start of a line, past the bodies of the heredocs opened on the line before."""
+    n = len(cmd)
+    for tag in tags:
+        while i < n:
+            end = cmd.find("\n", i)
+            end = n if end < 0 else end
+            line, i = cmd[i:end], end + 1
+            if line.strip() == tag:
+                break
+    return i
+
+
+def closing_paren(cmd: str, i: int) -> int:
+    """Index just past the `)` closing a `$(` that opened before i; quotes and heredoc bodies skipped."""
+    depth, quote, n = 1, None, len(cmd)
+    heredocs: list[str] = []
+    while i < n:
+        c = cmd[i]
+        m = None
+        if quote:
+            if c == "\\" and quote == '"':
+                i += 1
+            elif c == quote:
+                quote = None
+        elif c == "\\":
+            i += 1
+        elif c in "'\"":
+            quote = c
+        elif cmd.startswith("<<", i) and (m := HEREDOC.match(cmd, i)):
+            heredocs.append(m.group(2))
+            i = m.end()
+            continue
+        elif c == "\n" and heredocs:
+            i = skip_heredocs(cmd, i + 1, heredocs)
+            heredocs = []
+            continue
+        elif c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return n
 
 
 def prepass(cmd: str) -> tuple[str, list[str]]:
@@ -61,7 +111,8 @@ def prepass(cmd: str) -> tuple[str, list[str]]:
             i += 1
             continue
         if c == "\\" and i + 1 < n:
-            out.append(cmd[i:i + 2])
+            if cmd[i + 1] != "\n":  # a line continuation joins the two lines
+                out.append(cmd[i:i + 2])
             i += 2
             continue
         if quote is None and cmd.startswith("$'", i):  # ANSI-C quoting: content does not matter
@@ -72,10 +123,7 @@ def prepass(cmd: str) -> tuple[str, list[str]]:
             i = j + 1
             continue
         if cmd.startswith("$(", i) and not cmd.startswith("$((", i):
-            depth, j = 1, i + 2
-            while j < n and depth:
-                depth += {"(": 1, ")": -1}.get(cmd[j], 0)
-                j += 1
+            j = closing_paren(cmd, i + 2)
             inner.append(cmd[i + 2:j - 1])
             out.append(SUBSTITUTED)
             i = j
@@ -107,14 +155,7 @@ def prepass(cmd: str) -> tuple[str, list[str]]:
                 continue
         elif c == "\n" and heredocs:
             out.append(c)
-            i += 1
-            for tag in heredocs:
-                while i < n:
-                    end = cmd.find("\n", i)
-                    end = n if end < 0 else end
-                    line, i = cmd[i:end], end + 1
-                    if line.strip() == tag:
-                        break
+            i = skip_heredocs(cmd, i + 1, heredocs)
             heredocs = []
             continue
         out.append(c)
@@ -266,7 +307,9 @@ def push_lines(args: list[str]) -> list[str]:
     # Every refspec, not just the last: `git push origin a:main b:x` lands on main too.
     for ref in refspecs:
         src, dst = ref.rsplit(":", 1) if ":" in ref else (ref, ref)
-        lines.append(f"ref {known(branch(dst))} {known(src.lstrip('+')) if src else '-'}")
+        dst = branch(dst)
+        dst = "@unknown" if unexpanded(dst) else (dst or "HEAD")
+        lines.append(f"ref {dst} {known(src.lstrip('+')) if src else '-'}")
     if not refspecs and not every_branch:
         lines.append("ref HEAD HEAD")
     mr = [o.split("=", 1)[1] for o in options if o.startswith("merge_request.target=")]
@@ -308,7 +351,8 @@ def main() -> int:
     try:
         segs = segments(cmd)
     except Unparsable:
-        return 3 if LOOKS_RELEVANT.search(cmd) else 1
+        outer, inner = prepass(cmd)
+        return 3 if any(LOOKS_RELEVANT.search(c) for c in [outer, *inner]) else 1
     lines: list[str] = []
     for seg in segs:
         args = git_args(seg, "push")

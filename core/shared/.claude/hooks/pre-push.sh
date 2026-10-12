@@ -14,30 +14,32 @@
 #      Exit 2: Claude Code blocks on nothing else.
 
 # Runs on every Bash call (a hook matcher names a tool, not a command): anything that cannot be
-# a push or a PR/MR creation leaves at once, before Python is even looked for.
+# a push or a PR/MR creation leaves at once, before Python is started.
 INPUT=$(cat 2>/dev/null || echo "")
-case "$INPUT" in *git*|*gh*|*glab*) ;; *) exit 0 ;; esac
-
-# Python runs every check below; the Windows Store stub `python3` exists but does not run.
-# Without it, only a call that looks like a push or a PR/MR creation is held back.
-PY=$(command -v python3 2>/dev/null)
-"${PY:-false}" -c "" 2>/dev/null || PY=$(command -v python 2>/dev/null)
-if ! "${PY:-false}" -c "" 2>/dev/null; then
-  if printf '%s' "$INPUT" | grep -qE '(^|[^[:alnum:]_.-]|\\n)git(\.exe)?([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+push([^[:alnum:]_-]|$)|(gh|glab)(\.exe)?[[:space:]]+(pr|mr)[[:space:]]+(create|new)'; then
-    echo "codegate: Python 3 not found (python3 or python) — this hook cannot check the push or PR/MR. Install Python 3." >&2
-    exit 2
-  fi
-  exit 0
-fi
+case "$INPUT" in *push*|*" create"*|*"pr new"*|*"mr new"*) ;; *) exit 0 ;; esac
 
 # One line per landing (see cg_cmd.py): `ref <dest> <source>`, `mr <target>`, `base <branch> <head>`.
+# The Windows Store stub `python3` exists but does not run, so a failed run falls back to
+# `python`. Exits 0, 1 and 3 come from the parser; anything else means no usable Python.
 SCRIPTS="$(cd "$(dirname "$0")" && pwd)/../scripts"
-LANDINGS=$(printf '%s' "$INPUT" | "$PY" "$SCRIPTS/cg_cmd.py" 2>/dev/null)
-case $? in
+for PY in python3 python; do
+  LANDINGS=$(printf '%s' "$INPUT" | "$PY" "$SCRIPTS/cg_cmd.py" 2>/dev/null)
+  RC=$?
+  case $RC in 0|1|3) break ;; esac
+done
+case $RC in
   0) ;;
   1) exit 0 ;;
   3) echo "codegate: this command looks like a push or a PR/MR creation but cannot be parsed (unbalanced quotes?). Run it as a plain command." >&2; exit 2 ;;
-  *) echo "codegate: cannot parse this command ($SCRIPTS/cg_cmd.py failed) — the push or PR/MR is not checked." >&2; exit 2 ;;
+  *)
+    # Hold back only what starts a command as a push or a PR/MR creation.
+    START='("command": *"|;|&|\||\(|\\n|\\")[[:space:]]*([^[:space:]"]*/)?'
+    if printf '%s' "$INPUT" | grep -qE "${START}git(\.exe)?([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+push([^[:alnum:]_-]|\$)|${START}(gh|glab)(\.exe)?[[:space:]]+(pr|mr)[[:space:]]+(create|new)"; then
+      echo "codegate: Python 3 not found (python3 or python), or $SCRIPTS/cg_cmd.py failed — this hook cannot check the push or PR/MR." >&2
+      exit 2
+    fi
+    exit 0
+    ;;
 esac
 
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -48,24 +50,35 @@ CONSUME=""
 trap 'rc=$?; [ $rc -eq 0 ] && [ -n "$CONSUME" ] && rm -f $CONSUME; exit $rc' EXIT
 
 CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
-# The session of the checked-out branch; on a detached HEAD, the session of a branch this call
-# pushes to — pushing `HEAD:<task branch>` from there delivers that task too.
-LOOKUP=""
-if [ -z "$CURRENT_BRANCH" ]; then
-  LOOKUP=$(printf '%s
-' "$LANDINGS" | while read -r kind a b; do
-    [ "$kind" = ref ] && [ "$a" != HEAD ] && "$PY" "$SCRIPTS/cg_session.py" branch --branch "$a" 2>/dev/null && break
-  done | head -1)
-fi
-SESSION_DIR=$("$PY" "$SCRIPTS/cg_session.py" dir ${LOOKUP:+--branch "$LOOKUP"} 2>/dev/null)
-SESSION_TARGET=""
+here() { [ "$1" = "HEAD" ] && echo "$CURRENT_BRANCH" || echo "$1"; }
+
+# The session whose branch this call delivers — a pushed destination or a PR/MR head — and only
+# then the checked-out branch's: `git push origin feat/x` from another branch delivers feat/x.
 SESSION_BRANCH=""
+for cand in $(printf '%s\n' "$LANDINGS" | awk '$1 == "ref" { print $2 } $1 == "base" { print $3 }') HEAD; do
+  cand=$(here "$cand")
+  case "$cand" in ""|@*) continue ;; esac
+  SESSION_BRANCH=$("$PY" "$SCRIPTS/cg_session.py" branch --branch "$cand" 2>/dev/null) && break
+done
+if [ -n "$SESSION_BRANCH" ]; then
+  SESSION_DIR=$("$PY" "$SCRIPTS/cg_session.py" dir --branch "$SESSION_BRANCH" 2>/dev/null)
+else
+  SESSION_DIR=$("$PY" "$SCRIPTS/cg_session.py" dir 2>/dev/null)  # an older session that names no branch
+fi
+SESSION_TARGET=""
 if [ -n "$SESSION_DIR" ]; then
   SESSION_DIR="$ROOT/$SESSION_DIR"
   SESSION_TARGET=$(cat "$SESSION_DIR/target-branch" 2>/dev/null | tr -d '[:space:]')
-  SESSION_BRANCH=$("$PY" "$SCRIPTS/cg_session.py" branch ${LOOKUP:+--branch "$LOOKUP"} 2>/dev/null)
 fi
-here() { [ "$1" = "HEAD" ] && echo "$CURRENT_BRANCH" || echo "$1"; }
+BASE_OPTION=$(bash "$SCRIPTS/cg-option.sh" base_branch "" 2>/dev/null | tr -d '[:space:]')
+
+# A direct push also must not land on the branch tasks merge into (the task's target, the
+# project's base): that is where review happens. A PR/MR into them is the normal path.
+protected_ref() {
+  case "$1" in main|master|release*|@all|@unknown) return 0 ;; esac
+  [ -n "$1" ] && { [ "$1" = "$SESSION_TARGET" ] || [ "$1" = "$BASE_OPTION" ]; }
+}
+protected_pr() { case "$1" in main|master|release*|@unknown) return 0 ;; esac; return 1; }
 
 default_branch() {
   local b=""
@@ -90,7 +103,7 @@ while read -r kind a b; do
   [ "$kind" = "ref" ] || continue
   dest=$(here "$a")
   [ -n "$SESSION_BRANCH" ] && [ "$dest" = "$SESSION_BRANCH" ] || ALL_REFS_OWN=""
-  case "$dest" in main|master|release*|@all) PROTECTED="$PROTECTED $dest" ;; esac
+  protected_ref "$dest" && PROTECTED="$PROTECTED $dest"
   if [ -z "$SESSION_BRANCH" ] || [ "$dest" = "$SESSION_BRANCH" ] || [ "$dest" = "@all" ]; then
     [ "$b" = "-" ] && continue  # a deletion carries no code
     OWN=1
@@ -105,7 +118,6 @@ while read -r kind a b; do
     mr)
       t="$a"
       [ "$t" = "@default" ] && t=$(default_branch push)
-      [ "$t" = "@unknown" ] && t="@unknown"  # an unexpanded variable can be anything
       # The task's own branch opening its MR to the recorded target: gate 2 covers it.
       [ -n "$SESSION_TARGET" ] && [ "$t" = "$SESSION_TARGET" ] && [ -n "$ALL_REFS_OWN" ] && continue
       ;;
@@ -121,13 +133,11 @@ while read -r kind a b; do
       ;;
     *) continue ;;
   esac
-  case "$t" in main|master|release*|@unknown) PROTECTED="$PROTECTED $t" ;; esac
+  protected_pr "$t" && PROTECTED="$PROTECTED $t"
 done <<< "$LANDINGS"
 
 # --- Gate 1: protected landings ---
-PROTECTED=$(echo $PROTECTED | tr ' ' '
-' | sort -u | tr '
-' ' ')
+PROTECTED=$(printf '%s\n' $PROTECTED | sort -u | tr '\n' ' ')
 COUNT=$(echo $PROTECTED | wc -w | tr -d ' ')
 if [ "$COUNT" -gt 1 ]; then
   echo "Blocked: this call lands on several protected branches ($PROTECTED). One approval covers one landing — split the command." >&2
@@ -135,6 +145,8 @@ if [ "$COUNT" -gt 1 ]; then
 fi
 if [ "$COUNT" -eq 1 ]; then
   CHECK=$(echo $PROTECTED)
+  [ "$CHECK" = "$SESSION_TARGET" ] || [ "$CHECK" = "$BASE_OPTION" ] && \
+    CHECK="$CHECK — tasks merge into it through a PR/MR"
   [ "$CHECK" = "@unknown" ] && CHECK="a variable — write the branch name out"
   [ "$CHECK" = "@all" ] && CHECK="every branch (--all / --mirror)"
   if [ -f .ai/protected-target-allowed ]; then
@@ -201,9 +213,13 @@ if [ -z "$CHECKED" ] && [ -n "$SESSION_BRANCH" ]; then
   # A session bound to a branch records checked-sha when the independent review concludes.
   # Without it Phase 4 has not concluded, whatever the state says.
   case "$STATE" in
-    QUALITY_REVIEWED|PR_CREATED|PR_UPDATED)
+    QUALITY_REVIEWED)
       block "no checked commit is recorded (checked-sha) — Phase 4 has not concluded." \
             "Finish Phase 4 (skill cg-phase-4): the gate, then the independent review, which writes checked-sha."
+      ;;
+    PR_CREATED|PR_UPDATED)
+      block "no checked commit is recorded (checked-sha) for this PR/MR." \
+            "Treat the change as rework: write REWORK and run the delta check (skill cg-rework); it writes checked-sha."
       ;;
   esac
 elif [ -z "$CHECKED" ] && [ "$STATE" = QUALITY_REVIEWED ] && grep -qiE 'verdict[^a-z]*FAIL' "$SESSION_DIR/QUALITY_REPORT.md" 2>/dev/null; then
@@ -214,7 +230,7 @@ fi
 
 # Commits the target branch already has came in by a merge — not this task's to check.
 NOT_TARGET=""
-TARGET_REF=$("$PY" "$SCRIPTS/cg_session.py" target-ref 2>/dev/null) && NOT_TARGET="--not $TARGET_REF"
+TARGET_REF=$("$PY" "$SCRIPTS/cg_session.py" target-ref ${SESSION_BRANCH:+--branch "$SESSION_BRANCH"} 2>/dev/null) && NOT_TARGET="--not $TARGET_REF"
 # A merge counts only for what its author changed while resolving it (--remerge-diff, git
 # 2.36+); older git cannot tell that apart, so merges are skipped there.
 MERGES="--no-merges"

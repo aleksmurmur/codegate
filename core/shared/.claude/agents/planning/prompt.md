@@ -239,7 +239,7 @@ curl -X GET http://localhost:8080/api/sites?status=UP \
   -H "Authorization: Bearer $TOKEN"
 
 # Verify migration applied
-sqlite3 data/watchio.db "SELECT COUNT(*) FROM sites WHERE current_status IS NOT NULL"
+sqlite3 data/app.db "SELECT COUNT(*) FROM sites WHERE current_status IS NOT NULL"
 ```
 
 If there is no meaningful smoke check: omit this section entirely. Do not include
