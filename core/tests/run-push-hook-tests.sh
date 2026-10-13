@@ -61,6 +61,249 @@ check "MR create without target, default main"    feat/x "git push -o merge_requ
 git -C "$REPO" symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/dev
 check "MR create without target, default dev"     feat/x "git push -o merge_request.create origin HEAD" 0
 
+# ── gate 2: a session that has not passed the quality gate holds back ITS branch ────────
+# Claude Code blocks a tool call only on exit 2; the gate used to exit 1 and never blocked.
+echo ""
+echo "-- gate 2: active session --"
+mkdir -p "$REPO/.ai/sessions/s1" "$REPO/.claude/scripts"
+SCRIPTS_DIR="$(cd "$SCRIPT_DIR/../shared/.claude/scripts" && pwd)"
+cp "$SCRIPTS_DIR/cg_session.py" "$REPO/.claude/scripts/"
+echo "s1" > "$REPO/.ai/current-session"
+session() { echo "$1" > "$REPO/.ai/sessions/s1/state"; if [ -n "$2" ]; then echo "$2" > "$REPO/.ai/sessions/s1/branch"; else rm -f "$REPO/.ai/sessions/s1/branch"; fi; }
+
+session IMPLEMENTING feat/x
+check "own branch before the gate is blocked"     feat/x "git push -u origin feat/x"  2
+ERR=$(printf '{"tool_input":{"command":"git push -u origin feat/x"}}' | ( cd "$REPO" && bash "$HOOK" 2>&1 >/dev/null ))
+if [ -n "$ERR" ]; then echo "PASS  gate 2 reason goes to stderr"; PASS=$((PASS + 1))
+else echo "FAIL  gate 2 reason goes to stderr  (stderr was empty)"; FAIL=$((FAIL + 1)); fi
+session QUALITY_REVIEWED feat/x
+git -C "$REPO" rev-parse feat/x > "$REPO/.ai/sessions/s1/checked-sha"
+check "own branch after the gate passes"          feat/x "git push -u origin feat/x"  0
+rm -f "$REPO/.ai/sessions/s1/checked-sha"
+session IMPLEMENTING feat/x
+check "a commit mentioning push is not a push"    feat/x "git commit -m 'push it later'"  0
+check "a grep for push is not a push"            feat/x "grep -rn push .claude"  0
+check "push after && is still checked"           feat/x "git add a.kt && git push -u origin feat/x"  2
+check "git -C dir push is still checked"         feat/x "git -C . push -u origin feat/x"  2
+session IMPLEMENTING feat/other
+check "another task's branch is not held back"    feat/x "git push -u origin feat/x"  0
+session IMPLEMENTING ""
+check "session without a recorded branch blocks"  feat/x "git push -u origin feat/x"  2
+rm -rf "$REPO/.ai/sessions" "$REPO/.ai/current-session"
+
+# ── after the gate: rework and commits made after the last check ────────────────────────
+echo ""
+echo "-- after the gate: checked-sha --"
+mkdir -p "$REPO/.ai/sessions/s1"
+gr() { git -C "$REPO" -c user.email=t@t -c user.name=t "$@"; }
+git -C "$REPO" checkout -q -B feat/x
+echo feat/x > "$REPO/.ai/sessions/s1/branch"
+echo main > "$REPO/.ai/sessions/s1/target-branch"
+echo PR_CREATED > "$REPO/.ai/sessions/s1/state"
+gr commit -q --allow-empty -m gated
+gr rev-parse HEAD > "$REPO/.ai/sessions/s1/checked-sha"
+push_check() {
+    local name="$1" want="$2" got
+    rm -f "$REPO/.ai/protected-target-allowed"
+    printf '{"tool_input":{"command":"git push origin feat/x"}}' | ( cd "$REPO" && bash "$HOOK" >/dev/null 2>&1 )
+    got=$?
+    if [ "$got" = "$want" ]; then echo "PASS  $name"; PASS=$((PASS + 1))
+    else echo "FAIL  $name  (want exit=$want, got exit=$got)"; FAIL=$((FAIL + 1)); fi
+}
+push_check "nothing after the check: push passes" 0
+mkdir -p "$REPO/.ai/tech-debt" && echo note > "$REPO/.ai/tech-debt/n.md"
+gr add -f .ai/tech-debt/n.md && gr commit -q -m "docs: tech debt"
+push_check "a commit touching only .ai/ does not count" 0
+echo code > "$REPO/fix.kt" && gr add fix.kt && gr commit -q -m "fix: qa"
+push_check "an unchecked code commit after the MR blocks" 2
+echo REWORK > "$REPO/.ai/sessions/s1/state"
+push_check "rework before its delta check blocks" 2
+gr rev-parse HEAD > "$REPO/.ai/sessions/s1/checked-sha"
+echo PR_UPDATED > "$REPO/.ai/sessions/s1/state"
+push_check "checked rework passes" 0
+git -C "$REPO" checkout -q main
+echo other > "$REPO/main-change.txt" && gr add main-change.txt && gr commit -q -m "on main"
+git -C "$REPO" checkout -q feat/x
+gr merge -q --no-edit main
+push_check "a merge of the target branch does not count" 0
+echo amended > "$REPO/fix.kt" && gr commit -q -a --amend --no-edit
+gr rev-parse HEAD~1 >/dev/null
+echo deadbeefdeadbeefdeadbeefdeadbeefdeadbeef > "$REPO/.ai/sessions/s1/checked-sha"
+push_check "a checked commit gone from the branch blocks" 2
+rm -f "$REPO/.ai/sessions/s1/checked-sha"
+echo QUALITY_REVIEWED > "$REPO/.ai/sessions/s1/state"
+printf '# Quality report\n**Verdict**: FAIL\n' > "$REPO/.ai/sessions/s1/QUALITY_REPORT.md"
+push_check "a FAIL verdict blocks the push" 2
+echo PR_CREATED > "$REPO/.ai/sessions/s1/state"
+rm -f "$REPO/.ai/sessions/s1/checked-sha" "$REPO/.ai/sessions/s1/QUALITY_REPORT.md"
+push_check "a branch-bound session without checked-sha blocks" 2
+touch "$REPO/.ai/push-unchecked-allowed"
+printf '{"tool_input":{"command":"git push origin feat/x"}}' | ( cd "$REPO" && bash "$HOOK" >/dev/null 2>&1 ); got=$?
+if [ "$got" = 0 ] && [ ! -f "$REPO/.ai/push-unchecked-allowed" ]; then echo "PASS  the user's one-shot override passes once"; PASS=$((PASS + 1))
+else echo "FAIL  the user's one-shot override passes once (exit=$got)"; FAIL=$((FAIL + 1)); fi
+push_check "and only once" 2
+
+gr rev-parse HEAD > "$REPO/.ai/sessions/s1/checked-sha"
+echo PR_UPDATED > "$REPO/.ai/sessions/s1/state"
+git -C "$REPO" checkout -q main
+echo main-version > "$REPO/fix.kt" && gr add fix.kt && gr commit -q -m "main touches fix.kt"
+git -C "$REPO" checkout -q feat/x
+gr merge -q main >/dev/null 2>&1
+echo resolved > "$REPO/fix.kt" && gr add fix.kt && gr commit -q -m "merge main"
+if git -C "$REPO" log -1 --remerge-diff --format= >/dev/null 2>&1; then
+  push_check "a merge whose conflict resolution changes code blocks" 2
+fi
+
+# ── how the command is read: every hook call is a Bash call, so the parse decides ────────
+echo ""
+echo "-- command parsing --"
+gr rev-parse feat/x > "$REPO/.ai/sessions/s1/checked-sha"
+session IMPLEMENTING feat/x
+check "subshell push to main is blocked"           feat/x "(git push origin main)"         2
+check "push after && without spaces"               feat/x "cd .&&git push origin main"     2
+check "push inside bash -c"                        feat/x "bash -c 'git push origin main'" 2
+check "git.exe push"                               feat/x "git.exe push origin main"       2
+check "a later segment is not a refspec"           dev    "git push origin dev && git checkout main" 0
+check "variable destination is the current branch" feat/x 'git push -u origin \"$(git branch --show-current)\"' 2
+check "variable destination via assignment"        feat/x 'B=feat/x; git push origin $B'  2
+
+touch "$REPO/.ai/protected-target-allowed"
+printf '{"tool_input":{"command":"git push origin feat/x:main feat/x"}}' | ( cd "$REPO" && bash "$HOOK" >/dev/null 2>&1 ); got=$?
+if [ "$got" = 2 ] && [ -f "$REPO/.ai/protected-target-allowed" ]; then echo "PASS  a push blocked by gate 2 keeps the gate 1 approval"; PASS=$((PASS + 1))
+else echo "FAIL  a push blocked by gate 2 keeps the gate 1 approval (exit=$got)"; FAIL=$((FAIL + 1)); fi
+rm -f "$REPO/.ai/protected-target-allowed"
+
+session PR_CREATED feat/x
+echo main > "$REPO/.ai/sessions/s1/target-branch"
+check "MR into the task's own target needs no marker" feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD" 0
+check "a direct push to that target is still blocked" feat/x "git push origin HEAD:main" 2
+
+check "git stash push is not a push"               main   "git stash push"                 0
+
+# ── pre-pr.sh ──────────────────────────────────────────────────────────────────────────
+echo ""
+echo "-- pre-pr --"
+PRHOOK="$HOOK"  # pre-push.sh checks PR/MR creation too
+pr_check() {
+    local name="$1" cmd="$2" want="$3" got
+    rm -f "$REPO/.ai/protected-target-allowed"
+    printf '{"tool_input":{"command":"%s"}}' "$cmd" | ( cd "$REPO" && bash "$PRHOOK" >/dev/null 2>&1 )
+    got=$?
+    if [ "$got" = "$want" ]; then echo "PASS  $name"; PASS=$((PASS + 1))
+    else echo "FAIL  $name  (want exit=$want, got exit=$got)"; FAIL=$((FAIL + 1)); fi
+}
+git -C "$REPO" checkout -q feat/x
+echo dev > "$REPO/.ai/sessions/s1/target-branch"
+pr_check "quoted protected base is blocked"  'gh pr create --base \"main\"'      2
+pr_check "base dev passes"                   'gh pr create --base dev'           0
+pr_check "glab -b is the target branch"      'glab mr create -b dev'             0
+pr_check "a variable base is blocked"        'gh pr create --base \"$TARGET\"'   2
+pr_check "an echo of the command is no PR"   'echo gh pr create --base main'     0
+echo main > "$REPO/.ai/sessions/s1/target-branch"
+pr_check "the task's own target passes"      'gh pr create --base main'          0
+
+# ── sixth audit: shell forms, the target exemption, the pushed commit ───────────────────
+echo ""
+echo "-- shell forms and deliveries --"
+rm -f "$REPO/.ai/sessions/s1/target-branch"
+check "push inside if/then"                  feat/x 'if true; then git push origin main; fi'   2
+check "push inside a for loop"               feat/x 'for b in x; do git push origin main; done' 2
+check "push behind timeout"                  feat/x 'timeout 60 git push origin main'          2
+check "push --all"                           feat/x 'git push --all origin'                    2
+check "push after a comment line"            feat/x 'echo hi # it is\ngit push origin main'    2
+check "a comment mentioning push is ignored" main   'ls # then git push origin main'           0
+check "a heredoc body is not a command"      main   'cat > n.md <<EOF\ngit push origin main\nEOF' 0
+pr_check "gh pr new is a PR creation"        'gh pr new --base main'                           2
+
+echo main > "$REPO/.ai/sessions/s1/target-branch"
+session IMPLEMENTING feat/x
+check "MR to the target from another branch name" feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD:feat/x-copy" 2
+pr_check "PR to the target from another head"     'gh pr create --base main --head feat/x-copy'  2
+pr_check "the task's own PR before the gate"      'gh pr create --base main'                      2
+
+session QUALITY_REVIEWED feat/x
+gr rev-parse feat/x > "$REPO/.ai/sessions/s1/checked-sha"
+git -C "$REPO" checkout -q --detach
+echo detached > "$REPO/detached.kt" && gr add detached.kt && gr commit -q -m "unchecked on a detached HEAD"
+printf '{"tool_input":{"command":"git push origin HEAD:feat/x"}}' | ( cd "$REPO" && bash "$HOOK" >/dev/null 2>&1 ); got=$?
+if [ "$got" = 2 ]; then echo "PASS  the pushed commit is checked, not the branch tip"; PASS=$((PASS + 1))
+else echo "FAIL  the pushed commit is checked, not the branch tip (exit=$got)"; FAIL=$((FAIL + 1)); fi
+git -C "$REPO" checkout -q feat/x
+gr merge -q --ff-only "HEAD@{1}" 2>/dev/null || git -C "$REPO" reset -q --hard "HEAD@{1}"
+ERR=$(printf '{"tool_input":{"command":"git push origin feat/x"}}' | ( cd "$REPO" && bash "$HOOK" 2>&1 >/dev/null ))
+case "$ERR" in *"independent review again"*) echo "PASS  new commits before the PR/MR go back to the review"; PASS=$((PASS + 1)) ;;
+  *) echo "FAIL  new commits before the PR/MR go back to the review ($ERR)"; FAIL=$((FAIL + 1)) ;; esac
+gr rev-parse feat/x > "$REPO/.ai/sessions/s1/checked-sha"
+
+rm -f "$REPO/.ai/sessions/s1/target-branch"
+touch "$REPO/.ai/protected-target-allowed"
+printf '{"tool_input":{"command":"git push origin HEAD:main; git push origin HEAD:master"}}' | ( cd "$REPO" && bash "$HOOK" >/dev/null 2>&1 ); got=$?
+if [ "$got" = 2 ]; then echo "PASS  one marker does not cover two protected landings"; PASS=$((PASS + 1))
+else echo "FAIL  one marker does not cover two protected landings (exit=$got)"; FAIL=$((FAIL + 1)); fi
+rm -f "$REPO/.ai/protected-target-allowed"
+
+# ── seventh audit: the target branch, the pushed branch's session, commands the flow writes ──
+echo ""
+echo "-- target branch and the pushed branch's session --"
+echo dev > "$REPO/.ai/sessions/s1/target-branch"
+session IMPLEMENTING feat/x
+check "a direct push onto the task's target is blocked" feat/x 'git push origin HEAD:dev'          2
+check "a variable destination is blocked"               feat/x 'T=main; git push origin HEAD:$T'   2
+check "pushing the task's branch from another branch"   main   'git push -u origin feat/x'         2
+pr_check "its PR from another branch"                   'gh pr create --base dev --head feat/x' 2
+git -C "$REPO" checkout -q feat/x
+session PR_CREATED feat/x
+gr rev-parse feat/x > "$REPO/.ai/sessions/s1/checked-sha"
+echo main > "$REPO/.ai/sessions/s1/target-branch"
+check "pushing tags pushes no branch"                   main   'git push origin --tags'            0
+check "Phase 5's push written over several lines"       feat/x 'git push -u -o merge_request.create \\\n  -o merge_request.target=main \\\n  origin HEAD' 0
+check "a commit message with an open parenthesis"       feat/x 'git commit -m \"$(cat <<'"'"'EOF'"'"'\nfix: retry the push (see #12\nEOF\n)\"' 0
+
+# ── ninth audit: a push from another checkout is judged by that checkout's task ──────────
+echo ""
+echo "-- another checkout --"
+WT="$REPO/.claude/worktrees/y"
+git -C "$REPO" worktree add -q -b feat/y "$WT" feat/x 2>/dev/null
+mkdir -p "$WT/.ai/sessions/s2"
+echo IMPLEMENTING > "$WT/.ai/sessions/s2/state"; echo feat/y > "$WT/.ai/sessions/s2/branch"; echo main > "$WT/.ai/sessions/s2/target-branch"
+WT_ABS=$(cd "$WT" && pwd)
+REPO_ABS=$(cd "$REPO" && pwd)
+check "cd into an unchecked worktree, then push"      feat/x "cd $WT_ABS && git push -u origin HEAD"   2
+check "git -C an unchecked worktree push"             feat/x "git -C $WT_ABS push -u origin HEAD"      2
+check "cd into an unchecked worktree, then its PR"    feat/x "cd $WT_ABS && gh pr create --base main"  2
+check "cd into a directory held in a variable"        feat/x 'cd $WT && git push'                     2
+check "cd into this checkout, then push"              feat/x "cd $REPO_ABS && git push -u origin HEAD" 0
+check "pushd into an unchecked worktree, then push"   feat/x "pushd $WT_ABS && git push -u origin HEAD" 2
+check "a subshell's cd does not outlive it"           feat/x "(cd $WT_ABS && git log -1) && git push -u origin HEAD" 0
+HOME=$(dirname "$REPO_ABS") USERPROFILE=$(dirname "$REPO_ABS") \
+check "cd ~/... is the home directory"                feat/x "cd ~/$(basename "$REPO_ABS") && git push -u origin HEAD" 0
+
+# ── without Python only what looks like a push is held back ─────────────────────────────
+if ! env PATH=/usr/bin bash -c 'command -v python3 || command -v python' >/dev/null 2>&1; then
+    printf '{"tool_input":{"command":"git stash push"},"description":"push it"}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?
+    if [ "$got" = 0 ]; then echo "PASS  no Python: an unrelated command passes"; PASS=$((PASS + 1))
+    else echo "FAIL  no Python: an unrelated command passes (exit=$got)"; FAIL=$((FAIL + 1)); fi
+    printf '{"tool_input":{"command":"git -C . push origin x"}}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?
+    if [ "$got" = 2 ]; then echo "PASS  no Python: a push is blocked"; PASS=$((PASS + 1))
+    else echo "FAIL  no Python: a push is blocked (exit=$got)"; FAIL=$((FAIL + 1)); fi
+    printf '{"tool_input":{"command":"timeout 60 git push origin x"}}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?
+    if [ "$got" = 2 ]; then echo "PASS  no Python: a push behind timeout is blocked"; PASS=$((PASS + 1))
+    else echo "FAIL  no Python: a push behind timeout is blocked (exit=$got)"; FAIL=$((FAIL + 1)); fi
+    printf '{"tool_input":{"command":"echo \\"git push\\""}}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?
+    if [ "$got" = 0 ]; then echo "PASS  no Python: an echoed string passes"; PASS=$((PASS + 1))
+    else echo "FAIL  no Python: an echoed string passes (exit=$got)"; FAIL=$((FAIL + 1)); fi
+    printf '{"tool_input":{"command":"git commit -m \\"docs: explain git push flow\\""}}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?
+    if [ "$got" = 0 ]; then echo "PASS  no Python: a commit message mentioning git push passes"; PASS=$((PASS + 1))
+    else echo "FAIL  no Python: a commit message mentioning git push passes (exit=$got)"; FAIL=$((FAIL + 1)); fi
+fi
+
+SETTINGS="$(dirname "$HOOK")/../settings.json"
+if grep -q '"matcher": *"[^"]*(' "$SETTINGS"; then
+  echo "FAIL  a hook matcher uses Bash(...) syntax, which never matches"; FAIL=$((FAIL + 1))
+else
+  echo "PASS  hook matchers name tools only"; PASS=$((PASS + 1))
+fi
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

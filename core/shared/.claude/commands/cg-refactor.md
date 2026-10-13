@@ -13,11 +13,7 @@ Strip the flag(s) from the description.
 
 ## Flow
 
-Run Phase 0 (Branch Setup) per CLAUDE.md §Phase 0 first, then Phase 1
-(Elicitation) per CLAUDE.md §Phase 1. After step 5 of Phase 1
-(write session id to `.ai/current-session`), also:
-
-6. Write `MODE` (one word, `fast` or `interactive`) to
-   `.ai/sessions/{id}/mode`. See CLAUDE.md §Session mode.
+Run Phase 0 (skill `cg-phase-0`), then Phase 1 (skill `cg-phase-1`), which writes
+`MODE` (one word, `fast` or `interactive`) to the session's `mode` file.
 
 Checklist: `.claude/agents/elicitation/checklists/refactor.md`

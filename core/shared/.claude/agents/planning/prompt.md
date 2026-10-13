@@ -97,8 +97,8 @@ from what you actually read — not from memory or inference.
 ### Task Summary
 One paragraph: what will be built, why, and how it fits into the existing architecture.
 Reference the actual architectural pattern observed (e.g., "follows the existing
-hexagonal structure — new domain interface in `domain/`, JPA implementation in
-`infrastructure/jpa/`").
+layering — a new port next to the other ports, its storage adapter next to the other
+adapters").
 
 ### Acceptance Criteria
 3–5 observable behaviors that must hold for this task to be done. Use
@@ -165,10 +165,10 @@ declared here; surprises in the diff against the declaration are flagged.
 Numbered list of every file change. Format is strict — the integrity checker parses it:
 
 ```
-[ ] 1. Modify src/main/kotlin/.../SomeService.kt — add findByStatus() method
-[ ] 2. Create src/main/kotlin/.../NewRepository.kt — implement domain ArticleRepository
-[ ] 3. Create src/main/resources/db/migration/V21__add_status_column.sql — new column
-[ ] 4. Modify src/test/kotlin/.../SomeServiceTest.kt — add tests for findByStatus
+[ ] 1. Modify src/orders/order_service.py — add find_by_status()
+[ ] 2. Create src/orders/order_store.py — implement the OrderRepository port
+[ ] 3. Create db/migrations/0021_add_status_column.sql — new column
+[ ] 4. Modify tests/orders/test_order_service.py — add tests for find_by_status
 ```
 
 Required shape per line: `[ ] <N>. <Verb> <path-with-extension> — <description>`
@@ -239,7 +239,7 @@ curl -X GET http://localhost:8080/api/sites?status=UP \
   -H "Authorization: Bearer $TOKEN"
 
 # Verify migration applied
-sqlite3 data/watchio.db "SELECT COUNT(*) FROM sites WHERE current_status IS NOT NULL"
+sqlite3 data/app.db "SELECT COUNT(*) FROM sites WHERE current_status IS NOT NULL"
 ```
 
 If there is no meaningful smoke check: omit this section entirely. Do not include
@@ -253,6 +253,14 @@ Anything outside the immediate task that could be affected:
 - Other endpoints that return the same data
 
 If none: "No systems affected beyond the implementation boundary."
+
+### Consumers
+Only when elicitation named consumers — other projects (another service, an
+app) that need work because of this change. Per consumer, by the alias the project uses
+(option `consumers`): what they need to do, the contract they depend on
+(endpoints, fields, types, errors), and the rollout order relative to this task ("this PR/MR
+first, then theirs" / "together" / "theirs first"). Phase 5 turns each into a linked task in
+the tracker. If none: omit this section.
 
 ### Scope Boundary
 One explicit sentence: "Everything not in the checklist above is out of scope for
@@ -283,8 +291,8 @@ Out of scope:
    Check the existing migrations to get the correct next version number.
 
 4. **If you discover a gotcha during planning** — note it in the Task Summary. For
-   example: "Note: `Pet.visits` is `@Transient` — visits must be loaded manually, not
-   via JPA relationship."
+   example: "Note: `Order.lines` is not loaded with the order — the lines must be fetched
+   explicitly."
 
 5. **Tests are implementation items** — they appear in the checklist with checkboxes,
    not as an afterthought. TDD anchor specifies which scenarios to write first.

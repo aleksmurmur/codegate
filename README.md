@@ -9,22 +9,37 @@ Russian version: [README_ru.md](README_ru.md).
 
 Every task follows enforced phases before code reaches review:
 
-1. **Elicitation** — context-aware clarifying questions. Cosmetic changes can
-   short-circuit to a fast-path mini-plan (`/cg-approve quick`).
+0. **Start** — a task is a branch: its own session, bound to that branch. When the folder
+   holds unfinished work, the new task goes to its own worktree.
+1. **Elicitation** — the agent first maps who reads and writes the data the task touches,
+   then asks in rounds of at most four questions, each with a recommendation — architecture
+   (how the change fits the system, options, a simpler or broader alternative) and business
+   never in one message — until nothing is open; a task that is really several is offered as a split. It ends with a summary of what is settled and what it decided itself. Cosmetic changes can short-circuit to a fast-path
+   mini-plan (`/cg-approve quick`).
 2. **Planning** — plan generated, then a mechanical integrity script verifies
    every referenced path, symbol, and migration version, and warns when a file
    the plan will create already names an existing symbol. An advisory pattern
    review then reads the codebase for prior art — something that already does
    what the plan proposes to build — and flags deviations from HIGH-confidence
    conventions.
-3. **Implementation** — code written against the approved plan.
+3. **Implementation** — code written against the approved plan, chunk by chunk, test first,
+   each chunk in a sub-agent that works from the session files.
 4. **Quality gate** — two mechanical checks first: diff coverage (new
    production lines must be exercised by tests) and test assertions (tests the
    diff touched must assert something that could fail — coverage proves a line
    ran, not that anything would notice it being wrong). Then the LLM review
    across quality dimensions, reading whole files rather than only the diff,
-   with baseline-diffed test run and tech-debt log.
-5. **PR creation** — branch, commit, PR with quality report attached.
+   with baseline-diffed test run and tech-debt log. Last, an independent review: a
+   sub-agent that sees only the task and the code, not the plan or the author's reasoning.
+5. **PR creation** — PR/MR with the quality report; linked tracker tasks for the projects
+   that consume the change (another service, an app), after the user confirms the drafts.
+6. **After the PR/MR** — QA findings, review remarks and CI fixes are *rework*: same branch,
+   a check of only the new commits before they are pushed. A defect found after the merge, or
+   an extension, is a new task linked to the original.
+
+`CLAUDE.md` holds only the core (~6k characters); each phase's steps are a skill
+(`.claude/skills/cg-phase-N`) loaded when the phase starts, so they are not re-sent with every
+model call and every sub-agent.
 
 Hooks block the agent's `Write` and `Edit` tool calls at wrong phases. Bash-based writes (redirects, `sed -i`) are not intercepted — treat the hook as a guardrail, not a sandbox.
 
@@ -37,14 +52,20 @@ CLAUDE.md
 .claude/
 ```
 
-Add to your `.gitignore` (session data is ephemeral; codebase context and tech debt are kept):
+Install adds to `.gitignore` (session data is per machine; codebase context is kept, tech debt
+by the option `tech_debt_in_git`):
 
 ```
 .ai/sessions/
 .ai/current-session
+.claude/worktrees/
 ```
 
-Python 3 must be available for hooks and integrity/coverage scripts (standard on Linux/Mac).
+Sessions are also copied into the repository's git directory (`.git/codegate/sessions/`),
+shared by all worktrees, so removing a worktree does not lose its task.
+
+Python 3 is required: the hooks parse every call with it. Without it, every Write/Edit and
+every push or PR/MR creation is blocked (standard on Linux/Mac; on Windows install it).
 
 ## Usage
 
@@ -62,7 +83,7 @@ Commit `CODEBASE_CONTEXT.md` so your team shares the same baseline.
 ```
 /cg-feature  add date filter to the results page
 /cg-bugfix   users can't log in after password reset
-/cg-refactor extract payment logic into its own service
+/cg-refactor extract the export logic into its own module
 ```
 
 Answer the elicitation questions, then follow the prompts.
@@ -86,11 +107,14 @@ to override quality `FAIL` — the long form is required for that, by design.
 ### Other commands
 
 ```
-/cg-status   # show current session state and next action
+/cg-status   # this branch's task: state and next action
+/cg-tasks    # every task in the repository: branch, state, worktree
+/cg-merged  # is this task's PR/MR merged? closes the task when it is
+/cg-next     # tracker items assigned to you, and which are already started
 /cg-explain  # read-only: state + audit + checklist + diff so far
 /cg-timeline # cross-session chronological view (--since 7d, --full)
 /cg-debt     # list logged tech debt items
-/cg-resume   # resume after context compaction or window restart
+/cg-resume   # pick up this branch's task after /clear, compaction or a new window
 ```
 
 ### Multi-persona quality gate (opt-in)
@@ -138,13 +162,18 @@ headless runs, non-Claude-Code harnesses).
 
 ### Issue tracker
 
-Codegate knows no tracker. It reports two events — `started` (a task begins: an item is
-created, or an existing one is taken up, and its key names the branch) and `pr_created`
-(its PR/MR exists) — through `.claude/scripts/tracker.py`. What they mean in a real
-tracker is the project's `.claude/tracker-adapter.py`, written against the contract in
-that script's docstring; its config and credentials stay with the project. `/cg-start`
-asks whether to use it (`tracker`: `none` or `adapter`). Inspect or move the item by hand
-with `/cg-tracker`.
+Codegate knows no tracker. It asks for abstract actions — create (also for another project,
+with a relation and a link), get, event (`started`, `pr_created`, `merged`), comment, link,
+list mine — through `.claude/scripts/tracker.py` (contract in its docstring). The project
+answers them with its own adapter, in one or both forms: `.claude/tracker-adapter.py`, a
+script; and `.claude/tracker.md`, instructions for doing an action with the tools the
+user's AI already has for that tracker (an MCP server, a CLI). An action the script cannot
+do is handed to the agent with those instructions, or skipped. Config and credentials stay
+with the project. `/cg-start` asks whether to use a tracker (`tracker`: `none` or `adapter`)
+and which projects consume this one (`consumers`). It also asks how the full test suite
+runs (`test_command`): the workflow runs it before any code and in the quality gate; a
+project whose suite needs a wrapper script sets it there. `/cg-tracker` for the current item by
+hand, `/cg-next` for what is assigned to you.
 
 ### TDD Guard (strict TDD enforcement)
 
@@ -170,10 +199,16 @@ your-project/
 │   ├── hooks/
 │   │   ├── pre-write.sh               # blocks file writes until plan approved
 │   │   ├── pre-push.sh                # blocks git push until quality gate passed
-│   │   ├── post-stop.sh               # reminds to /cg-approve implementation
-│   │   └── post-compact.sh            # recovery context after context compaction
+│   │   ├── pre-agent.sh               # no elicitation/planning without a task on the branch
+│   │   ├── task-context.sh            # each message carries this branch's task and state
+│   │   ├── post-stop.sh               # copies sessions to the shared store
+│   │   └── post-compact.sh            # where the task stands, on session start and compaction
+│   ├── skills/                        # cg-phase-0…5, cg-rework, cg-flow-feedback
 │   ├── commands/                      # slash commands (cg-*)
 │   ├── scripts/
+│   │   ├── cg_session.py              # which task belongs to this checkout; shared store
+│   │   ├── cg_cmd.py                  # what a Bash call runs: pushes and PR/MR creations, for the hooks
+│   │   ├── tracker.py                 # tracker bridge (actions → project adapter)
 │   │   ├── plan-integrity.py          # mechanical path/symbol/migration check (Phase 2)
 │   │   ├── test-assertions.py         # mechanical no-op-assertion check (Phase 4)
 │   │   └── diff-coverage.py           # mechanical coverage check (Phase 4)
@@ -183,12 +218,14 @@ your-project/
 │       ├── codebase-intelligence/     # /cg-context
 │       ├── elicitation/               # Phase 1 (incl. fast-path triage)
 │       ├── planning/                  # Phase 2
+│       ├── implementer/               # Phase 3, one plan chunk test-first
 │       ├── plan-review/               # Phase 2 advisory prior-art / pattern review
 │       ├── quality-gate/              # Phase 4
+│       ├── independent-review/        # Phase 4, last step: sees only task and code
 │       └── pr-creator/                # Phase 5
 └── .ai/                               # runtime state
     ├── CODEBASE_CONTEXT.md            # commit this
-    ├── tech-debt/                     # commit these
+    ├── tech-debt/                     # in git unless tech_debt_in_git = no
     └── sessions/                      # gitignored — ephemeral
 ```
 
@@ -206,6 +243,6 @@ your-project/
 ## Requirements
 
 - Claude Code CLI
-- Python 3 (for hooks and integrity/coverage scripts — standard on Linux/Mac)
+- Python 3 — required: the hooks block writes and pushes without it (standard on Linux/Mac)
 - `git` (always present)
 - `gh` or `glab` optional — PR creation falls back to a manual URL if neither is installed

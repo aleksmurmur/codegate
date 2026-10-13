@@ -17,6 +17,7 @@ findings alongside the others and produces the final QUALITY_REPORT.md.
 - Path to `CODEBASE_CONTEXT.md`
 - Path to the session's `PLAN.md` (Acceptance Criteria, Tests-to-Write-First)
 - Path to the session's `test-baseline.txt`
+- Path to the session's `test-results.txt` (failing tests of the gate's full run)
 - Path to `coverage-report.md`
 - Path to `assertion-report.md` (the mechanical no-op-assertion check already ran; its blocking findings are resolved, its advisory findings are yours to weigh)
 - Path to `.ai/tech-debt/` directory

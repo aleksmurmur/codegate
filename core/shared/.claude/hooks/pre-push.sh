@@ -1,157 +1,267 @@
 #!/bin/bash
 # pre-push.sh
-# Fires before any git push.
+# Fires before any git push and any PR/MR creation (gh pr create, glab mr create).
 # Two gates:
-#   1. Direct push to a protected branch (main / master / release*) is blocked
-#      unless the one-shot marker `.ai/protected-target-allowed` exists.
-#   2. Push from inside an active codegate session is blocked unless the
-#      quality gate has passed.
+#   1. A landing on a protected branch (main / master / release*) — a pushed
+#      refspec, an MR opened by push options, a PR/MR created by gh/glab — is
+#      blocked unless the one-shot marker `.ai/protected-target-allowed` exists.
+#      The task's own branch going to the target Phase 0 recorded is not a stray
+#      landing and needs no marker.
+#   2. Delivering the task's own branch (the session bound to the checked-out
+#      branch) — pushing it or opening its PR/MR — is blocked until the quality
+#      gate and the independent review have concluded, during rework, and when it
+#      carries commits made after the last check (checked-sha).
+#      Exit 2: Claude Code blocks on nothing else.
 
+# Runs on every Bash call (a hook matcher names a tool, not a command): anything that cannot be
+# a push or a PR/MR creation leaves at once, before Python is started.
 INPUT=$(cat 2>/dev/null || echo "")
-COMMAND=$(python3 -c "
-import json, sys
-try:
-    d = json.load(sys.stdin)
-    print(d.get('tool_input', {}).get('command', ''))
-except Exception:
-    print('')
-" <<< "$INPUT" 2>/dev/null || echo "")
+case "$INPUT" in *push*|*" create"*|*"pr new"*|*"mr new"*) ;; *) exit 0 ;; esac
 
-# --- Gate 1: protected-target landings ---
-# Determine target branch from the push command.
-# Strip "git push" and any flags, then look at remaining args:
-#   git push                       → target = current branch
-#   git push origin                → target = current branch
-#   git push origin main           → target = main
-#   git push origin HEAD:main      → target = main
-#   git push origin feat:main      → target = main
-#   git push origin :main          → target = main (delete)
-# Every branch this push can land on: the pushed refspec's destination, and the target of an
-# MR the push creates (GitLab `-o merge_request.target=X`) — a protected one either way is gated.
-# Parsed with shlex: option values may be quoted and contain spaces (`-o merge_request.title="A b"`).
-TARGETS=$(COMMAND="$COMMAND" python3 -c '
-import os, shlex
-try:
-    words = shlex.split(os.environ["COMMAND"])
-except ValueError:
-    words = os.environ["COMMAND"].split()
-if "push" in words:
-    words = words[words.index("push") + 1:]
-positional, options, i = [], [], 0
-while i < len(words):
-    w = words[i]
-    if w in ("-o", "--push-option") and i + 1 < len(words):
-        options.append(words[i + 1]); i += 1
-    elif w.startswith("--push-option="):
-        options.append(w.split("=", 1)[1])
-    elif w.startswith("-o") and len(w) > 2:
-        options.append(w[2:])
-    elif not w.startswith("-"):
-        positional.append(w)
-    i += 1
-
-def branch(ref):
-    ref = ref.lstrip("+")
-    for prefix in ("refs/heads/", "heads/"):
-        if ref.startswith(prefix):
-            return ref[len(prefix):]
-    return ref
-
-# Every refspec, not just the last: `git push origin a:main b:x` lands on main too.
-dests = [branch(r.rsplit(":", 1)[-1] if ":" in r else r) for r in positional[1:]]
-print(" ".join(d or "HEAD" for d in dests) or "HEAD")
-
-mr = [o.split("=", 1)[1] for o in options if o.startswith("merge_request.target=")]
-if mr:
-    print(mr[-1])
-elif "merge_request.create" in options:
-    print("@default")  # GitLab opens it against the default branch
-' 2>/dev/null)
-REF_TARGETS=$(echo "$TARGETS" | sed -n 1p)
-MR_TARGET=$(echo "$TARGETS" | sed -n 2p)
-
-CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
-CHECKS=""
-for t in $REF_TARGETS; do
-  [ "$t" = "HEAD" ] && t="$CURRENT_BRANCH"
-  CHECKS="$CHECKS $t"
+# One line per landing (see cg_cmd.py): `ref <dest> <source>`, `mr <target>`, `base <branch> <head>`.
+# The Windows Store stub `python3` exists but does not run, so a failed run falls back to
+# `python`. Exits 0, 1 and 3 come from the parser; anything else means no usable Python.
+SCRIPTS="$(cd "$(dirname "$0")" && pwd)/../scripts"
+for PY in python3 python; do
+  LANDINGS=$(printf '%s' "$INPUT" | "$PY" "$SCRIPTS/cg_cmd.py" 2>/dev/null)
+  RC=$?
+  case $RC in 0|1|3) break ;; esac
 done
-[ -z "$REF_TARGETS" ] && CHECKS="$CURRENT_BRANCH"
-if [ "$MR_TARGET" = "@default" ]; then
-  MR_TARGET=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
-  # Unknown default branch: assume the worst rather than let the MR through unchecked.
-  [ -z "$MR_TARGET" ] && MR_TARGET="main"
-fi
-case "$MR_TARGET" in
-  *'$'*|*'`'*) MR_TARGET="main" ;;  # an unexpanded variable can be anything — treat as protected
-esac
-CHECKS="$CHECKS $MR_TARGET"
-
-for CHECK in $CHECKS; do
-[ -z "$CHECK" ] && continue
-case "$CHECK" in
-  main|master|release*)
-    MARKER=".ai/protected-target-allowed"
-    if [ -f "$MARKER" ]; then
-      rm -f "$MARKER"
-      # Continue to gate 2 (session check) — marker only bypasses gate 1
-    else
-      cat >&2 <<EOF
-Push blocked: target branch is '$CHECK' (protected).
-
-Direct pushes to protected branches bypass review. Either:
-  - Push to a feature branch and open a PR/MR against a non-protected base, or
-  - If you really mean to land on '$CHECK', approve once:
-      touch .ai/protected-target-allowed
-    then re-run the push. The marker is one-shot.
-EOF
+case $RC in
+  0) ;;
+  1) exit 0 ;;
+  3) echo "codegate: this command looks like a push or a PR/MR creation but cannot be parsed (unbalanced quotes?). Run it as a plain command." >&2; exit 2 ;;
+  *)
+    # Hold back only what starts a command as a push or a PR/MR creation.
+    START='("command": *"|;|&|\||\(|\\n)[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+|(timeout|env|nice|command|exec)[[:space:]]+([0-9][^[:space:]]*[[:space:]]+)?)*([^[:space:]"]*/)?'
+    if printf '%s' "$INPUT" | grep -qE "${START}git(\.exe)?([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+push([^[:alnum:]_-]|\$)|${START}(gh|glab)(\.exe)?[[:space:]]+(pr|mr)[[:space:]]+(create|new)"; then
+      echo "codegate: Python 3 not found (python3 or python), or $SCRIPTS/cg_cmd.py failed — this hook cannot check the push or PR/MR." >&2
       exit 2
     fi
+    exit 0
     ;;
 esac
+
+# Like the other hooks: the checkout the call runs in is the `cwd` the hook is given.
+CWD=$("$PY" -c "import json,sys; print(json.load(sys.stdin).get('cwd') or '')" <<< "$INPUT" 2>/dev/null)
+[ -n "$CWD" ] && cd "$CWD" 2>/dev/null
+# `cd DIR && git push`, `git -C DIR push`: the landings belong to the checkout in DIR.
+DIR=$(printf '%s\n' "$LANDINGS" | sed -n 's/^dir //p' | head -1)
+case "$DIR" in
+  "") ;;
+  @unknown)
+    echo "codegate: this command pushes or opens a PR/MR from a directory given by a variable, or from more than one checkout. Run it from one checkout, with the path written out (cd /path/to/checkout && ...)." >&2
+    exit 2 ;;
+  *) cd "$DIR" 2>/dev/null || { echo "codegate: no such directory: $DIR" >&2; exit 2; } ;;
+esac
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+cd "$ROOT" || exit 2
+# The markers are the user's one-shot approvals. Only a call that goes through uses them up:
+# one blocked by the second gate does not make the user approve the first one again.
+CONSUME=""
+trap 'rc=$?; [ $rc -eq 0 ] && [ -n "$CONSUME" ] && rm -f $CONSUME; exit $rc' EXIT
+
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+here() { [ "$1" = "HEAD" ] && echo "$CURRENT_BRANCH" || echo "$1"; }
+
+# The session whose branch this call delivers — a pushed destination or a PR/MR head — and only
+# then the checked-out branch's: `git push origin feat/x` from another branch delivers feat/x.
+SESSION_BRANCH=""
+for cand in $(printf '%s\n' "$LANDINGS" | awk '$1 == "ref" { print $2 } $1 == "base" { print $3 }') HEAD; do
+  cand=$(here "$cand")
+  case "$cand" in ""|@*) continue ;; esac
+  SESSION_BRANCH=$("$PY" "$SCRIPTS/cg_session.py" branch --branch "$cand" 2>/dev/null) && break
 done
+if [ -n "$SESSION_BRANCH" ]; then
+  SESSION_DIR=$("$PY" "$SCRIPTS/cg_session.py" dir --branch "$SESSION_BRANCH" 2>/dev/null)
+else
+  SESSION_DIR=$("$PY" "$SCRIPTS/cg_session.py" dir 2>/dev/null)  # an older session that names no branch
+fi
+SESSION_TARGET=""
+if [ -n "$SESSION_DIR" ]; then
+  SESSION_DIR="$ROOT/$SESSION_DIR"
+  SESSION_TARGET=$(cat "$SESSION_DIR/target-branch" 2>/dev/null | tr -d '[:space:]')
+fi
+BASE_OPTION=$(bash "$SCRIPTS/cg-option.sh" base_branch "" 2>/dev/null | tr -d '[:space:]')
 
-# --- Gate 2: active-session quality gate ---
-CURRENT_SESSION_FILE=".ai/current-session"
-if [ ! -f "$CURRENT_SESSION_FILE" ]; then
-  exit 0
+# A direct push also must not land on the branch tasks merge into (the task's target, the
+# project's base): that is where review happens. A PR/MR into them is the normal path.
+protected_ref() {
+  case "$1" in main|master|release*|@all|@unknown) return 0 ;; esac
+  [ -n "$1" ] && { [ "$1" = "$SESSION_TARGET" ] || [ "$1" = "$BASE_OPTION" ]; }
+}
+protected_pr() { case "$1" in main|master|release*|@unknown) return 0 ;; esac; return 1; }
+
+default_branch() {
+  local b=""
+  case "$1" in
+    push) b=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##') ;;
+    pr)
+      command -v gh >/dev/null 2>&1 && b=$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.name 2>/dev/null)
+      [ -z "$b" ] && command -v glab >/dev/null 2>&1 && b=$(glab repo view --output json 2>/dev/null \
+        | "$PY" -c "import json,sys; print(json.load(sys.stdin).get('default_branch',''))" 2>/dev/null)
+      ;;
+  esac
+  # Unknown default branch: assume the worst rather than let the PR/MR through unchecked.
+  echo "${b:-main}"
+}
+
+# --- Collect the landings: protected ones for gate 1, deliveries of the task's branch for gate 2 ---
+PROTECTED=""
+OWN_TIPS=""
+OWN=""
+ALL_REFS_OWN=1
+while read -r kind a b; do
+  [ "$kind" = "ref" ] || continue
+  dest=$(here "$a")
+  [ -n "$SESSION_BRANCH" ] && [ "$dest" = "$SESSION_BRANCH" ] || ALL_REFS_OWN=""
+  protected_ref "$dest" && PROTECTED="$PROTECTED $dest"
+  if [ -z "$SESSION_BRANCH" ] || [ "$dest" = "$SESSION_BRANCH" ] || [ "$dest" = "@all" ]; then
+    [ "$b" = "-" ] && continue  # a deletion carries no code
+    OWN=1
+    src="$b"
+    [ "$dest" = "@all" ] && [ -n "$SESSION_BRANCH" ] && src="$SESSION_BRANCH"
+    OWN_TIPS="$OWN_TIPS $(git rev-parse --verify --quiet "$src^{commit}" 2>/dev/null || git rev-parse HEAD)"
+  fi
+done <<< "$LANDINGS"
+
+while read -r kind a b; do
+  case "$kind" in
+    mr)
+      t="$a"
+      [ "$t" = "@default" ] && t=$(default_branch push)
+      # The task's own branch opening its MR to the recorded target: gate 2 covers it.
+      [ -n "$SESSION_TARGET" ] && [ "$t" = "$SESSION_TARGET" ] && [ -n "$ALL_REFS_OWN" ] && continue
+      ;;
+    base)
+      t="$a"
+      [ "$t" = "@default" ] && t=$(default_branch pr)
+      head=$(here "$b")
+      if [ -n "$SESSION_BRANCH" ] && [ "$head" = "$SESSION_BRANCH" ]; then
+        OWN=1
+        OWN_TIPS="$OWN_TIPS $(git rev-parse --verify --quiet "$SESSION_BRANCH^{commit}" 2>/dev/null)"
+        [ "$t" = "$SESSION_TARGET" ] && continue
+      fi
+      ;;
+    *) continue ;;
+  esac
+  protected_pr "$t" && PROTECTED="$PROTECTED $t"
+done <<< "$LANDINGS"
+
+# --- Gate 1: protected landings ---
+PROTECTED=$(printf '%s\n' $PROTECTED | sort -u | tr '\n' ' ')
+COUNT=$(echo $PROTECTED | wc -w | tr -d ' ')
+if [ "$COUNT" -gt 1 ]; then
+  echo "Blocked: this call lands on several protected branches ($PROTECTED). One approval covers one landing — split the command." >&2
+  exit 2
+fi
+if [ "$COUNT" -eq 1 ]; then
+  CHECK=$(echo $PROTECTED)
+  [ "$CHECK" = "$SESSION_TARGET" ] || [ "$CHECK" = "$BASE_OPTION" ] && \
+    CHECK="$CHECK — tasks merge into it through a PR/MR"
+  [ "$CHECK" = "@unknown" ] && CHECK="a variable — write the branch name out"
+  [ "$CHECK" = "@all" ] && CHECK="every branch (--all / --mirror)"
+  if [ -f .ai/protected-target-allowed ]; then
+    CONSUME=".ai/protected-target-allowed"
+  else
+    cat >&2 <<EOF
+Blocked: target branch is '$CHECK' (protected).
+
+Landing on a protected branch bypasses review. Either:
+  - push to a feature branch and open the PR/MR against a non-protected base, or
+  - if you really mean to land on '$CHECK', approve once:
+      touch $ROOT/.ai/protected-target-allowed
+    then re-run the command. The marker is one-shot.
+EOF
+    exit 2
+  fi
 fi
 
-SESSION=$(cat "$CURRENT_SESSION_FILE" 2>/dev/null | tr -d '[:space:]')
-if [ -z "$SESSION" ]; then
-  exit 0
-fi
+# --- Gate 2: the task's own checks ---
+[ -z "$SESSION_DIR" ] && exit 0
+[ -z "$OWN" ] && exit 0
+SESSION=$(basename "$SESSION_DIR")
+STATE=$(cat "$SESSION_DIR/state" 2>/dev/null | tr -d '[:space:]')
 
-STATE_FILE=".ai/sessions/$SESSION/state"
-STATE=$(cat "$STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "")
-
-# These states mean quality gate has not passed yet
-case "$STATE" in
-  IDLE|ELICITED|PLAN_APPROVED|IMPLEMENTING)
-    TASK=$(cat ".ai/sessions/$SESSION/task.md" 2>/dev/null | head -1 || echo "unknown task")
+block() {
+  TASK=$(head -1 "$SESSION_DIR/task.md" 2>/dev/null || echo "unknown task")
+  {
     echo ""
-    echo "PUSH BLOCKED: active session has not passed the quality gate."
+    echo "BLOCKED: $1"
     echo ""
     echo "Session : $SESSION"
     echo "Task    : $TASK"
     echo "State   : $STATE"
     echo ""
-    echo "Complete the workflow first:"
-    echo "  1. Finish implementation"
-    echo "  2. Type /cg-approve implementation  (commits + runs quality gate)"
-    echo "  3. Fix any quality gate failures"
-    echo "  4. Then push via /cg-approve quality or Phase 5 PR creation"
+    echo "$2"
     echo ""
-    echo "To push anyway (bypassing the workflow), delete .ai/current-session first."
+    echo "Only if the user explicitly wants this unchecked: touch $ROOT/.ai/push-unchecked-allowed"
+    echo "and run it again (one-shot), and record their reason in the audit log."
     echo ""
-    exit 1
+  } >&2
+  exit 2
+}
+
+if [ -f .ai/push-unchecked-allowed ]; then
+  CONSUME="$CONSUME .ai/push-unchecked-allowed"
+  exit 0
+fi
+
+case "$STATE" in
+  IDLE|ELICITED|PLAN_APPROVED|IMPLEMENTING)
+    block "the task has not passed the quality gate." \
+          "Finish implementation and the quality gate (skills cg-phase-3, cg-phase-4); Phase 5 pushes."
     ;;
-  QUALITY_REVIEWED|PR_CREATED|"")
-    # Quality gate passed or no active session — allow push
-    exit 0
-    ;;
-  *)
-    # Unknown state — allow push, don't block on unexpected values
-    exit 0
+  REWORK)
+    block "rework on this PR/MR has not been checked." \
+          "Run the delta check (skill cg-rework), write checked-sha and PR_UPDATED, then push."
     ;;
 esac
+
+# Commits after the last check (checked-sha, written at the end of Phase 4 and by the rework check) reach
+# the PR/MR unreviewed. Merges of the target branch and commits touching only .ai/ do not count.
+CHECKED=$(cat "$SESSION_DIR/checked-sha" 2>/dev/null | tr -d '[:space:]')
+if [ -z "$CHECKED" ] && [ -n "$SESSION_BRANCH" ]; then
+  # A session bound to a branch records checked-sha when the independent review concludes.
+  # Without it Phase 4 has not concluded, whatever the state says.
+  case "$STATE" in
+    QUALITY_REVIEWED)
+      block "no checked commit is recorded (checked-sha) — Phase 4 has not concluded." \
+            "Finish Phase 4 (skill cg-phase-4): the gate, then the independent review, which writes checked-sha."
+      ;;
+    PR_CREATED|PR_UPDATED)
+      block "no checked commit is recorded (checked-sha) for this PR/MR." \
+            "Treat the change as rework: write REWORK and run the delta check (skill cg-rework); it writes checked-sha."
+      ;;
+  esac
+elif [ -z "$CHECKED" ] && [ "$STATE" = QUALITY_REVIEWED ] && grep -qiE 'verdict[^a-z]*FAIL' "$SESSION_DIR/QUALITY_REPORT.md" 2>/dev/null; then
+  block "the quality gate verdict is FAIL." \
+        "Fix the FAIL items and re-run the gate on the fixes (skill cg-phase-4), or the user overrides with /cg-approve quality."
+fi
+[ -z "$CHECKED" ] && exit 0
+
+# Commits the target branch already has came in by a merge — not this task's to check.
+NOT_TARGET=""
+TARGET_REF=$("$PY" "$SCRIPTS/cg_session.py" target-ref ${SESSION_BRANCH:+--branch "$SESSION_BRANCH"} 2>/dev/null) && NOT_TARGET="--not $TARGET_REF"
+# A merge counts only for what its author changed while resolving it (--remerge-diff, git
+# 2.36+); older git cannot tell that apart, so merges are skipped there.
+MERGES="--no-merges"
+git log -1 --remerge-diff --format= >/dev/null 2>&1 && MERGES="--remerge-diff"
+
+for TIP in $OWN_TIPS; do
+  if ! git merge-base --is-ancestor "$CHECKED" "$TIP" 2>/dev/null; then
+    block "the last checked commit ($CHECKED) is not in what is being delivered (amend, rebase, reset, or another commit)." \
+          "Treat it as rework: write REWORK and run the delta check against the target branch (skill cg-rework)."
+  fi
+  UNCHECKED=$(git log $MERGES --format= --name-only "$CHECKED..$TIP" $NOT_TARGET 2>/dev/null | grep -v '^$' | grep -v '^\.ai/' | sort -u)
+  if [ -n "$UNCHECKED" ]; then
+    if [ "$STATE" = QUALITY_REVIEWED ]; then
+      block "commits after the independent review change: $(echo $UNCHECKED | cut -c1-200)" \
+            "The PR/MR does not exist yet: run the independent review again on the new commits (skill cg-phase-4, §5) — it rewrites checked-sha — then Phase 5."
+    fi
+    block "commits after the last check change: $(echo $UNCHECKED | cut -c1-200)" \
+          "That is rework: write REWORK with the reason, run the delta check (skill cg-rework), then push."
+  fi
+done
+
+exit 0

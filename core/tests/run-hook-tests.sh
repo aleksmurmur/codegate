@@ -23,7 +23,9 @@ FAIL=0
 
 PROJECT=$(mktemp -d)
 trap 'rm -rf "$PROJECT"' EXIT
-mkdir -p "$PROJECT/.ai/sessions/s1" "$PROJECT/.claude/hooks" "$PROJECT/src"
+mkdir -p "$PROJECT/.ai/sessions/s1" "$PROJECT/.claude/hooks" "$PROJECT/.claude/scripts" "$PROJECT/src"
+SCRIPTS_DIR="$(cd "$SCRIPT_DIR/../shared/.claude/scripts" && pwd)"
+cp "$SCRIPTS_DIR/cg_session.py" "$PROJECT/.claude/scripts/"
 
 # check <name> <file-path> <want_exit>
 check() {
@@ -69,6 +71,107 @@ echo "-- session in IMPLEMENTING --"
 echo "IMPLEMENTING" > "$PROJECT/.ai/sessions/s1/state"
 check "source allowed while IMPLEMENTING"   "src/Main.kt"                        0
 check "windows source allowed too"          'D:\project\src\Main.kt'             0
+
+# ── the reason reaches the agent: Claude Code shows only stderr for exit 2 ────────────────
+echo ""
+echo "-- blocking reason on stderr --"
+rm -f "$PROJECT/.ai/current-session"
+ERR=$(printf '{"tool_input":{"file_path":"src/Main.kt"}}' | ( cd "$PROJECT" && bash "$HOOK" 2>&1 >/dev/null ))
+if [ -n "$ERR" ]; then echo "PASS  block reason goes to stderr"; PASS=$((PASS + 1))
+else echo "FAIL  block reason goes to stderr  (stderr was empty)"; FAIL=$((FAIL + 1)); fi
+
+# ── the hook guards this repository only: files elsewhere are not its business ────────────
+echo ""
+echo "-- inside a git repository --"
+REPO=$(mktemp -d)
+OTHER=$(mktemp -d)
+trap 'rm -rf "$PROJECT" "$REPO" "$OTHER"' EXIT
+git -C "$REPO" init -q
+mkdir -p "$REPO/.ai/sessions/s1" "$REPO/src" "$REPO/.claude/scripts"
+cp "$SCRIPTS_DIR/cg_session.py" "$REPO/.claude/scripts/"
+echo "s1" > "$REPO/.ai/current-session"
+echo "ELICITED" > "$REPO/.ai/sessions/s1/state"
+REPO_ABS=$(cd "$REPO" && pwd -W 2>/dev/null || pwd)
+OTHER_ABS=$(cd "$OTHER" && pwd -W 2>/dev/null || pwd)
+
+# check_in <name> <file-path> <want_exit> — like check, but run from the git repository
+check_in() {
+    local name="$1" path="$2" want="$3" got
+    printf '{"tool_input":{"file_path":"%s"}}' "$path" | ( cd "$REPO" && bash "$HOOK" >/dev/null 2>&1 )
+    got=$?
+    if [ "$got" = "$want" ]; then
+        echo "PASS  $name"; PASS=$((PASS + 1))
+    else
+        echo "FAIL  $name  (want exit=$want, got exit=$got)"; FAIL=$((FAIL + 1))
+    fi
+}
+check_in "relative source still blocked"        "src/Main.kt"                     2
+check_in "absolute source in repo blocked"      "$REPO_ABS/src/Main.kt"           2
+check_in "file in another directory allowed"    "$OTHER_ABS/report.md"            0
+check_in "new file in a new dir elsewhere"      "$OTHER_ABS/deep/new/report.md"   0
+# Claude Code on Windows sends D:\dir\file: the comparison must not depend on the spelling
+case "$OTHER_ABS" in
+  ?:/*)
+    WIN_OTHER=$(python3 -c "import sys; print(sys.argv[1].replace('/', chr(92)))" "$OTHER_ABS/report.md")
+    WIN_SRC=$(python3 -c "import sys; print(sys.argv[1].replace('/', chr(92)))" "$REPO_ABS/src/Main.kt")
+    for case_ in "other:$WIN_OTHER:0" "src:$WIN_SRC:2"; do
+      p_=${case_#*:}; want_=${p_##*:}; p_=${p_%:*}
+      json_=$(python3 -c "import json,sys; print(json.dumps({'tool_input': {'file_path': sys.argv[1]}}))" "$p_")
+      printf "%s" "$json_" | ( cd "$REPO" && bash "$HOOK" >/dev/null 2>&1 ); got_=$?
+      if [ "$got_" = "$want_" ]; then echo "PASS  windows backslash path (${case_%%:*})"; PASS=$((PASS + 1))
+      else echo "FAIL  windows backslash path (${case_%%:*})  (want exit=$want_, got exit=$got_)"; FAIL=$((FAIL + 1)); fi
+    done
+    ;;
+esac
+
+# ── the session that counts is the one bound to the checked-out branch ──────────────────
+echo ""
+echo "-- session bound to the branch --"
+rm -f "$REPO/.ai/current-session"
+git -C "$REPO" symbolic-ref HEAD refs/heads/feat/a
+mkdir -p "$REPO/.ai/sessions/a1"
+echo "feat/a" > "$REPO/.ai/sessions/a1/branch"
+st() { echo "$1" > "$REPO/.ai/sessions/a1/state"; }
+st IMPLEMENTING; check_in "the branch's task in IMPLEMENTING allows source" "src/Main.kt" 0
+st REWORK;       check_in "rework allows source"                           "src/Main.kt" 0
+st PR_CREATED;   check_in "open MR blocks source until rework"             "src/Main.kt" 2
+st PR_UPDATED;   check_in "checked rework blocks source again"             "src/Main.kt" 2
+st MERGED;       check_in "a merged task blocks source"                    "src/Main.kt" 2
+st IMPLEMENTING
+echo "feat/other" > "$REPO/.ai/sessions/a1/branch"
+check_in "another branch's task does not unlock this one" "src/Main.kt" 2
+
+# ── a task worktree lives under .claude/worktrees/: its sources are still sources ───────
+echo ""
+echo "-- inside a task worktree --"
+git -C "$REPO" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+WTREE="$REPO/.claude/worktrees/w"
+git -C "$REPO" worktree add -q -b feat/w "$WTREE" 2>/dev/null
+mkdir -p "$WTREE/.claude/scripts" "$WTREE/src" && cp "$SCRIPTS_DIR/cg_session.py" "$WTREE/.claude/scripts/"
+WT_ABS=$(cd "$WTREE" && pwd -W 2>/dev/null || pwd)
+in_wt() {
+    local name="$1" path="$2" want="$3" got
+    printf '{"tool_input":{"file_path":"%s"}}' "$path" | ( cd "$WTREE" && bash "$HOOK" >/dev/null 2>&1 )
+    got=$?
+    if [ "$got" = "$want" ]; then echo "PASS  $name"; PASS=$((PASS + 1))
+    else echo "FAIL  $name  (want exit=$want, got exit=$got)"; FAIL=$((FAIL + 1)); fi
+}
+in_wt "worktree source without a task is blocked" "$WT_ABS/src/Foo.kt"            2
+in_wt "the worktree's own .claude/ is allowed"    "$WT_ABS/.claude/settings.json" 0
+in_wt "the worktree's own .ai/ is allowed"        "$WT_ABS/.ai/sessions/x/PLAN.md" 0
+
+# A write into another worktree of this repository is judged by that worktree's task.
+from_main() {
+    local name="$1" input="$2" want="$3" got
+    printf '%s' "$input" | ( cd "$REPO" && bash "$HOOK" >/dev/null 2>&1 )
+    got=$?
+    if [ "$got" = "$want" ]; then echo "PASS  $name"; PASS=$((PASS + 1))
+    else echo "FAIL  $name  (want exit=$want, got exit=$got)"; FAIL=$((FAIL + 1)); fi
+}
+from_main "another worktree's source without a task is blocked" "{\"tool_input\":{\"file_path\":\"$WT_ABS/src/Foo.kt\"}}" 2
+from_main "the call's cwd decides the checkout"                 "{\"cwd\":\"$WT_ABS\",\"tool_input\":{\"file_path\":\"src/Foo.kt\"}}" 2
+mkdir -p "$WTREE/.ai/sessions/w1" && echo IMPLEMENTING > "$WTREE/.ai/sessions/w1/state" && echo feat/w > "$WTREE/.ai/sessions/w1/branch"
+from_main "another worktree's task in progress allows it"       "{\"tool_input\":{\"file_path\":\"$WT_ABS/src/Foo.kt\"}}" 0
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

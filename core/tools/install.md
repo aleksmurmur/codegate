@@ -229,6 +229,20 @@ was written.
 
 ---
 
+## 5b. Keep local files out of git
+
+Session files are per machine; only the codebase context (and tech debt, by the option) belong
+in git. Add what is missing:
+
+```bash
+LINES='.ai/sessions/ .ai/current-session .claude/worktrees/'
+[ "$(bash .claude/scripts/cg-option.sh tech_debt_in_git yes)" = no ] && LINES="$LINES .ai/tech-debt/"
+[ -s .gitignore ] && [ -n "$(tail -c1 .gitignore)" ] && echo >> .gitignore  # no final newline
+for l in $LINES; do grep -qxF "$l" .gitignore 2>/dev/null || printf '%s\n' "$l" >> .gitignore; done
+```
+
+---
+
 ## 6. Post-install hint
 
 Tell the user one short line:

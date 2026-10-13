@@ -2,8 +2,7 @@ Toggle or query the project-level **debug mode** marker file. Argument: $ARGUMEN
 
 Debug mode collects observations about the flow itself (what worked, what
 was friction, what to improve, what's missing) into a per-session
-`flow-feedback.md`. See CLAUDE.md §Debug mode for the full semantics and
-the format of recorded blocks.
+`flow-feedback.md`. See the skill `cg-flow-feedback` for the format of recorded blocks.
 
 ## Dispatch
 
@@ -26,8 +25,7 @@ else
 fi
 ```
 
-If `.ai/current-session` exists, also report whether the current
-session's `.ai/sessions/{id}/flow-feedback.md` exists and how many
+If this checkout has a task (`python3 .claude/scripts/cg_session.py dir`), also report whether its `.ai/sessions/{id}/flow-feedback.md` exists and how many
 phase blocks it contains (`grep -c '^## Phase'`). This tells the user
 both the global toggle state and what the current session has captured
 so far.

@@ -5,45 +5,46 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/post-compact.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/post-compact.sh\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/task-context.sh\""
           }
         ]
       }
     ],
     "PreToolUse": [
       {
+        "matcher": "Task|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/pre-agent.sh\""
+          }
+        ]
+      },
+      {
         "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/pre-write.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/pre-write.sh\""
           }
         ]
       },
       {
-        "matcher": "Bash(git push*)",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/pre-push.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash(gh pr create*)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/pre-pr.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash(glab mr create*)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/pre-pr.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/pre-push.sh\""
           }
         ]
       }
@@ -53,7 +54,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/post-stop.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/post-stop.sh\""
           }
         ]
       }

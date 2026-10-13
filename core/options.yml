@@ -29,9 +29,42 @@
     when the task's PR/MR exists.
   choices: none, adapter
   default: >
-    none. On `adapter`, the project provides .claude/tracker-adapter.py: a Python script
-    for its own tracker that honours the contract in .claude/scripts/tracker.py's
-    docstring. Codegate ships no adapter and knows no tracker. If the project has none
-    yet, say so and offer to write one with the user — its config and credentials are
+    none. On `adapter`, the project provides its own adapter, in one or both forms:
+    .claude/tracker-adapter.py — a Python script for its tracker that honours the contract
+    in .claude/scripts/tracker.py's docstring (used by hooks and events); and/or
+    .claude/tracker.md — how to perform each action (create, get, comment, link, list mine)
+    with the tools the user's AI already has for that tracker, e.g. an MCP server. Codegate
+    ships no adapter and knows no tracker. Ask what the user's AI uses to reach the tracker
+    (MCP, API, CLI) and offer to write the adapter together — config and credentials are
     the project's business, credentials never in the repo. Verify with
-    `python3 .claude/scripts/tracker.py check`.
+    `python3 .claude/scripts/tracker.py check` and `tracker.py capabilities`.
+
+- key: consumers
+  question: >
+    Which other projects consume this repository's changes — other services or apps — and
+    so may need a linked task when an API or shared data changes?
+    Give each a short alias; the tracker adapter maps aliases to tracker projects.
+  default: >
+    Empty (none). Propose aliases only if the project's own docs or the tracker clearly
+    name consumers. Format: comma-separated aliases.
+
+- key: tech_debt_in_git
+  question: >
+    Keep the tech-debt notes the workflow logs (`.ai/tech-debt/`, a few short files per
+    task) in git, shared with the team, or only on this machine? Session files are always
+    kept out of git.
+  choices: yes, no
+  default: >
+    yes when `.ai/tech-debt/` already has tracked files (`git ls-files .ai/tech-debt`),
+    otherwise ask without a proposal.
+
+- key: test_command
+  question: >
+    How is the project's full test suite run, with coverage? The workflow runs it at least
+    twice per task: as the baseline before any code, and for diff coverage in the quality
+    gate; each later coverage re-check (after a fix, in rework) is another full run.
+  default: >
+    Empty: the stack's usual command (`npx vitest run --coverage`, `npx jest --coverage`,
+    `./gradlew test jacocoTestReport`, `mvn test`). Set it when the project runs its suite differently — a wrapper
+    script, another runner, extra flags. Codegate only calls the command;
+    it must leave a coverage report where the stack's diff-coverage looks for it.

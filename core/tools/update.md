@@ -347,6 +347,56 @@ explicitly says "wait, redo".
 
 ---
 
+## 6b. Steps tied to a particular upgrade
+
+Run each block whose condition holds for this update.
+
+**Phases moved from CLAUDE.md to skills** — baseline `CLAUDE.md` has `## Phase 0:` and
+upstream does not. The codegate part of the project's CLAUDE.md shrinks to the core; each
+phase is now `.claude/skills/cg-phase-N/SKILL.md`.
+- In `$STAGING/CLAUDE.md`: the project's own sections stay; the codegate part becomes
+  upstream's text. Do not keep old phase sections next to the new core.
+- A local edit the project had made inside an old phase section is not dropped: carry it into
+  the matching skill file in `$STAGING` (it then shows as a local modification in the
+  manifest) and list each one to the user: "kept your change to Phase N in cg-phase-N".
+- Project rules that are not about a phase (git hosting, PR/MR rules, domain notes) stay in the
+  project's part of CLAUDE.md.
+
+**Sessions bound to branches** — upstream has `.claude/scripts/cg_session.py` and baseline
+did not. After the files are in place:
+- `python3 .claude/scripts/cg_session.py sync` — copies the existing sessions into the shared
+  store in the git directory.
+- Bind the session `.ai/current-session` points at, if it is not closed: its branch is the
+  `Branch <name> from` line of its audit log; without one, ask the user which branch it
+  belongs to. Write it to the session's `branch` file, then delete `.ai/current-session` —
+  a session naming no branch would otherwise count as the task of every branch.
+- Every session past its gate (`QUALITY_REVIEWED`, `PR_CREATED`, `PR_UPDATED` in
+  `python3 .claude/scripts/cg_session.py list`) and without `checked-sha` — not only the one
+  the pointer named: the push gate would now hold back every push of it. Write the commit its PR/MR
+  already shows — `git rev-parse origin/<branch>`, or the branch tip when it was never
+  pushed — to `checked-sha`, and audit `[ts] checked-sha set by the upgrade: <sha>`.
+- `.gitignore`: add `.ai/sessions/`, `.ai/current-session`, `.claude/worktrees/` when missing, and
+  `.ai/tech-debt/` when the option `tech_debt_in_git` is `no` (as install §5b). Files already
+  tracked there (`git ls-files .ai/sessions .ai/current-session`, and `.ai/tech-debt` on `no`)
+  stay tracked: list how many and ask the user whether to untrack them
+  (`git rm -r --cached <paths>` and a commit of their choice). Never untrack without a yes.
+
+**Push and PR hooks start firing** — baseline `.claude/settings.json` registers `pre-push.sh` or
+`pre-pr.sh` under a matcher like `Bash(git push*)`. A matcher names a tool only, so those hooks
+never ran: no push or PR/MR was ever checked. Upstream registers one hook, `pre-push.sh`, under
+`Bash`; it filters its own commands and checks PR/MR creation too (`pre-pr.sh` is a no-op now).
+In the project's settings, replace the old entries for both scripts with upstream's one. Tell the user in one line that pushes and PR/MR creation are
+checked from now on (protected targets, the task's gate and review). If the project's own
+settings carry such matchers for its own hooks, point out that they never fired either.
+
+**Independent review** — upstream has `.claude/agents/independent-review/prompt.md` and
+baseline did not. Phase 4 now ends with a review by a sub-agent that sees only the task and
+the code. If the project has its own review before the PR/MR (a command, an agent, a hook
+that demands its marker), tell the user both now run, and ask whether to keep theirs. Their
+command, agent and hook are project files: never delete or edit them without a yes.
+
+---
+
 ## 7. Build the new manifest
 
 Walk the staged tree, attribute each file (stack first, else shared),

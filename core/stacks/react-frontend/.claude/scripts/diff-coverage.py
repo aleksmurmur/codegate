@@ -425,17 +425,40 @@ def write_report(
         lines.append("")
         lines.append("## Next step")
         lines.append("Add at least one test exercising each item above, commit,")
-        lines.append("then re-run `/cg-approve implementation`.")
+        lines.append("then run the tests with coverage again and re-run this check.")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 # --- Main --------------------------------------------------------------------
+
+def stale_report(report: Path, base: str, files: list[str]) -> str | None:
+    """A failed test run leaves the previous report in place; judging the diff by it gives a
+    verdict about code that is no longer there. Returns why the report is stale, or None."""
+    try:
+        changed = run_git("log", "-1", "--format=%ct", f"{base}..HEAD", "--", *files).strip()
+    except SystemExit:
+        return None
+    if changed and report.stat().st_mtime < int(changed):
+        return (f"{report} is older than the last commit changing production code in this diff. "
+                "The test run that should have refreshed it did not finish: rebuild the report "
+                "from the latest run, or run the tests again, then re-run this check.")
+    return None
+
+
+def stale_exit(output: Path, mode: str, why: str) -> None:
+    print(f"error: {why}", file=sys.stderr)
+    write_report(output, mode=mode, result="ERROR", summary=[why], uncovered=[])
+    sys.exit(2)
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Diff coverage check (React frontend)")
     parser.add_argument("--base", required=True, help="Base commit (e.g. merge-base with main)")
     parser.add_argument("--output", required=True, help="Path to write coverage-report.md")
     args = parser.parse_args()
+    if not args.base.strip():
+        print("error: --base is empty: no diff base (is the target branch gone?)", file=sys.stderr)
+        sys.exit(2)
 
     output = Path(args.output)
     added = get_added_lines(args.base)
@@ -452,6 +475,9 @@ def main() -> None:
     # Prefer Istanbul JSON (richer info), fall back to lcov, fall back to grep.
     istanbul = find_istanbul_report()
     lcov = None if istanbul else find_lcov_report()
+    report = istanbul or lcov
+    if report is not None and (why := stale_report(report, args.base, list(added))):
+        stale_exit(output, f"coverage ({report})", why)
 
     if istanbul is not None:
         covered_map = parse_istanbul(istanbul)

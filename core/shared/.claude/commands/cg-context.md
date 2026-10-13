@@ -12,7 +12,8 @@ Steps:
 4. **Commit the CIE output** so it doesn't bleed into the next session's
    `git status` (a `/cg-feature` started against an unrelated dirty tree
    confuses the Phase 4 catchall commit step):
-   - `git add .ai/CODEBASE_CONTEXT.md .ai/tech-debt/`
+   - `git add .ai/CODEBASE_CONTEXT.md`, plus `.ai/tech-debt/` unless git ignores it
+     (`git check-ignore -q .ai/tech-debt/x` succeeds — the project keeps tech debt local)
    - Also stage any linter config files the CIE modified (`.editorconfig`,
      `eslint.config.*`, `.prettierrc*`, `detekt.yml`, etc.) — only the
      ones with CIE-added markers (look for the `Added by codegate CIE on`

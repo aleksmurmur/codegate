@@ -217,7 +217,7 @@ The manifest records what cg-core@BEST_SHA looked like, not what the
 project currently looks like. Local divergence is intentional: the
 update flow's `local_changed` check will fire on those files and route
 them through 3-way merge, which is exactly what the design promised
-("это и есть локальные изменения").
+("these are the local changes").
 
 ```bash
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)

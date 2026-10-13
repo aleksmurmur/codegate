@@ -6,7 +6,7 @@ when reviewing someone else's in-flight session.
 
 Steps:
 
-1. Read `.ai/current-session`. If missing or empty: say "No active session."
+1. `python3 .claude/scripts/cg_session.py dir` → this checkout's session. Empty: say "No task on this branch."
    and stop.
 
 2. Otherwise read:
@@ -23,7 +23,7 @@ Steps:
    yet, there is no diff to show; skip step 4.
 
    Practical: run `git log --oneline` and find the commit recorded near the
-   `Plan approved` entry, or use `git merge-base "$(cat .ai/sessions/{id}/target-branch 2>/dev/null || echo main)" HEAD` as a fallback.
+   `Plan approved` entry, or use `python3 .claude/scripts/cg_session.py base` as a fallback.
 
 4. Run `git diff <baseline>..HEAD --stat` to get the file change summary.
    For each Modify/Create file in the checklist, indicate whether it appears
@@ -42,17 +42,17 @@ Steps:
      [10:38] commit: f2c4e5d — feat: implement weekly digest job
 
    Checklist progress:
-     [x] 1. Modify src/main/.../DigestScheduler.kt
-     [x] 2. Create src/main/.../DigestJob.kt
-     [ ] 3. Modify src/main/.../UserPreferences.kt
-     [ ] 4. Create src/test/.../DigestJobTest.kt
+     [x] 1. Modify src/digest/scheduler.py
+     [x] 2. Create src/digest/job.py
+     [ ] 3. Modify src/users/preferences.py
+     [ ] 4. Create tests/digest/test_job.py
 
    Diff (since 7a3b9c1):
-     src/main/kotlin/.../DigestScheduler.kt    | 18 ++++++++++++++++++
-     src/main/kotlin/.../DigestJob.kt          | 42 +++++++++++++++++++++++
+     src/digest/scheduler.py    | 18 ++++++++++++++++++
+     src/digest/job.py          | 42 +++++++++++++++++++++++
      2 files changed, 60 insertions(+)
 
-   Decisions logged: 2 (001-flyway-version-bump.md, 002-cron-vs-scheduler.md)
+   Decisions logged: 2 (001-migration-version-bump.md, 002-cron-vs-scheduler.md)
    Open clarifications: 0
 
    Next action: Continue implementation from checklist item 3.

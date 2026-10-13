@@ -16,6 +16,7 @@ produce findings.
 - `quality-findings-arch-code.md`
 - `quality-findings-testing.md`
 - Path to `PLAN.md` (for cross-references)
+- Paths to `test-baseline.txt` and `test-results.txt` (the runs before any code and in the gate)
 - Git diff, plus the list of files it touches (for cross-references when
   classifying — open a file when two findings might share one root cause)
 
@@ -134,7 +135,7 @@ overridden with `/cg-approve quality`. Same as today's single-pass behavior.
 
 ### Step 6 — Write `QUALITY_REPORT.md`
 
-Write to `.ai/sessions/{session-id}/QUALITY_REPORT.md` using the format
+Write to the report path you were given (default `.ai/sessions/{session-id}/QUALITY_REPORT.md`) using the format
 below. Match the existing single-pass format where possible — downstream
 consumers (PR creator, audit log) parse the file shape, not the lens path.
 
@@ -169,12 +170,12 @@ and why synthesis proceeded.)
 
 ## Stage 1 — Test Results
 
-(carry forward from session test-baseline, same as single-pass format)
+(compare `test-results.txt` with `test-baseline.txt`, same as single-pass format: a new
+failure is a FAIL finding)
 
 ## Stage 2 — Linters
 
-(if applicable; lens agents do not run linters — synthesis carries forward
-results from main agent if it ran them)
+(carry forward the linter results the main agent ran and passed to you)
 
 ## Stage 3 — Smoke Verification
 
@@ -238,7 +239,7 @@ If issues remain after round 3, the session will be escalated to the user.
 
 ## Verdict rules — same as existing quality gate
 
-- **PASS**: all dimensions PASS or WARN, no FAILs.
+- **PASS**: all dimensions PASS.
 - **WARN**: one or more WARNs, no FAILs — PR can proceed with
   `/cg-approve quality`.
 - **FAIL**: one or more FAILs — PR blocked until fixed or explicitly

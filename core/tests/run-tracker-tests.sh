@@ -21,7 +21,7 @@ PY=$(command -v python3 || command -v python)
 PROJECT=$(mktemp -d)
 trap 'rm -rf "$PROJECT"' EXIT
 mkdir -p "$PROJECT/.claude/scripts" "$PROJECT/.ai/sessions/s1"
-cp "$SCRIPTS/tracker.py" "$PROJECT/.claude/scripts/"
+cp "$SCRIPTS/tracker.py" "$SCRIPTS/cg_session.py" "$PROJECT/.claude/scripts/"
 CALLS="$PROJECT/adapter-calls.log"
 
 manifest() { printf 'codegate_version: x\nstack: s\noptions:\n  tracker: %s\nfiles:\n' "$1" > "$PROJECT/.claude/codegate-installed.yml"; }
@@ -38,6 +38,12 @@ if mode == "error":
     print(json.dumps({"ok": False, "error": "tracker said no"})); sys.exit(1)
 if mode == "noisy":
     print("debug: talking to the tracker")
+if sys.argv[1:] == ["capabilities"]:
+    if mode == "modern":
+        print(json.dumps({"ok": True, "actions": ["create", "create:project", "create:relates", "create:link",
+            "create:body_file", "get", "event:started", "event:pr_created", "event:merged", "move", "status",
+            "check", "comment", "link", "list"]})); sys.exit(0)
+    print("usage: adapter create|get|event|move|status|check", file=sys.stderr); sys.exit(2)
 print(json.dumps({"ok": True, "key": "X-1", "id": "1", "name": "Задача"}, ensure_ascii=False))
 EOF
 
@@ -54,6 +60,7 @@ import json, os
 j = json.loads(os.environ['OUT'])
 p = os.environ['CALLS']
 calls = [json.loads(l) for l in open(p, encoding='utf-8')] if os.path.exists(p) else []
+calls = [c for c in calls if c != ['capabilities']]  # the bridge asks before every call
 print('yes' if ($pred) else 'no')" 2>/dev/null)
     if [ "$CODE" = "$want" ] && [ "$ok" = yes ]; then
         echo "PASS  $name"; PASS=$((PASS + 1))
@@ -81,8 +88,8 @@ mv "$PROJECT/adapter.bak" "$PROJECT/.claude/tracker-adapter.py"
 echo ""
 echo "-- what the adapter receives --"
 rm -f "$CALLS"
-run create --title "Починить чек" --type bugfix
-expect "create passes its arguments verbatim"   0 "calls == [['create', '--title', 'Починить чек', '--type', 'bugfix']] and j['name'] == 'Задача'"
+run create --title "Починить вход" --type bugfix
+expect "create passes its arguments verbatim"   0 "calls == [['create', '--title', 'Починить вход', '--type', 'bugfix']] and j['name'] == 'Задача'"
 rm -f "$CALLS"
 run get ABC-12
 expect "get passes the key"                     0 "calls == [['get', 'ABC-12']]"
@@ -108,6 +115,53 @@ if [ "$CODE" = 2 ] && [ ! -f "$CALLS" ]; then
 else
     echo "FAIL  unknown event is rejected before the adapter (exit=$CODE)"; FAIL=$((FAIL + 1))
 fi
+
+echo ""
+echo "-- capabilities: what an older adapter cannot do is delegated or skipped --"
+echo s1 > "$PROJECT/.ai/current-session"
+rm -f "$CALLS"
+run capabilities
+expect "an adapter without capabilities has the original set" 0 "set(j['actions']) == {'create','get','event:started','event:pr_created','move','status','check'}"
+rm -f "$CALLS"
+run comment --body "Rework: qa"
+expect "comment unsupported, no instructions: skipped" 0 "j['skipped'] and 'comment' in j['reason'] and not calls"
+printf '# How to use the tracker\n' > "$PROJECT/.claude/tracker.md"
+rm -f "$CALLS"
+run comment --body "Rework: qa"
+expect "comment unsupported, instructions exist: delegated" 0 "j['delegate'] == 'agent' and j['how'] == '.claude/tracker.md' and j['action'][:3] == ['comment', '--body', 'Rework: qa'] and not calls"
+rm -f "$CALLS"
+run event merged
+expect "an event the adapter does not know is delegated" 0 "j['delegate'] == 'agent' and not calls"
+rm -f "$CALLS"
+run create --title t --relates X-1:caused_by
+expect "create with relations on an older adapter is delegated" 0 "j['delegate'] == 'agent' and not calls"
+rm "$PROJECT/.claude/tracker.md"
+printf '## Context\nline two\n' > "$PROJECT/body.md"
+rm -f "$CALLS"
+run create --title t --body-file body.md
+expect "a body file becomes the description for an older adapter" 0 "calls == [['create', '--title', 't', '--description', '## Context\nline two\n']]"
+rm -f "$CALLS"
+run create --title t --relates X-1:sibling
+if [ "$CODE" = 2 ] && [ ! -f "$CALLS" ]; then
+    echo "PASS  an unknown relation type is bad usage"; PASS=$((PASS + 1))
+else
+    echo "FAIL  an unknown relation type is bad usage (exit=$CODE)"; FAIL=$((FAIL + 1))
+fi
+
+echo ""
+echo "-- a modern adapter gets the new actions --"
+rm -f "$CALLS"
+OUT=$(cd "$PROJECT" && CALLS="$CALLS" ADAPTER_MODE=modern "$PY" .claude/scripts/tracker.py comment --body-file body.md 2>/dev/null); CODE=$?
+expect "comment gets the body file and the session's item" 0 "calls == [['comment', '--body-file', 'body.md', '--id', 'item-42']]"
+rm -f "$CALLS"
+OUT=$(cd "$PROJECT" && CALLS="$CALLS" ADAPTER_MODE=modern "$PY" .claude/scripts/tracker.py create --title Front --project web --relates X-42:relates --link https://mr/1 --body-file body.md 2>/dev/null); CODE=$?
+expect "create for a consumer passes project, relation and link" 0 "calls == [['create', '--title', 'Front', '--project', 'web', '--relates', 'X-42:relates', '--link', 'https://mr/1', '--body-file', 'body.md']]"
+rm -f "$CALLS"
+OUT=$(cd "$PROJECT" && CALLS="$CALLS" ADAPTER_MODE=modern "$PY" .claude/scripts/tracker.py list --mine 2>/dev/null); CODE=$?
+expect "list needs no item" 0 "calls == [['list', '--mine']]"
+rm -f "$CALLS"
+OUT=$(cd "$PROJECT" && CALLS="$CALLS" ADAPTER_MODE=modern "$PY" .claude/scripts/tracker.py event merged 2>/dev/null); CODE=$?
+expect "merged reaches an adapter that handles it" 0 "calls == [['event', 'merged', '--id', 'item-42']]"
 
 echo ""
 echo "-- what comes back --"

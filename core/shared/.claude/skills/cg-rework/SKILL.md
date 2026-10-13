@@ -1,0 +1,65 @@
+---
+name: cg-rework
+description: Codegate after the PR/MR exists — a fix to the open PR/MR (QA bug, review remark, CI failure, deploy check), the delta check before pushing it, and closing the task when the PR/MR is merged. Use when a message concerns the current task's PR/MR.
+user-invocable: false
+---
+
+# After the PR/MR: rework and merge
+
+The session lives on after its PR/MR: deploys get checked, QA and clients find bugs, CI
+breaks, scope grows. Codegate keeps those changes checked instead of pushing them blind.
+States: `PR_CREATED → REWORK → PR_UPDATED → (REWORK → PR_UPDATED)* → MERGED`.
+Session dir: `python3 .claude/scripts/cg_session.py dir` (`{dir}`).
+
+## Is it rework at all?
+
+| The message | What it is |
+|---|---|
+| A defect or remark about this task's PR/MR, PR/MR **not merged** (QA, review, CI, deploy check) | **rework** — same branch, same PR/MR, no new task |
+| A defect in this task, PR/MR **merged** | a new bug task linked to this one: skill `cg-phase-0`, `--relates <KEY>:caused_by` |
+| An extension — more than the task asked for — merged or not | a new task linked to this one (`--relates <KEY>:relates`). Into the same PR/MR only when the user says so explicitly; then it is rework with reason `scope` |
+| Unrelated work | a new task: skill `cg-phase-0` |
+
+Not sure whether the PR/MR is merged: `/cg-merged` (below) first.
+
+## Rework
+
+1. Write `REWORK` to `{dir}/state`; audit `[ts] Rework: <qa|review|ci|self|scope> — <one line>`.
+   Tracker (when `tracker.json` exists): `python3 .claude/scripts/tracker.py comment --body "Rework: <reason> — <one line>"`.
+2. Reason `scope`: a short elicitation first — only the new questions, same format — and an
+   addendum to PLAN.md (`## Addendum N`); the settled answers are appended to
+   `{dir}/requirements.md`. Then implement.
+3. Fix test-first, as in Phase 3: a test that reproduces the report, then the fix; commits
+   staged by explicit path; audit lines per commit.
+4. **Delta check** — everything after `{dir}/checked-sha` (the last checked commit). When
+   there is none, or it is no longer in the branch (amend, rebase, reset), the base is
+   `python3 .claude/scripts/cg_session.py base` (fails → ask the user for the target, as in
+   Phase 4) and the check covers the whole branch:
+   - the tests of the code the delta touches, plus the new ones;
+   - the independent review (`.claude/agents/independent-review/prompt.md`, as in Phase 4 §5)
+     with base `<checked-sha>` and report `{dir}/rework-N.md`. Reason `scope` → also the
+     quality gate on the delta (skill `cg-phase-4`, §2b–3, the same base, report path
+     `{dir}/rework-N-gate.md`) — without its state change and without Phase 5; then step 5 here;
+   - diff coverage on the delta when production code changed: first the full suite with
+     coverage (the baseline's command, as in Phase 4 — failing test names to
+     `{dir}/test-results.txt`), then `diff-coverage.py --base <checked-sha>`.
+   A critical, or a gate FAIL → fix and re-check the new commits, up to 3 rounds; then
+   escalate. Warnings only → as in Phase 4 §5 (`fast`: fix what is worth it now, the rest
+   in a PR/MR comment; `interactive`: ask).
+5. Passed: write `git rev-parse HEAD` to `{dir}/checked-sha`, state `PR_UPDATED`, audit
+   `[ts] Rework checked: <sha>`. Push (the push gate compares the pushed HEAD with
+   `checked-sha`; commits that touch only `.ai/` do not count).
+6. A merge of the target branch into this one is not rework; only conflict resolutions
+   that change code are, and they get the delta check like any fix.
+
+## Merged — `/cg-merged`
+
+`git fetch origin`, then `python3 .claude/scripts/cg_session.py facts`:
+- `merged: true` → state `MERGED`, audit `[ts] Merged into <target>`,
+  `python3 .claude/scripts/tracker.py event merged`. The task is closed; the next one starts
+  from a fresh base branch (skill `cg-phase-0`).
+- not merged → report the PR/MR as open (url from `{dir}/pr-url`), commits since `checked-sha`
+  if any, and the state.
+
+Merge detection compares commits, so a squash merge does not show as merged: then ask the
+user, or check the PR/MR on the host.

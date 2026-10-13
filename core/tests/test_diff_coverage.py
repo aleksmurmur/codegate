@@ -5,9 +5,9 @@ Focus: non-executable diff lines (annotation entries, `enum class X {` and other
 bare declaration headers) must NOT be reported as uncovered. JaCoCo emits no
 <line> for them, so they carry no bytecode and cannot be "uncovered".
 
-Models the BACK-853 false positive:
-  - ErrorDetails.kt:15      -> `JsonSubTypes.Type(...)` annotation entry
-  - LimitationType.kt:3     -> `enum class LimitationType {`
+Models the the original false positive:
+  - ApiError.kt:15      -> `JsonSubTypes.Type(...)` annotation entry
+  - WidgetStatus.kt:3     -> `enum class WidgetStatus {`
 both of which `is_meaningful` flags as meaningful, but JaCoCo never tracks.
 
 Run directly:  python3 core/tests/test_diff_coverage.py      (from the cg-core checkout)
@@ -47,20 +47,20 @@ def check(name: str, condition: bool, detail: str = "") -> None:
         FAIL += 1
 
 
-# A JaCoCo report shaped like the BACK-853 run:
-#   - LimitationType.kt: the enum's <clinit>/synthetic methods attribute to the
+# A JaCoCo report shaped like the the original run:
+#   - WidgetStatus.kt: the enum's <clinit>/synthetic methods attribute to the
 #     first constant line (4), fully covered. NO <line> for the `enum class` header (3).
-#   - OneTimeProduct.kt: one covered executable line (11) and one genuinely
+#   - Widget.kt: one covered executable line (11) and one genuinely
 #     uncovered executable line (10) -- the regression guard.
-#   - ErrorDetails.kt: a pure sealed interface with annotations -> JaCoCo emits
+#   - ApiError.kt: a pure sealed interface with annotations -> JaCoCo emits
 #     no <line> at all, so it is absent from the report entirely.
 JACOCO_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <report name="test">
-  <package name="dev/codefish/smstrerching/core/product/domain">
-    <sourcefile name="LimitationType.kt">
+  <package name="com/example/app/core/widget/domain">
+    <sourcefile name="WidgetStatus.kt">
       <line nr="4" mi="0" ci="37" mb="0" cb="0"/>
     </sourcefile>
-    <sourcefile name="OneTimeProduct.kt">
+    <sourcefile name="Widget.kt">
       <line nr="10" mi="5" ci="0" mb="0" cb="0"/>
       <line nr="11" mi="0" ci="4" mb="0" cb="0"/>
     </sourcefile>
@@ -70,14 +70,14 @@ JACOCO_XML = """<?xml version="1.0" encoding="UTF-8"?>
 
 # Added/modified meaningful lines from the diff (path -> {line: text}).
 ADDED = {
-    "src/main/kotlin/dev/codefish/smstrerching/core/product/domain/LimitationType.kt": {
-        3: "enum class LimitationType {",
+    "src/main/kotlin/com/example/app/core/widget/domain/WidgetStatus.kt": {
+        3: "enum class WidgetStatus {",
     },
-    "src/main/kotlin/dev/codefish/smstrerching/core/common/dto/error/ErrorDetails.kt": {
-        15: '    JsonSubTypes.Type(value = ExecutorPaymentServiceLimitationDetails::class, name = "EXECUTOR_PAYMENT_SERVICE_LIMITATION"),',
+    "src/main/kotlin/com/example/app/core/api/ApiError.kt": {
+        15: '    JsonSubTypes.Type(value = WidgetLimitDetails::class, name = "WIDGET_LIMIT"),',
     },
-    "src/main/kotlin/dev/codefish/smstrerching/core/product/domain/OneTimeProduct.kt": {
-        10: "        val violations = limitationViolationsFor(payment)",
+    "src/main/kotlin/com/example/app/core/widget/domain/Widget.kt": {
+        10: "        val violations = violationsFor(order)",
         11: "        return violations.isEmpty()",
     },
 }
@@ -95,7 +95,7 @@ def run() -> None:
 
     # parse_jacoco now carries (mi, ci) per tracked line, and only tracked lines exist.
     lt = dc.match_jacoco_path(
-        "src/main/kotlin/dev/codefish/smstrerching/core/product/domain/LimitationType.kt",
+        "src/main/kotlin/com/example/app/core/widget/domain/WidgetStatus.kt",
         tracked,
     )
     check("parse: enum constant line tracked with instructions", lt.get(4) == (0, 37), f"got {lt.get(4)}")
@@ -105,26 +105,26 @@ def run() -> None:
 
     joined = "\n".join(uncovered)
 
-    # The two BACK-853 false positives must NOT be reported.
+    # The two the original false positives must NOT be reported.
     check(
         "enum class header not flagged uncovered",
-        "LimitationType.kt:3" not in joined,
+        "WidgetStatus.kt:3" not in joined,
         f"uncovered={uncovered}",
     )
     check(
         "annotation entry not flagged uncovered",
-        "ErrorDetails.kt:15" not in joined,
+        "ApiError.kt:15" not in joined,
         f"uncovered={uncovered}",
     )
 
     # Regression guard: a genuinely uncovered executable line is still caught.
     check(
         "genuinely uncovered executable line still flagged",
-        any("OneTimeProduct.kt:10" in u for u in uncovered),
+        any("Widget.kt:10" in u for u in uncovered),
         f"uncovered={uncovered}",
     )
 
-    # Counts: 2 executable (OneTimeProduct 10 + 11), 1 covered (11),
+    # Counts: 2 executable (Widget 10 + 11), 1 covered (11),
     # 2 non-executable excluded (enum header + annotation entry).
     check("executable count == 2", executable == 2, f"got {executable}")
     check("covered count == 1", covered == 1, f"got {covered}")
@@ -133,11 +133,11 @@ def run() -> None:
 
     # End-to-end shape: with only the two non-executable lines added, verdict is CLEAN.
     clean_added = {
-        k: v for k, v in ADDED.items() if "OneTimeProduct.kt" not in k
+        k: v for k, v in ADDED.items() if "Widget.kt" not in k
     }
     unc2, _, _, nonexec2 = dc.evaluate_jacoco(clean_added, tracked)
-    check("BACK-853 repro: only non-exec lines -> CLEAN", unc2 == [], f"uncovered={unc2}")
-    check("BACK-853 repro: both lines excluded as non-exec", nonexec2 == 2, f"got {nonexec2}")
+    check("the original repro: only non-exec lines -> CLEAN", unc2 == [], f"uncovered={unc2}")
+    check("the original repro: both lines excluded as non-exec", nonexec2 == 2, f"got {nonexec2}")
 
 
 def run_parse_error() -> None:
@@ -167,8 +167,55 @@ def run_parse_error() -> None:
     check("unparseable JaCoCo report -> non-zero exit, no silent CLEAN", code == 2, f"exit={code}")
 
 
+def run_stale_report() -> None:
+    """A failed test run leaves the previous report behind. Judged by it, the diff gets a
+    verdict about code that is gone: the check must refuse (exit 2), not FAIL or pass."""
+    import os
+    import subprocess
+    import tempfile
+
+    repo = Path(tempfile.mkdtemp())
+    git = lambda *a: subprocess.check_output(["git", "-C", str(repo), *a], text=True).strip()
+    git("init", "-q")
+    git("config", "user.email", "t@t"); git("config", "user.name", "t")
+    src = repo / "src/main/kotlin/Foo.kt"
+    src.parent.mkdir(parents=True)
+    src.write_text("class Foo\n", encoding="utf-8")
+    git("add", "."); git("commit", "-qm", "base")
+    base = git("rev-parse", "HEAD")
+    src.write_text("class Foo {\n    fun bar() = 1\n}\n", encoding="utf-8")
+    git("add", "."); git("commit", "-qm", "change")
+    changed_at = int(git("log", "-1", "--format=%ct"))
+    report = repo / "jacoco.xml"
+    report.write_text(
+        '<report name="t"><package name=""><sourcefile name="Foo.kt">'
+        '<line nr="2" mi="0" ci="3" mb="0" cb="0"/></sourcefile></package></report>',
+        encoding="utf-8",
+    )
+
+    def verdict(mtime: int) -> int:
+        os.utime(report, (mtime, mtime))
+        out = repo / "out.md"
+        orig_find, orig_argv, cwd = dc.find_jacoco_report, sys.argv[:], os.getcwd()
+        dc.find_jacoco_report = lambda: report
+        sys.argv[:] = ["diff-coverage.py", "--base", base, "--output", str(out)]
+        os.chdir(repo)
+        try:
+            dc.main()
+        except SystemExit as e:
+            return e.code if isinstance(e.code, int) else 1
+        finally:
+            os.chdir(cwd)
+            dc.find_jacoco_report, sys.argv[:] = orig_find, orig_argv
+        return 0
+
+    check("report older than the last production commit -> exit 2", verdict(changed_at - 100) == 2)
+    check("report newer than the last production commit -> judged", verdict(changed_at + 100) != 2)
+
+
 if __name__ == "__main__":
     run()
     run_parse_error()
+    run_stale_report()
     print(f"\nResults: {PASS} passed, {FAIL} failed")
     sys.exit(1 if FAIL else 0)
