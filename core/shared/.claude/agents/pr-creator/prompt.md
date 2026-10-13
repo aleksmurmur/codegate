@@ -37,11 +37,12 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
    paths below); it then replaces
    every path below. Fill `{branch}`, `{target}`, `{title}` and `{description_file}`
    (`.ai/sessions/{id}/pr-description.md`) with literal values. The title goes in
-   single-quoted, any `'` in it written `'\''`; when the command already puts quotes around
+   single quotes, any `'` in it written `'\''`; when the command already puts quotes around
    `{title}`, put the bare title inside them, escaping what those quotes treat as special.
    Run it; when it has no `git push`, run `git push -u origin {branch}` first. The URL is in
    its output; it succeeded but printed none (the server ignored the request) → finish with
-   `PR_URL: none` and the manual URL below for the host.
+   `PR_URL: none` and the manual URL below for the host (on an unknown host, tell the user
+   to open the PR/MR by hand).
    - No `{target}` in it: the command names its own target. If that is not `TARGET`, stop and
      ask the user — never send the PR/MR elsewhere.
    - No `{description_file}`: it carries no description; tell the user and give them the file

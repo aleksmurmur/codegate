@@ -175,18 +175,21 @@ if [ "$COUNT" -eq 1 ]; then
       all)
         WHAT="a push of every branch (--all / --mirror), protected ones among them."
         WHY="Landing on a protected branch bypasses review."
-        WAY="  - push the task's branch only, or"$'\n' ;;
+        WAY="  - push only the branch you mean, or"$'\n' ;;
       pr)
         WHAT="a PR/MR into '$CHECK', a protected branch."
-        if [ -n "$INTO" ] && [ "$INTO" != "$CHECK" ]; then
+        if [ -z "$SESSION_BRANCH" ]; then
+          WHY="Only the branch of a task that targets it may open one; this branch has no task."
+          WAY="  - start a task for this work${INTO:+ (its PR/MR goes into $INTO)}, or"$'\n'
+        elif [ -n "$INTO" ] && [ "$INTO" != "$CHECK" ]; then
           WHY="A task opens its PR/MR into its own target branch."
           WAY="  - open it from the task's branch into $INTO, or"$'\n'
-        elif [ -n "$SESSION_BRANCH" ]; then
+        elif [ -z "$SESSION_TARGET" ]; then
+          WHY="The task on this branch has no target branch recorded."
+          WAY="  - write its target to the session's target-branch file, or"$'\n'
+        else
           WHY="Only the branch of the task that targets it may open one."
           WAY="  - open it from the task's branch $SESSION_BRANCH, or"$'\n'
-        else
-          WHY="Only the branch of a task that targets it may open one; this branch has no task."
-          WAY="  - start a task for this work, or"$'\n'
         fi ;;
       push)
         WHAT="a direct push to '$CHECK', a protected branch."

@@ -150,7 +150,7 @@ def audit(copy: Path) -> tuple[list[str] | None, float]:
     if key not in _AUDITS:
         try:
             # Another encoding (a shell redirect on Windows) spoils a line, not the whole log.
-            text = f.read_text(encoding="utf-8", errors="replace")
+            text = f.read_text(encoding="utf-8", errors="surrogateescape")
         except OSError:
             _AUDITS[key] = (None, 0.0)
             return _AUDITS[key]
