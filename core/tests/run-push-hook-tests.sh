@@ -77,11 +77,23 @@ says "no task: no 'task's branch' for --all"      feat/x "git push --all origin"
 mkdir -p "$REPO/.ai/sessions/s0" && echo feat/x > "$REPO/.ai/sessions/s0/branch" && echo IMPLEMENTING > "$REPO/.ai/sessions/s0/state"
 says "a task without a target: record it (PR/MR)" feat/x "gh pr create --base main --head feat/x" "s0/target-branch"
 says "a task without a target: record it (push)"  feat/x "git push origin HEAD:main" "s0/target-branch"
+says "another branch's PR/MR: not this task's target" feat/z "gh pr create --base main --head feat/w" "s0/target-branch" absent
+mkdir -p "$REPO/.ai/sessions/s7" && echo feat/z > "$REPO/.ai/sessions/s7/branch" && echo IMPLEMENTING > "$REPO/.ai/sessions/s7/state"
+says "...nor told to open it 'into' nothing"      feat/z "gh pr create --base main --head feat/w" "into ," absent
+says "...but from the task's branch"              feat/z "gh pr create --base main --head feat/w" "from the task's branch feat/z"
+says "...and not asked for its target"            feat/z "gh pr create --base main --head feat/w" "s7/target-branch" absent
+rm -rf "$REPO/.ai/sessions/s7" "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)/codegate/sessions/s7"
 echo MERGED > "$REPO/.ai/sessions/s0/state"
 says "a closed task is not told to record a target" feat/x "gh pr create --base main --head feat/x" "start a task"
+echo main > "$REPO/.ai/sessions/s0/target-branch"
+check "a closed task's branch opens no PR/MR"     feat/x "gh pr create --base main --head feat/x" 2
+says "a closed task's branch: start a new task"   feat/x "gh pr create --base main --head feat/x" "Start a new task"
 rm -rf "$REPO/.ai/sessions/s0" "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)/codegate/sessions/s0"
 mkdir -p "$REPO/.ai/sessions/s9" && echo IMPLEMENTING > "$REPO/.ai/sessions/s9/state" && echo s9 > "$REPO/.ai/current-session"
-says "an open session naming no branch: bind it"  feat/x "gh pr create --base main --head feat/x" "s9/branch"
+says "an open session naming no branch: bind it"  feat/x "gh pr create --base main --head feat/x" "write feat/x to"
+says "binding it asks for the target too"         feat/x "gh pr create --base main --head feat/x" "s9/target-branch"
+says "never bound to a protected branch"          main   "git push origin HEAD" "s9/branch" absent
+says "on a protected branch: start a task"        main   "git push origin HEAD" "start a task"
 echo MERGED > "$REPO/.ai/sessions/s9/state"
 says "a closed one is no way out"                 feat/x "gh pr create --base main --head feat/x" "start a task"
 rm -rf "$REPO/.ai/sessions/s9" "$REPO/.ai/current-session" "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)/codegate/sessions/s9"
@@ -123,6 +135,15 @@ session IMPLEMENTING feat/other
 check "another task's branch is not held back"    feat/x "git push -u origin feat/x"  0
 session IMPLEMENTING ""
 check "session without a recorded branch blocks"  feat/x "git push -u origin feat/x"  2
+session IMPLEMENTING feat/x
+echo main > "$REPO/.ai/sessions/s1/target-branch"
+git -C "$REPO" checkout -q -B feat/x && git -C "$REPO" checkout -q --detach
+mkdir -p "$REPO/.git/rebase-merge" && echo refs/heads/feat/x > "$REPO/.git/rebase-merge/head-name"
+out=$(printf '{"tool_input":{"command":"git push origin HEAD:main"}}' | ( cd "$REPO" && bash "$HOOK" 2>&1 >/dev/null ))
+case "$out" in *"s1/branch"*) echo "FAIL  mid-rebase the task is still found  (message: $out)"; FAIL=$((FAIL + 1)) ;;
+  *"push the task's branch"*) echo "PASS  mid-rebase the task is still found"; PASS=$((PASS + 1)) ;;
+  *) echo "FAIL  mid-rebase the task is still found  (message: $out)"; FAIL=$((FAIL + 1)) ;; esac
+rm -rf "$REPO/.git/rebase-merge" "$REPO/.ai/sessions/s1/target-branch"
 rm -rf "$REPO/.ai/sessions" "$REPO/.ai/current-session"
 
 # ── after the gate: rework and commits made after the last check ────────────────────────

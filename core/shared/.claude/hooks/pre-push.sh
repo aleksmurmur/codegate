@@ -63,11 +63,18 @@ trap 'rc=$?; [ $rc -eq 0 ] && [ -n "$CONSUME" ] && rm -f $CONSUME; exit $rc' EXI
 
 CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
 here() { [ "$1" = "HEAD" ] && echo "$CURRENT_BRANCH" || echo "$1"; }
+# During a rebase HEAD is detached; the branch being rebased is still the one worked on.
+WORKING_BRANCH="$CURRENT_BRANCH"
+for d in rebase-merge rebase-apply; do
+  [ -n "$WORKING_BRANCH" ] && break
+  n=$(cat "$(git rev-parse --git-path "$d/head-name" 2>/dev/null)" 2>/dev/null)
+  case "$n" in refs/heads/*) WORKING_BRANCH=${n#refs/heads/} ;; esac
+done
 
 # The session whose branch this call delivers — a pushed destination or a PR/MR head — and only
 # then the checked-out branch's: `git push origin feat/x` from another branch delivers feat/x.
 SESSION_BRANCH=""
-for cand in $(printf '%s\n' "$LANDINGS" | awk '$1 == "ref" { print $2 } $1 == "base" { print $3 }') HEAD; do
+for cand in $(printf '%s\n' "$LANDINGS" | awk '$1 == "ref" { print $2 } $1 == "base" { print $3 }') HEAD "$WORKING_BRANCH"; do
   cand=$(here "$cand")
   case "$cand" in ""|@*) continue ;; esac
   SESSION_BRANCH=$("$PY" "$SCRIPTS/cg_session.py" branch --branch "$cand" 2>/dev/null) && break
@@ -110,6 +117,7 @@ default_branch() {
 PROTECTED=""
 REF_PROTECTED=""
 PR_PROTECTED=""
+PR_HEAD=""
 OWN_TIPS=""
 OWN=""
 ALL_REFS_OWN=1
@@ -132,6 +140,7 @@ while read -r kind a b; do
     mr)
       t="$a"
       [ "$t" = "@default" ] && t=$(default_branch push)
+      head=$(here "$(printf '%s\n' "$LANDINGS" | awk '$1 == "ref" { print $2; exit }')")
       # The task's own branch opening its MR to the recorded target: gate 2 covers it.
       [ -n "$SESSION_TARGET" ] && [ "$t" = "$SESSION_TARGET" ] && [ -n "$ALL_REFS_OWN" ] && continue
       ;;
@@ -147,7 +156,7 @@ while read -r kind a b; do
       ;;
     *) continue ;;
   esac
-  protected_pr "$t" && PROTECTED="$PROTECTED $t" && PR_PROTECTED="$PR_PROTECTED $t"
+  protected_pr "$t" && PROTECTED="$PROTECTED $t" && PR_PROTECTED="$PR_PROTECTED $t" && PR_HEAD="$head"
 done <<< "$LANDINGS"
 
 # --- Gate 1: protected landings ---
@@ -175,14 +184,24 @@ if [ "$COUNT" -eq 1 ]; then
     # never checked. Only an open one is advised to record what it lacks.
     CLOSED=""
     case "$(cat "$SESSION_DIR/state" 2>/dev/null | tr -d '[:space:]')" in MERGED|ABANDONED) CLOSED=1 ;; esac
+    # The branch the advice is about: the PR/MR's head, else the one worked on. A protected
+    # branch is never a task's own: binding a task to it would only lead to the next refusal.
+    WORK="$WORKING_BRANCH"
+    [ "$KIND" = pr ] && WORK="$PR_HEAD"
+    case "$WORK" in @*) WORK="" ;; esac
+    [ -n "$WORK" ] && protected_ref "$WORK" && WORK=""
     # A task without a recorded target opens no PR/MR into a protected base: it records one first.
+    NEEDS_TARGET=""
+    [ -z "$SESSION_TARGET" ] && { [ -z "$INTO" ] || protected_pr "$INTO"; } && NEEDS_TARGET=1
     NO_TARGET=""
-    [ -z "$CLOSED" ] && [ -n "$SESSION_BRANCH" ] && [ -z "$SESSION_TARGET" ] && \
-      { [ -z "$INTO" ] || protected_pr "$INTO"; } && NO_TARGET=1
+    [ -z "$CLOSED" ] && [ -n "$SESSION_BRANCH" ] && [ -n "$NEEDS_TARGET" ] && \
+      { [ "$KIND" != pr ] || [ "$PR_HEAD" = "$SESSION_BRANCH" ]; } && NO_TARGET=1
     UNBOUND=""
-    [ -z "$CLOSED" ] && [ -z "$SESSION_BRANCH" ] && [ -n "$SESSION_DIR" ] && UNBOUND=1
+    [ -z "$CLOSED" ] && [ -z "$SESSION_BRANCH" ] && [ -n "$SESSION_DIR" ] && [ -n "$WORK" ] && UNBOUND=1
     RECORD="  - write the task's target to $SESSION_DIR/target-branch, then open its PR/MR, or"$'\n'
-    BIND="  - write its branch to $SESSION_DIR/branch, then open its PR/MR, or"$'\n'
+    AND_TARGET=""
+    [ -n "$NEEDS_TARGET" ] && AND_TARGET=" and the task's target to $SESSION_DIR/target-branch"
+    BIND="  - write $WORK to $SESSION_DIR/branch$AND_TARGET, then open its PR/MR, or"$'\n'
     START="  - start a task for this work, or"$'\n'
     case "$KIND" in
       all)
@@ -203,7 +222,7 @@ if [ "$COUNT" -eq 1 ]; then
         elif [ -n "$NO_TARGET" ]; then
           WHY="The task on this branch has no target branch recorded."
           WAY="$RECORD"
-        elif [ "$INTO" != "$CHECK" ]; then
+        elif [ -n "$INTO" ] && [ "$INTO" != "$CHECK" ]; then
           WHY="A task opens its PR/MR into its own target branch."
           WAY="  - open it from the task's branch into $INTO, or"$'\n'
         else
@@ -264,6 +283,12 @@ if [ -f .ai/push-unchecked-allowed ]; then
 fi
 
 case "$STATE" in
+  MERGED|ABANDONED)
+    if [ -n "$SESSION_BRANCH" ]; then
+      block "the task on this branch is closed." \
+            "Start a new task for this work (Phase 0); its own branch carries it."
+    fi
+    ;;
   IDLE|ELICITED|PLAN_APPROVED|IMPLEMENTING)
     block "the task has not passed the quality gate." \
           "Finish implementation and the quality gate (skills cg-phase-3, cg-phase-4); Phase 5 pushes."
