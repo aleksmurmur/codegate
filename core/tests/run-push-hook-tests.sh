@@ -109,6 +109,10 @@ check "an unknown option: no deletion believed"   feat/x "git push -d --frobnica
 check "a later --no-tags cancels --tags"          feat/x "git push --tags --no-tags origin" 2
 check "...also shortened"                         feat/x "git push --ta --no-ta origin" 2
 check "a ref named '-' is not a deletion"         main   "git push origin +-:feat/x" 2
+check "':' pushes every matching branch"          feat/x "git push origin :" 2
+check "...also forced"                            feat/x "git push origin +:" 2
+check "a wildcard refspec is many branches"       feat/x "git push origin refs/heads/*:refs/heads/*" 2
+check "':branch' is still a deletion"             main   "git push origin :feat/x" 0
 echo ABANDONED > "$REPO/.ai/sessions/s0/state"
 check "an abandoned task's branch is not pushed"  feat/x "git push origin feat/x" 2
 touch "$REPO/.ai/push-unchecked-allowed"
