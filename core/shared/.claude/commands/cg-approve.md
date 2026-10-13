@@ -28,7 +28,7 @@ when the user explicitly opted in via `--interactive`).
 | Argument | Required state | Transition | Then |
 |---|---|---|---|
 | `quick` | IDLE (fast-path proposal pending) | → IMPLEMENTING | Run Phase 3 (skill `cg-phase-3`, fast-path) |
-| `elicit` | IDLE | → ELICITED | Run Phase 2 (skill `cg-phase-2`) |
+| `elicit` | IDLE, `{dir}/requirements.md` exists | → ELICITED | Run Phase 2 (skill `cg-phase-2`). No `requirements.md` → a round is still open: say so, and that the user can answer it or say "decide the rest yourself" |
 | `plan` | ELICITED | → PLAN_APPROVED → IMPLEMENTING | Run Phase 3 (skill `cg-phase-3`) |
 | `implementation` | IMPLEMENTING or PLAN_APPROVED | (no state change yet) | Run Phase 4 (skill `cg-phase-4`) |
 | `quality` | QUALITY_REVIEWED | (accept WARN / override FAIL) | Audit `[ts] Quality gate WARN accepted by user` or `[ts] Quality gate override by user — FAIL items accepted`. The review already under way (audit `Independent review started`) → this means proceed: finish §5. Otherwise run the independent review (skill `cg-phase-4`, §5) — it writes `checked-sha`, which the push gate requires — then Phase 5 (skill `cg-phase-5`). `python3 .claude/scripts/cg_session.py checked` succeeds → the review has run: straight to Phase 5 |

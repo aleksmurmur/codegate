@@ -1,6 +1,6 @@
 ---
 name: cg-phase-1
-description: Codegate Phase 1 — open the task session and run elicitation (data map, then one message with the shape of the solution, business questions and the trivia already decided). Use right after Phase 0 created the task branch.
+description: Codegate Phase 1 — open the task session and run elicitation (data map, then rounds of at most 4 questions, architecture and business never mixed, then a summary of what is settled). Use right after Phase 0 created the task branch.
 user-invocable: false
 ---
 
@@ -34,8 +34,8 @@ user-invocable: false
 
 6. Run the elicitation sub-agent: `.claude/agents/elicitation/prompt.md`, with the task text,
    task type, CODEBASE_CONTEXT.md if present, and the checklist
-   `.claude/agents/elicitation/checklists/{type}.md`. It returns either a **fast-path
-   proposal** (cosmetic change) or an **elicitation message** with its data map.
+   `.claude/agents/elicitation/checklists/{type}.md`. It returns a **fast-path proposal**
+   (cosmetic change), a **round** of questions, or **Elicitation complete**.
 
 ### Fast-path proposal (cosmetic; never for `refactor`)
 
@@ -45,25 +45,33 @@ user-invocable: false
 - `interactive`: present it; "Type `/cg-approve quick` to go straight to implementation, or
   `/cg-approve elicit` for the full workflow." Wait.
 
-### Elicitation message
+### A round
 
-- Write everything the agent returned — data map, shape options, questions, decided trivia —
-  to `elicitation.md`. Show the user only the message itself (three blocks, see the
-  elicitation prompt); the data map stays in the file unless a question refers to it.
-- **Block 2 has questions, or block 1 asks the user to choose**: wait for the answer,
-  in either mode — this is the one boundary fast mode never skips. "All as recommended
-  except N" is a complete answer. Record answers under each question in `elicitation.md`,
-  and the settled outcome — one line per answered question, plus the chosen shape — in
-  `{dir}/requirements.md`: what was decided, not why or how. The independent review in
-  Phase 4 reads it instead of the elicitation file.
+- Append the round to `elicitation.md` under its `## Round N — <track>` heading: the message,
+  then the file part (data map, backlog). Show the user only the message. Audit
+  `[ts] Elicitation round N: <track>, K questions`.
+- Wait for the answer, in either mode — rounds are the one boundary fast mode never skips.
+  "All as recommended", "as recommended except N: …" and "decide the rest yourself" are
+  complete answers. Record each answer under its question in `elicitation.md`.
   A non-answer ("not sure", "TBD") gets the concrete options with their cost and one
-  question "1, 2 or 3?" — never carried into planning open.
-- **No questions** (block 1 states its choice, block 2 is empty): write the shape line to
-  `{dir}/requirements.md` in either mode. `fast` — say "No business questions; going ahead
-  with the shape above — say if it is wrong." and continue at once; `interactive` — wait for
-  `/cg-approve elicit`.
-- `fast` after answers: audit `[ts] fast-mode-auto-proceed: phase-1` and go to Phase 2
-  (skill `cg-phase-2`). `interactive`: "Type `/cg-approve elicit` to plan." Wait.
+  question "1, 2 or 3?" — never carried into the next round open.
+- The next round: resume the same sub-agent with the answers (`SendMessage` to its id, when
+  the harness has it) — it keeps the code it has read. Otherwise dispatch it again with
+  `elicitation.md` as the previous rounds.
+- A split proposal: the user decides. On a split, write the first part as `task.md` (the
+  original goes under `## Original task` in it), list the other parts in `elicitation.md`
+  under `## Split off`, tell the user to start each as its own task later, audit
+  `[ts] Task split: <parts>`, and continue elicitation on the first part.
+
+### Elicitation complete
+
+- Write its Requirements part to `{dir}/requirements.md` — the file exists only once
+  elicitation is complete; `/ok` and `/cg-approve elicit` read it as that. The independent
+  review in Phase 4 reads it instead of `elicitation.md`. Append the summary to
+  `elicitation.md`; audit `[ts] Elicitation complete — N rounds`.
+- Show the summary message. `fast`: audit `[ts] fast-mode-auto-proceed: phase-1`, say "Going
+  ahead with the above — say if anything is wrong." and go to Phase 2 (skill `cg-phase-2`).
+  `interactive`: "Type `/cg-approve elicit` to plan." Wait.
 
 Answers that pick one approach over another with real consequences become ADRs in Phase 3
 (step "backfill"). The "consumers and rollout order" answer feeds the plan's Consumers

@@ -375,7 +375,11 @@ did not. After the files are in place:
   the pointer named: the push gate would now hold back every push of it. Write the commit its PR/MR
   already shows — `git rev-parse origin/<branch>`, or the branch tip when it was never
   pushed — to `checked-sha`, and audit `[ts] checked-sha set by the upgrade: <sha>`.
-- `.gitignore`: add `.claude/worktrees/` when missing (Phase 0 creates task worktrees there).
+- `.gitignore`: add `.ai/sessions/`, `.ai/current-session`, `.claude/worktrees/` when missing, and
+  `.ai/tech-debt/` when the option `tech_debt_in_git` is `no` (as install §5b). Files already
+  tracked there (`git ls-files .ai/sessions .ai/current-session`, and `.ai/tech-debt` on `no`)
+  stay tracked: list how many and ask the user whether to untrack them
+  (`git rm -r --cached <paths>` and a commit of their choice). Never untrack without a yes.
 
 **Push and PR hooks start firing** — baseline `.claude/settings.json` registers `pre-push.sh` or
 `pre-pr.sh` under a matcher like `Bash(git push*)`. A matcher names a tool only, so those hooks

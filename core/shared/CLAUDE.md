@@ -56,7 +56,7 @@ relevant. Log every transition to `{dir}/audit.log` with a timestamp.
 A missing file means `interactive` (sessions older than the flag).
 
 - **fast** proceeds through phase boundaries by itself. It still stops for what only the
-  user can give: business questions in elicitation, clarification and scope questions during
+  user can give: the elicitation rounds, clarification and scope questions during
   implementation, gate FAILs it cannot fix in three rounds, and findings that cannot be
   overridden.
 - **interactive** stops at every boundary and waits for `/cg-approve {phase}` (or `/ok`).

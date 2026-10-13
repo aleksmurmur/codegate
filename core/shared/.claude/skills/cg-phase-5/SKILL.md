@@ -14,7 +14,7 @@ review concluded (Phase 4 §5). Session dir:
    commit; without this step the notes never leave the machine.
    `git status --porcelain --untracked-files=all .ai/tech-debt` → stage those paths explicitly,
    `git commit -m "docs: tech debt logged by <ticket or task>"`. Ignored by git in this
-   project → skip and say so under "Tech Debt Logged".
+   project (option `tech_debt_in_git` = `no`) → skip and say so under "Tech Debt Logged".
 2. **PR/MR**: sub-agent `.claude/agents/pr-creator/prompt.md` with `{dir}`. It targets
    `{dir}/target-branch`, never the hosting default. Its last line is `PR_URL: <url>` or
    `PR_URL: none`.

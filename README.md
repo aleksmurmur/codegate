@@ -12,9 +12,9 @@ Every task follows enforced phases before code reaches review:
 0. **Start** — a task is a branch: its own session, bound to that branch. When the folder
    holds unfinished work, the new task goes to its own worktree.
 1. **Elicitation** — the agent first maps who reads and writes the data the task touches,
-   then sends one message: how the change fits the system (options, its choice, a simpler
-   or broader alternative), at most four business questions with a recommendation each, and
-   the small things it decided itself. Cosmetic changes can short-circuit to a fast-path
+   then asks in rounds of at most four questions, each with a recommendation — architecture
+   (how the change fits the system, options, a simpler or broader alternative) and business
+   never in one message — until nothing is open; a task that is really several is offered as a split. It ends with a summary of what is settled and what it decided itself. Cosmetic changes can short-circuit to a fast-path
    mini-plan (`/cg-approve quick`).
 2. **Planning** — plan generated, then a mechanical integrity script verifies
    every referenced path, symbol, and migration version, and warns when a file
@@ -52,7 +52,8 @@ CLAUDE.md
 .claude/
 ```
 
-Add to your `.gitignore` (session data is ephemeral; codebase context and tech debt are kept):
+Install adds to `.gitignore` (session data is per machine; codebase context is kept, tech debt
+by the option `tech_debt_in_git`):
 
 ```
 .ai/sessions/
@@ -224,7 +225,7 @@ your-project/
 │       └── pr-creator/                # Phase 5
 └── .ai/                               # runtime state
     ├── CODEBASE_CONTEXT.md            # commit this
-    ├── tech-debt/                     # commit these
+    ├── tech-debt/                     # in git unless tech_debt_in_git = no
     └── sessions/                      # gitignored — ephemeral
 ```
 

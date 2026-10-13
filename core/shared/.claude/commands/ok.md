@@ -27,7 +27,7 @@ Otherwise, infer the phase from session state and dispatch:
 
 2. Read:
    - `.ai/sessions/{id}/state` — current phase
-   - Existence of `.ai/sessions/{id}/elicitation.md`
+   - Existence of `.ai/sessions/{id}/elicitation.md` and `.ai/sessions/{id}/requirements.md`
    - Existence of `.ai/sessions/{id}/PLAN.md` (and check whether it begins
      with the fast-path classification line — see skill `cg-phase-1`)
    - Existence and content of `.ai/sessions/{id}/QUALITY_REPORT.md`
@@ -40,7 +40,8 @@ Otherwise, infer the phase from session state and dispatch:
    | State | Other signal | Action |
    |---|---|---|
    | (no session) | — | `No active session.` (handled in step 1) |
-   | IDLE | `elicitation.md` exists | run `/cg-approve elicit` |
+   | IDLE | `requirements.md` exists (elicitation complete) | run `/cg-approve elicit` |
+   | IDLE | `elicitation.md` exists, no `requirements.md` — a round is open | answer the round "all as recommended", but FIRST print: "⚠ Accepting this round's recommendations via /ok." Then continue Phase 1 (skill `cg-phase-1`) |
    | IDLE | PLAN.md is a fast-path proposal (cosmetic classification) | run `/cg-approve quick` |
    | IDLE | neither — Phase 1 not finished | "Phase 1 hasn't completed — answer the elicitation questions first, or accept the fast-path proposal." Stop. |
    | ELICITED | — | run `/cg-approve plan` |

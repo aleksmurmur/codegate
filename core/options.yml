@@ -48,6 +48,16 @@
     Empty (none). Propose aliases only if the project's own docs or the tracker clearly
     name consumers. Format: comma-separated aliases.
 
+- key: tech_debt_in_git
+  question: >
+    Keep the tech-debt notes the workflow logs (`.ai/tech-debt/`, a few short files per
+    task) in git, shared with the team, or only on this machine? Session files are always
+    kept out of git.
+  choices: yes, no
+  default: >
+    yes when `.ai/tech-debt/` already has tracked files (`git ls-files .ai/tech-debt`),
+    otherwise ask without a proposal.
+
 - key: test_command
   question: >
     How is the project's full test suite run, with coverage? The workflow runs it at least

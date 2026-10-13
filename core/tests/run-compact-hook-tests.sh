@@ -69,6 +69,15 @@ session "$WT" IMPLEMENTING "$LOST"
 OUT=$(run "$WT")
 case "$OUT" in *"not reachable"*) pass "worktree: lost commit is reported" ;; *) fail "worktree: lost commit is reported" ;; esac
 
+# ── elicitation: an open round and a completed one read differently ─────────────────────
+session "$REPO" IDLE "$WORK"
+echo "## Round 1" > "$REPO/.ai/sessions/s1/elicitation.md"
+OUT=$(run "$REPO")
+case "$OUT" in *"round is open"*) pass "open elicitation round" ;; *) fail "open elicitation round" ;; esac
+echo "- shape" > "$REPO/.ai/sessions/s1/requirements.md"
+OUT=$(run "$REPO")
+case "$OUT" in *"Elicitation complete"*) pass "completed elicitation" ;; *) fail "completed elicitation" ;; esac
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
