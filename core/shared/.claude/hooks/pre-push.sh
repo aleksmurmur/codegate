@@ -61,20 +61,14 @@ cd "$ROOT" || exit 2
 CONSUME=""
 trap 'rc=$?; [ $rc -eq 0 ] && [ -n "$CONSUME" ] && rm -f $CONSUME; exit $rc' EXIT
 
-CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+# The branch worked on; during a rebase (detached HEAD), the branch being rebased.
+CURRENT_BRANCH=$("$PY" "$SCRIPTS/cg_session.py" current-branch 2>/dev/null)
 here() { [ "$1" = "HEAD" ] && echo "$CURRENT_BRANCH" || echo "$1"; }
-# During a rebase HEAD is detached; the branch being rebased is still the one worked on.
-WORKING_BRANCH="$CURRENT_BRANCH"
-for d in rebase-merge rebase-apply; do
-  [ -n "$WORKING_BRANCH" ] && break
-  n=$(cat "$(git rev-parse --git-path "$d/head-name" 2>/dev/null)" 2>/dev/null)
-  case "$n" in refs/heads/*) WORKING_BRANCH=${n#refs/heads/} ;; esac
-done
 
 # The session whose branch this call delivers — a pushed destination or a PR/MR head — and only
 # then the checked-out branch's: `git push origin feat/x` from another branch delivers feat/x.
 SESSION_BRANCH=""
-for cand in $(printf '%s\n' "$LANDINGS" | awk '$1 == "ref" { print $2 } $1 == "base" { print $3 }') HEAD "$WORKING_BRANCH"; do
+for cand in $(printf '%s\n' "$LANDINGS" | awk '$1 == "ref" { print $2 } $1 == "base" { print $3 }') HEAD; do
   cand=$(here "$cand")
   case "$cand" in ""|@*) continue ;; esac
   SESSION_BRANCH=$("$PY" "$SCRIPTS/cg_session.py" branch --branch "$cand" 2>/dev/null) && break
@@ -186,7 +180,7 @@ if [ "$COUNT" -eq 1 ]; then
     case "$(cat "$SESSION_DIR/state" 2>/dev/null | tr -d '[:space:]')" in MERGED|ABANDONED) CLOSED=1 ;; esac
     # The branch the advice is about: the PR/MR's head, else the one worked on. A protected
     # branch is never a task's own: binding a task to it would only lead to the next refusal.
-    WORK="$WORKING_BRANCH"
+    WORK="$CURRENT_BRANCH"
     [ "$KIND" = pr ] && WORK="$PR_HEAD"
     case "$WORK" in @*) WORK="" ;; esac
     [ -n "$WORK" ] && protected_ref "$WORK" && WORK=""

@@ -486,6 +486,11 @@ def main(argv: list[str]) -> int:
         if ref:
             print(ref)
         return 0 if ref else 1
+    if cmd == "current-branch":
+        b = current_branch()
+        if b:
+            print(b)
+        return 0 if b else 1
     if cmd == "branch":
         sid = current(argv[argv.index("--branch") + 1] if "--branch" in argv[:-1] else None)
         b = session_branch(session_dirs()[sid]) if sid else ""

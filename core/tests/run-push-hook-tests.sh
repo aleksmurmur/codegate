@@ -87,6 +87,14 @@ echo MERGED > "$REPO/.ai/sessions/s0/state"
 says "a closed task is not told to record a target" feat/x "gh pr create --base main --head feat/x" "start a task"
 echo main > "$REPO/.ai/sessions/s0/target-branch"
 check "a closed task's branch opens no PR/MR"     feat/x "gh pr create --base main --head feat/x" 2
+check "...nor is pushed"                          feat/x "git push origin feat/x" 2
+check "...but is deleted after the merge"         main   "git push origin --delete feat/x" 0
+check "...also with -d"                           main   "git push -d origin feat/x" 0
+echo ABANDONED > "$REPO/.ai/sessions/s0/state"
+check "an abandoned task's branch is not pushed"  feat/x "git push origin feat/x" 2
+touch "$REPO/.ai/push-unchecked-allowed"
+check "...unless the user approves once"          feat/x "git push origin feat/x" 0
+check "...and only once"                          feat/x "git push origin feat/x" 2
 says "a closed task's branch: start a new task"   feat/x "gh pr create --base main --head feat/x" "Start a new task"
 rm -rf "$REPO/.ai/sessions/s0" "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)/codegate/sessions/s0"
 mkdir -p "$REPO/.ai/sessions/s9" && echo IMPLEMENTING > "$REPO/.ai/sessions/s9/state" && echo s9 > "$REPO/.ai/current-session"
@@ -143,6 +151,9 @@ out=$(printf '{"tool_input":{"command":"git push origin HEAD:main"}}' | ( cd "$R
 case "$out" in *"s1/branch"*) echo "FAIL  mid-rebase the task is still found  (message: $out)"; FAIL=$((FAIL + 1)) ;;
   *"push the task's branch"*) echo "PASS  mid-rebase the task is still found"; PASS=$((PASS + 1)) ;;
   *) echo "FAIL  mid-rebase the task is still found  (message: $out)"; FAIL=$((FAIL + 1)) ;; esac
+out=$(printf '{"tool_input":{"command":"gh pr create --base main"}}' | ( cd "$REPO" && bash "$HOOK" 2>&1 >/dev/null ))
+case "$out" in *"open it from"*) echo "FAIL  mid-rebase a PR/MR's head is the rebased branch  (message: $out)"; FAIL=$((FAIL + 1)) ;;
+  *) echo "PASS  mid-rebase a PR/MR's head is the rebased branch"; PASS=$((PASS + 1)) ;; esac
 rm -rf "$REPO/.git/rebase-merge" "$REPO/.ai/sessions/s1/target-branch"
 rm -rf "$REPO/.ai/sessions" "$REPO/.ai/current-session"
 
