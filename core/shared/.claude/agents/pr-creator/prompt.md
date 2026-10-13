@@ -32,6 +32,14 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
    command below: the push and PR/MR hooks read the command text, and an unexpanded variable
    counts as a protected branch.
 
+   **The project's command** — `.claude/scripts/cg-option.sh pr_command ""` prints it when
+   the project set one; it then replaces every path below. Fill `{branch}`, `{target}`,
+   `{title}` and `{description_file}` (`.ai/sessions/{id}/pr-description.md`) with literal
+   values and run it; when it has no `git push`, run `git push -u origin {branch}` first.
+   The URL is in its output. Without `{description_file}` it carries no description: tell
+   the user and give them the file to paste. If it fails, report the error and stop — do not
+   fall back to another path.
+
    **GitLab** (`gitlab.com` or a self-hosted GitLab in the URL) — two working paths, so a
    machine without `glab` still gets an MR:
    - `glab` installed and authenticated (`glab auth status` succeeds):

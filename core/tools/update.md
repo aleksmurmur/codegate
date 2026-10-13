@@ -360,12 +360,15 @@ phase is now `.claude/skills/cg-phase-N/SKILL.md`.
   the matching skill file in `$STAGING` (it then shows as a local modification in the
   manifest) and list each one to the user: "kept your change to Phase N in cg-phase-N".
 - Project rules that are not about a phase (git hosting, PR/MR rules, domain notes) stay in the
-  project's part of CLAUDE.md.
+  project's part of CLAUDE.md. The PR creator is a sub-agent and does not read them: when they
+  prescribe how a PR/MR is created (flags, push options), propose that as the option
+  `pr_command`.
 
 **Sessions bound to branches** — upstream has `.claude/scripts/cg_session.py` and baseline
 did not. After the files are in place:
 - `python3 .claude/scripts/cg_session.py sync` — copies the existing sessions into the shared
-  store in the git directory.
+  store in the git directory (`<git-common-dir>/codegate/sessions`). Run in a worktree, that is
+  inside the main checkout's `.git`, another folder: say where it wrote.
 - Bind the session `.ai/current-session` points at, if it is not closed: its branch is the
   `Branch <name> from` line of its audit log; without one, ask the user which branch it
   belongs to. Write it to the session's `branch` file, then delete `.ai/current-session` —

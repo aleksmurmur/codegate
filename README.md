@@ -172,7 +172,8 @@ do is handed to the agent with those instructions, or skipped. Config and creden
 with the project. `/cg-start` asks whether to use a tracker (`tracker`: `none` or `adapter`)
 and which projects consume this one (`consumers`). It also asks how the full test suite
 runs (`test_command`): the workflow runs it before any code and in the quality gate; a
-project whose suite needs a wrapper script sets it there. `/cg-tracker` for the current item by
+project whose suite needs a wrapper script sets it there. A team that opens PRs/MRs its own way
+(required flags, push options) gives that command as `pr_command`. `/cg-tracker` for the current item by
 hand, `/cg-next` for what is assigned to you.
 
 ### TDD Guard (strict TDD enforcement)

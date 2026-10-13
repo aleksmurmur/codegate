@@ -58,6 +58,15 @@
     yes when `.ai/tech-debt/` already has tracked files (`git ls-files .ai/tech-debt`),
     otherwise ask without a proposal.
 
+- key: pr_command
+  question: >
+    Does this project open PRs/MRs its own way — flags or push options the team requires?
+    Without it the workflow uses the host's CLI (gh, glab), or GitLab push options.
+  default: >
+    Empty: the usual way. Otherwise one command line with the placeholders {branch},
+    {target}, {title} and {description_file}. Propose one only when the project's own rules
+    (its CLAUDE.md, CONTRIBUTING) prescribe how PRs/MRs are created.
+
 - key: test_command
   question: >
     How is the project's full test suite run, with coverage? The workflow runs it at least
