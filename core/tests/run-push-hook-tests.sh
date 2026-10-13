@@ -71,6 +71,7 @@ says "a direct push is called one"                feat/x "git push origin main" 
 says "a PR/MR is called one"                      feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD" "a PR/MR into 'main'"
 says "a PR/MR that also pushes main is a push"    feat/x "git push -o merge_request.create -o merge_request.target=main origin main" "a direct push to 'main'"
 says "no target known: no advice to repeat it"    feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD" "open it from" absent
+says "no task: the way out is a task"             feat/x "git push origin main" "start a task"
 says "a variable branch asks for the name"        feat/x 'git push origin \"$B\"' "Write the branch name out"
 says "--all names every branch"                   feat/x "git push --all origin" "every branch"
 check "forced refspec onto main is blocked"       feat/x "git push origin +main"                 2

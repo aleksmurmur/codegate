@@ -124,19 +124,23 @@ def stamp(text: str) -> float | None:
     s = re.sub(r"([+-]\d\d)(\d\d)$", r"\1:\2", s)  # +0300: fromisoformat before 3.11 wants +03:00
     s = re.sub(r"\.(\d+)", lambda m: "." + (m.group(1) + "000000")[:6], s)
     try:
-        return datetime.fromisoformat(s).timestamp()
+        t = datetime.fromisoformat(s).timestamp()
     except (ValueError, OverflowError, OSError):  # OSError: Windows refuses times before 1970
         return None
+    # A typo'd year must neither win every comparison nor break time.localtime() later.
+    return t if 0 < t < time.time() + 86400 else None
 
 
-_AUDITS: dict[tuple, tuple[list[str], float]] = {}
+_AUDITS: dict[tuple, tuple[list[str] | None, float]] = {}
 
 
-def audit(copy: Path) -> tuple[list[str], float]:
+def audit(copy: Path) -> tuple[list[str] | None, float]:
     """A copy's audit lines and the latest time among them (0 when none has one).
 
-    Read once per run and file version: hooks ask about every session several times.
-    Entries are not always in order (a backfilled line), so the latest time, not the last."""
+    Lines are compared without blank lines and trailing spaces; a log that exists but cannot
+    be read gives None — not the same as an empty one. Read once per run and file version:
+    hooks ask about every session several times. Entries are not always in order (a
+    backfilled line), so the latest time, not the last."""
     f = copy / "audit.log"
     try:
         st = f.stat()
@@ -144,7 +148,13 @@ def audit(copy: Path) -> tuple[list[str], float]:
         return [], 0.0
     key = (str(f), st.st_mtime_ns, st.st_size)
     if key not in _AUDITS:
-        lines = read(f).splitlines()
+        try:
+            # Another encoding (a shell redirect on Windows) spoils a line, not the whole log.
+            text = f.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            _AUDITS[key] = (None, 0.0)
+            return _AUDITS[key]
+        lines = [line.rstrip() for line in text.splitlines() if line.strip()]
         times = [stamp(m.group(1)) for m in map(AUDIT_ENTRY.match, lines) if m]
         _AUDITS[key] = (lines, max((t for t in times if t is not None), default=0.0))
     return _AUDITS[key]
@@ -157,7 +167,7 @@ def further(a: Path, b: Path) -> int:
     The audit log only grows, so a log that continues the other is further along, whether
     its lines carry a time or not; logs that went apart are told by their latest time."""
     (la, ta), (lb, tb) = audit(a), audit(b)
-    if la == lb:
+    if la is None or lb is None or la == lb:
         return 0
     if la[:len(lb)] == lb:
         return 1

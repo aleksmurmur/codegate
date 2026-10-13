@@ -178,14 +178,26 @@ if [ "$COUNT" -eq 1 ]; then
         WAY="  - push the task's branch only, or"$'\n' ;;
       pr)
         WHAT="a PR/MR into '$CHECK', a protected branch."
-        WHY="A task opens its PR/MR into its own target branch."
-        [ -n "$INTO" ] && [ "$INTO" != "$CHECK" ] && WAY="  - open it from the task's branch into $INTO, or"$'\n' ;;
+        if [ -n "$INTO" ] && [ "$INTO" != "$CHECK" ]; then
+          WHY="A task opens its PR/MR into its own target branch."
+          WAY="  - open it from the task's branch into $INTO, or"$'\n'
+        elif [ -n "$SESSION_BRANCH" ]; then
+          WHY="Only the branch of the task that targets it may open one."
+          WAY="  - open it from the task's branch $SESSION_BRANCH, or"$'\n'
+        else
+          WHY="Only the branch of a task that targets it may open one; this branch has no task."
+          WAY="  - start a task for this work, or"$'\n'
+        fi ;;
       push)
         WHAT="a direct push to '$CHECK', a protected branch."
         WHY="Landing on it bypasses review."
         { [ "$CHECK" = "$SESSION_TARGET" ] || [ "$CHECK" = "$BASE_OPTION" ]; } && \
           WHY="Tasks merge into it through a PR/MR; landing on it directly bypasses review."
-        WAY="  - push the task's branch and open a PR/MR${INTO:+ into $INTO}, or"$'\n' ;;
+        if [ -n "$SESSION_BRANCH" ]; then
+          WAY="  - push the task's branch and open a PR/MR${INTO:+ into $INTO}, or"$'\n'
+        else
+          WAY="  - start a task; its branch opens the PR/MR${INTO:+ into $INTO}, or"$'\n'
+        fi ;;
     esac
     printf 'Blocked: %s\n%s\n\n%s  - if you really mean it, approve once:\n      touch %s/.ai/protected-target-allowed\n    then re-run the command. The marker is one-shot.\n' \
       "$WHAT" "$WHY" "$WAY" "$ROOT" >&2

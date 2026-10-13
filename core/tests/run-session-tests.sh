@@ -128,6 +128,21 @@ echo PR_CREATED > "$OLD/state"
 is "a log that continues the other wins without times" "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null; cat "$OLD/state")" MERGED
 printf '[1970-01-01T00:00:00] odd\n[0001-01-01T00:00:00] odder\n' >> "$OLD/audit.log"
 is "an odd time does not break the script"           "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null && echo ok)" ok
+printf '[1970-01-01T00:00:00+0300] typo\n[3026-01-01T00:00:00+0300] typo\n' >> "$OLD/audit.log"
+is "nor a typo'd year with an offset in the listing" "$(cg "$REPO" list >/dev/null && echo ok)" ok
+cg "$REPO" sync
+sleep 1
+echo QUALITY_REVIEWED > "$OLD/state"
+printf '[ts] gate \xe3\xee\xf2\xee\xe2\n' >> "$OLD/audit.log"  # a line in another encoding
+is "a line in another encoding keeps the newer copy" "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null; cat "$OLD/state")" QUALITY_REVIEWED
+cg "$REPO" sync
+sleep 1
+echo ABANDONED > "$STORE/state"
+printf '\n[ts] abandoned\n' >> "$STORE/audit.log"
+sleep 1
+sed '$d' "$STORE/audit.log" | sed 's/$/ /' > "$OLD/audit.log"  # older, with trailing spaces
+echo QUALITY_REVIEWED > "$OLD/state"
+is "blank lines and trailing spaces are no divergence" "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null; cat "$OLD/state")" ABANDONED
 rm -rf "$OLD" "$STORE"
 
 echo ""
