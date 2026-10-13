@@ -14,6 +14,8 @@ Usage: cg_cmd.py
                             --all / --mirror
     mr <target>             an MR the push opens (GitLab push options)
     base <branch> <head>    a `gh pr create` / `glab mr create` (`new` too)
+    dir <path>              first, when the landings run in another checkout (`cd DIR && ...`,
+                            `git -C DIR push`); `@unknown` when it is a variable or they differ
   `@default` when no target is given, `@unknown` when it is a variable.
   Exit 1: no push and no PR/MR creation. Exit 3: the command looks like one but cannot be
   parsed (unbalanced quotes and the like).
@@ -252,14 +254,25 @@ def unexpanded(value: str) -> bool:
     return "$" in value or "`" in value
 
 
-def git_args(seg: list[str], sub: str) -> list[str] | None:
-    """The arguments after `git [options] <sub>`, or None when the segment is something else."""
+def git_args(seg: list[str], sub: str) -> tuple[list[str], str] | None:
+    """The arguments after `git [options] <sub>` and the `-C` directory ("" when none)."""
     if basename(seg[0]) != "git":
         return None
-    j = 1
+    j, where = 1, ""
     while j < len(seg) and seg[j].startswith("-"):
+        if seg[j] == "-C" and j + 1 < len(seg):
+            where = join(where, seg[j + 1])
         j += 2 if seg[j] in GIT_VALUE_OPTIONS else 1
-    return seg[j + 1:] if j < len(seg) and seg[j] == sub else None
+    return (seg[j + 1:], where) if j < len(seg) and seg[j] == sub else None
+
+
+def join(where: str, path: str) -> str:
+    if where == "@unknown" or unexpanded(path):
+        return "@unknown"
+    path = path.replace("\\", "/")
+    if not where or path.startswith("/") or (len(path) > 1 and path[1] == ":"):
+        return path
+    return f"{where.rstrip('/')}/{path}"
 
 
 def branch(ref: str) -> str:
@@ -356,15 +369,24 @@ def main() -> int:
         outer, inner = prepass(cmd)
         return 3 if any(LOOKS_RELEVANT.search(c) for c in [outer, *inner]) else 1
     lines: list[str] = []
+    dirs: set[str] = set()
+    where = ""  # set by a `cd` earlier in the command
     for seg in segs:
-        args = git_args(seg, "push")
-        if args is not None:
-            lines.extend(push_lines(args))
+        if seg[0] == "cd":
+            where = join(where, seg[1]) if len(seg) > 1 and seg[1] != "-" else "@unknown"
+            continue
+        pushed = git_args(seg, "push")
+        if pushed is not None:
+            lines.extend(push_lines(pushed[0]))
+            dirs.add(join(where, pushed[1]) if pushed[1] else where)
         pr = pr_line(seg)
         if pr:
             lines.append(pr)
+            dirs.add(where)
     if not lines:
         return 1
+    if dirs != {""}:
+        lines.insert(0, "dir " + (dirs.pop() if len(dirs) == 1 and "" not in dirs else "@unknown"))
     print("\n".join(lines))
     return 0
 

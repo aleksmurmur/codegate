@@ -70,16 +70,18 @@ it only when its answer changes the decision and it is idle. By default go to a 
 
 - **Slug**: lowercase ASCII from the task, `[a-z0-9-]`, ~40 chars; non-ASCII task → ask for a
   short English slug. Fill `PATTERN`; say the name in one line, do not ask for it.
-- **This folder**: `git checkout $BASE && git pull --ff-only && git checkout -b <name>`.
-  `pull --ff-only` fails → local `BASE` diverged: stop and ask. No `reset --hard`, no merge.
+- **This folder**: `git fetch origin && git switch --no-track -c <name> origin/$BASE`. It
+  starts from the latest remote state and works in a worktree too, where `$BASE` is usually
+  checked out by another checkout. No `reset --hard`, no merge.
 - **New worktree**:
   `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')` (the main checkout — not
   the current one, which may itself be a worktree), then
   `git worktree add --no-track -b <name> "$MAIN/.claude/worktrees/<slug>" <from>`, where `<from>` is
   `origin/$BASE` (or `CURRENT` for a stacked task), and move
   the conversation into it with `EnterWorktree` (`path` = that directory). Everything after this
-  — session files, hooks, commits — happens there. Without that tool (or when it fails): `cd`
-  into the directory and check that `git branch --show-current` prints `<name>` before Phase 1.
+  — session files, hooks, commits — happens there. Without that tool (or when it fails) the
+  conversation and its sub-agents stay in this folder: stop, and tell the user to open a new
+  conversation in that directory and run `/cg-resume` there, or to take **This folder**.
 - Never `git checkout -b <name> origin/$BASE` (without `--no-track`): `origin/$BASE` would become
   the upstream and a bare `git push` would target the shared branch.
 - The task's **target** (where its PR/MR goes) is `BASE` (or `CURRENT` for a stacked task).

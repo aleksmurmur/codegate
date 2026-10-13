@@ -259,6 +259,21 @@ check "pushing tags pushes no branch"                   main   'git push origin 
 check "Phase 5's push written over several lines"       feat/x 'git push -u -o merge_request.create \\\n  -o merge_request.target=main \\\n  origin HEAD' 0
 check "a commit message with an open parenthesis"       feat/x 'git commit -m \"$(cat <<'"'"'EOF'"'"'\nfix: retry the push (see #12\nEOF\n)\"' 0
 
+# ── ninth audit: a push from another checkout is judged by that checkout's task ──────────
+echo ""
+echo "-- another checkout --"
+WT="$REPO/.claude/worktrees/y"
+git -C "$REPO" worktree add -q -b feat/y "$WT" feat/x 2>/dev/null
+mkdir -p "$WT/.ai/sessions/s2"
+echo IMPLEMENTING > "$WT/.ai/sessions/s2/state"; echo feat/y > "$WT/.ai/sessions/s2/branch"; echo main > "$WT/.ai/sessions/s2/target-branch"
+WT_ABS=$(cd "$WT" && pwd)
+REPO_ABS=$(cd "$REPO" && pwd)
+check "cd into an unchecked worktree, then push"      feat/x "cd $WT_ABS && git push -u origin HEAD"   2
+check "git -C an unchecked worktree push"             feat/x "git -C $WT_ABS push -u origin HEAD"      2
+check "cd into an unchecked worktree, then its PR"    feat/x "cd $WT_ABS && gh pr create --base main"  2
+check "cd into a directory held in a variable"        feat/x 'cd $WT && git push'                     2
+check "cd into this checkout, then push"              feat/x "cd $REPO_ABS && git push -u origin HEAD" 0
+
 # ── without Python only what looks like a push is held back ─────────────────────────────
 if ! env PATH=/usr/bin bash -c 'command -v python3 || command -v python' >/dev/null 2>&1; then
     printf '{"tool_input":{"command":"git stash push"},"description":"push it"}' | env PATH=/usr/bin bash "$HOOK" >/dev/null 2>&1; got=$?

@@ -45,6 +45,15 @@ esac
 # Like the other hooks: the checkout the call runs in is the `cwd` the hook is given.
 CWD=$("$PY" -c "import json,sys; print(json.load(sys.stdin).get('cwd') or '')" <<< "$INPUT" 2>/dev/null)
 [ -n "$CWD" ] && cd "$CWD" 2>/dev/null
+# `cd DIR && git push`, `git -C DIR push`: the landings belong to the checkout in DIR.
+DIR=$(printf '%s\n' "$LANDINGS" | sed -n 's/^dir //p' | head -1)
+case "$DIR" in
+  "") ;;
+  @unknown)
+    echo "codegate: this command pushes or opens a PR/MR from a directory given by a variable, or from more than one checkout. Run it from one checkout, with the path written out (cd /path/to/checkout && ...)." >&2
+    exit 2 ;;
+  *) cd "$DIR" 2>/dev/null || { echo "codegate: no such directory: $DIR" >&2; exit 2; } ;;
+esac
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 cd "$ROOT" || exit 2
 # The markers are the user's one-shot approvals. Only a call that goes through uses them up:

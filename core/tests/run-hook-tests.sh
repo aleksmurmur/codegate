@@ -160,6 +160,19 @@ in_wt "worktree source without a task is blocked" "$WT_ABS/src/Foo.kt"          
 in_wt "the worktree's own .claude/ is allowed"    "$WT_ABS/.claude/settings.json" 0
 in_wt "the worktree's own .ai/ is allowed"        "$WT_ABS/.ai/sessions/x/PLAN.md" 0
 
+# A write into another worktree of this repository is judged by that worktree's task.
+from_main() {
+    local name="$1" input="$2" want="$3" got
+    printf '%s' "$input" | ( cd "$REPO" && bash "$HOOK" >/dev/null 2>&1 )
+    got=$?
+    if [ "$got" = "$want" ]; then echo "PASS  $name"; PASS=$((PASS + 1))
+    else echo "FAIL  $name  (want exit=$want, got exit=$got)"; FAIL=$((FAIL + 1)); fi
+}
+from_main "another worktree's source without a task is blocked" "{\"tool_input\":{\"file_path\":\"$WT_ABS/src/Foo.kt\"}}" 2
+from_main "the call's cwd decides the checkout"                 "{\"cwd\":\"$WT_ABS\",\"tool_input\":{\"file_path\":\"src/Foo.kt\"}}" 2
+mkdir -p "$WTREE/.ai/sessions/w1" && echo IMPLEMENTING > "$WTREE/.ai/sessions/w1/state" && echo feat/w > "$WTREE/.ai/sessions/w1/branch"
+from_main "another worktree's task in progress allows it"       "{\"tool_input\":{\"file_path\":\"$WT_ABS/src/Foo.kt\"}}" 0
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

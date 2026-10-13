@@ -10,15 +10,16 @@ user-invocable: false
 
 ## Open the session
 
+0. `python3 .claude/scripts/cg_session.py current` prints a session that is not MERGED or
+   ABANDONED → the branch already belongs to an open task: Phase 0 did not reach the new
+   branch. Stop and report; create nothing.
 1. Id: `$(date +%Y%m%d-%H%M%S)-<slug>` — the slug Phase 0 made for the branch (`[a-z0-9-]`, cut to
    30 chars). Never the raw task text: a `/` in it would split the session into directories
    that no longer resolve.
 2. `.ai/sessions/{id}/`, and in it:
    - `task.md` — the task text (from the tracker item when Phase 0 took one);
    - `branch` — `git branch --show-current`. This binds the session to the branch: hooks,
-     commands and the push gate find the session through it. A branch already bound to an
-     open session (`cg_session.py current` prints one that is not MERGED or ABANDONED) means
-     Phase 0 did not reach the new branch: stop and report;
+     commands and the push gate find the session through it;
    - `target-branch` — where the PR/MR goes (Phase 0); `ticket` — the key, if any;
    - `mode` — `fast` or `interactive` (the starting command decides);
    - `tracker.json` — `{"id", "key", "url"}` when Phase 0 created or took an item;

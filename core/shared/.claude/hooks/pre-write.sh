@@ -13,6 +13,9 @@ if ! "${PY:-false}" -c "" 2>/dev/null; then
 fi
 
 INPUT=$(cat)
+# The checkout the call runs in is the `cwd` the hook is given, not the hook process's.
+CWD=$("$PY" -c "import json,sys; print(json.load(sys.stdin).get('cwd') or '')" <<< "$INPUT" 2>/dev/null)
+[ -n "$CWD" ] && cd "$CWD" 2>/dev/null
 
 # Extract file path from tool input (works for both Write and Edit)
 FILE=$("$PY" -c "
@@ -37,12 +40,14 @@ FILE_NORM=$(printf '%s' "$FILE" | tr '\' '/' 2>/dev/null)
 
 [ -z "$FILE" ] && exit 0
 
-# Guard this repository only. A file in another directory (/tmp, a sibling project, another
-# worktree) is not this task's source; blocking it only taught agents to write through the shell.
+# Guard this repository only. A file in another directory (/tmp, a sibling project) is not this
+# task's source; blocking it only taught agents to write through the shell. A file in another
+# worktree of this repository is judged by that worktree's task.
 # Compare git's own answers rather than path strings: one path arrives in several spellings.
 # REL is the path inside this checkout, so the allowlists below cannot be satisfied by a
 # directory that merely contains `.claude/` — task worktrees live under .claude/worktrees/.
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+common_dir() { local d; d=$(git -C "$1" rev-parse --git-common-dir 2>/dev/null) && (cd "$1" && cd "$d" && pwd -P); }
 REL="$FILE_NORM"
 if [ -n "$REPO_ROOT" ]; then
   case "$FILE_NORM" in
@@ -50,7 +55,11 @@ if [ -n "$REPO_ROOT" ]; then
       DIR=$(dirname "$FILE_NORM")
       while [ ! -d "$DIR" ] && [ "$DIR" != "$(dirname "$DIR")" ]; do DIR=$(dirname "$DIR"); done
       FILE_ROOT=$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null)
-      [ "$FILE_ROOT" != "$REPO_ROOT" ] && exit 0
+      if [ "$FILE_ROOT" != "$REPO_ROOT" ]; then
+        [ -n "$FILE_ROOT" ] && [ "$(common_dir "$DIR")" = "$(common_dir "$REPO_ROOT")" ] || exit 0
+        REPO_ROOT="$FILE_ROOT"
+        cd "$REPO_ROOT" || exit 2
+      fi
       REL="$(git -C "$DIR" rev-parse --show-prefix 2>/dev/null)${FILE_NORM#"$DIR"/}"
       ;;
     *)

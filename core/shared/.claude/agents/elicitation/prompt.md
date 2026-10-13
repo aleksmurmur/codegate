@@ -138,7 +138,7 @@ let them object.
 
 **C. Business questions (block 2)** — only what the user knows and the code cannot tell:
 business rules and edge cases users will see, who may do what, API contracts and
-**consumers: which other projects (front end, mobile, other services) depend on this, and
+**consumers: which other projects (services, apps) depend on this, and
 in what order to roll out**, scope (what is in, what is a follow-up), what to do with existing
 data. At most 4. Each:
 - the question in the domain's language, no class names;

@@ -285,7 +285,9 @@ def checked() -> bool:
     if not sha or git("merge-base", "--is-ancestor", sha, "HEAD") is None:
         return False
     ref = target_ref(session_target())
-    changed = git("log", "--no-merges", "--format=", "--name-only", f"{sha}..HEAD", *(["--not", ref] if ref else []))
+    # As the push gate: a merge counts for what resolving it changed (git 2.36+).
+    merges = "--remerge-diff" if git("log", "-1", "--remerge-diff", "--format=") is not None else "--no-merges"
+    changed = git("log", merges, "--format=", "--name-only", f"{sha}..HEAD", *(["--not", ref] if ref else []))
     return not [f for f in (changed or "").splitlines() if f and not f.startswith(".ai/")]
 
 
