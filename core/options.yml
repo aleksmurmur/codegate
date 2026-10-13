@@ -61,11 +61,12 @@
 - key: pr_command
   question: >
     Does this project open PRs/MRs its own way — flags or push options the team requires?
-    Without it the workflow uses the host's CLI (gh, glab), or GitLab push options.
+    Without it the workflow uses the host's usual CLI or push options.
   default: >
     Empty: the usual way. Otherwise one command line with the placeholders {branch},
-    {target}, {title} and {description_file}. Propose one only when the project's own rules
-    (its CLAUDE.md, CONTRIBUTING) prescribe how PRs/MRs are created.
+    {target}, {title} and {description_file}; write {title} without quotes, it is filled in
+    already quoted. Propose one only when the project's own rules (its CLAUDE.md,
+    CONTRIBUTING) prescribe how PRs/MRs are created.
 
 - key: test_command
   question: >

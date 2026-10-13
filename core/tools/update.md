@@ -47,8 +47,8 @@ Read `$TMPDIR/core/options.yml`. Every option whose `key` is not in `$WORK/optio
 was added to codegate after this project's last install or update. Ask those (and
 only those) exactly as install does: propose the value its `default:` describes, ask
 all of them in one message. For `pr_command`, read the project's CLAUDE.md: the PR creator
-is a sub-agent and never sees it, so a rule there on how a PR/MR is created (flags, push
-options) is the value to propose. A `key=value` in `$ARGUMENTS` answers or **changes** an
+follows its own prompt, which knows no project rule, so a rule there on how a PR/MR is
+created (flags, push options) is the value to propose. A `key=value` in `$ARGUMENTS` answers or **changes** an
 option without asking, including one already recorded — that is how a user switches a
 setting later. Append new answers to `$WORK/options`; replace the row for a changed key.
 Rows for keys no longer in `options.yml` are dropped.

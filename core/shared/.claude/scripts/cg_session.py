@@ -9,7 +9,8 @@ fall back to the old pointer `.ai/current-session`.
 
 The agent writes a session inside its own checkout (`.ai/sessions/<id>/`). A copy lives in
 the repository's common git dir (`<git-common-dir>/codegate/sessions/<id>/`): shared by every
-worktree, kept when a worktree is removed. The two are merged file by file, newer wins.
+worktree, kept when a worktree is removed. The two are merged: the copy whose audit log is
+further along wins (the log only grows); between copies equally far along, the newer file.
 
 Usage:
   cg_session.py current          the session id for this checkout; exit 1 if there is none
@@ -118,35 +119,68 @@ def session_dirs() -> dict[str, list[Path]]:
 
 
 def stamp(text: str) -> float | None:
-    """An ISO time as `date -Iseconds` and its relatives write it; None when it is not one."""
+    """An ISO time as `date +%Y-%m-%dT%H:%M:%S%z` and its relatives write it; None when it is not one."""
     s = re.sub(r"Z$", "+00:00", text.strip())
     s = re.sub(r"([+-]\d\d)(\d\d)$", r"\1:\2", s)  # +0300: fromisoformat before 3.11 wants +03:00
     s = re.sub(r"\.(\d+)", lambda m: "." + (m.group(1) + "000000")[:6], s)
     try:
         return datetime.fromisoformat(s).timestamp()
-    except ValueError:
+    except (ValueError, OverflowError, OSError):  # OSError: Windows refuses times before 1970
         return None
 
 
-def last_entry(audit: Path) -> float:
-    """The latest time among the audit log's entries; 0 when none has one.
+_AUDITS: dict[tuple, tuple[list[str], float]] = {}
+
+
+def audit(copy: Path) -> tuple[list[str], float]:
+    """A copy's audit lines and the latest time among them (0 when none has one).
+
+    Read once per run and file version: hooks ask about every session several times.
+    Entries are not always in order (a backfilled line), so the latest time, not the last."""
+    f = copy / "audit.log"
+    try:
+        st = f.stat()
+    except OSError:
+        return [], 0.0
+    key = (str(f), st.st_mtime_ns, st.st_size)
+    if key not in _AUDITS:
+        lines = read(f).splitlines()
+        times = [stamp(m.group(1)) for m in map(AUDIT_ENTRY.match, lines) if m]
+        _AUDITS[key] = (lines, max((t for t in times if t is not None), default=0.0))
+    return _AUDITS[key]
+
+
+def further(a: Path, b: Path) -> int:
+    """1 when copy a is further along than copy b, -1 when behind, 0 when it cannot be told.
 
     File dates are no measure: a checkout of tracked session files dates old content today.
-    Entries are not always in order (a backfilled line), so the latest, not the last."""
-    times = [stamp(m.group(1)) for m in map(AUDIT_ENTRY.match, read(audit).splitlines()) if m]
-    return max((t for t in times if t is not None), default=0.0)
+    The audit log only grows, so a log that continues the other is further along, whether
+    its lines carry a time or not; logs that went apart are told by their latest time."""
+    (la, ta), (lb, tb) = audit(a), audit(b)
+    if la == lb:
+        return 0
+    if la[:len(lb)] == lb:
+        return 1
+    if lb[:len(la)] == la:
+        return -1
+    return (ta > tb) - (ta < tb)
 
 
 def newest(copies: list[Path], name: str) -> Path:
     present = [c for c in copies if (c / name).exists()]
     if not present:
         return copies[0] / name
-    return max(present, key=lambda c: (last_entry(c / "audit.log"), (c / name).stat().st_mtime)) / name
+    best = present[0]
+    for c in present[1:]:
+        order = further(c, best)
+        if order > 0 or (order == 0 and (c / name).stat().st_mtime > (best / name).stat().st_mtime):
+            best = c
+    return best / name
 
 
 def activity(copies: list[Path]) -> float | None:
-    """The last audit entry of any copy; the audit log's file date only when no entry has a time."""
-    return max((last_entry(c / "audit.log") for c in copies), default=0.0) or mtime(newest(copies, "audit.log"))
+    """The latest audit time of any copy; the audit log's file date only when no entry has a time."""
+    return max((audit(c)[1] for c in copies), default=0.0) or mtime(newest(copies, "audit.log"))
 
 
 def session_branch(copies: list[Path]) -> str:
@@ -184,15 +218,14 @@ def current(branch: str | None = None) -> str | None:
 
 
 def merge(src: Path, dst: Path) -> None:
-    # The copy whose audit log reaches later wins whatever the file dates say; a copy behind it
-    # only fills gaps. File dates decide only between copies equally far along.
-    ahead = last_entry(src / "audit.log") - last_entry(dst / "audit.log")
+    # A copy further along wins whatever the file dates say; one behind only fills gaps.
+    order = further(src, dst)
     for f in src.rglob("*"):
         if not f.is_file():
             continue
         target = dst / f.relative_to(src)
-        if not target.exists() or ahead > 0 or (
-                ahead == 0 and f.stat().st_mtime > target.stat().st_mtime + 0.001):
+        if not target.exists() or order > 0 or (
+                order == 0 and f.stat().st_mtime > target.stat().st_mtime + 0.001):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(f, target)
 

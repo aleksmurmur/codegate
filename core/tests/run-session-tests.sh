@@ -118,6 +118,16 @@ is "the checkout gets the newer copy back"           "$(cg "$REPO" dir --branch 
 printf '[2026-01-05T10:00:00+0300] late\n[2026-01-04T10:00:00Z] backfilled\n' >> "$OLD/audit.log"
 WANT=$("$PY" -c "import datetime as d; print(d.datetime(2026,1,5,7,0,tzinfo=d.timezone.utc).astimezone().strftime('%Y-%m-%d %H:%M'))")
 is "the latest entry, not the last line, any offset form" "$(seen 20260101-100000-old)" "$WANT"
+cg "$REPO" sync
+sleep 1
+echo MERGED > "$STORE/state"
+echo "[ts] merged" >> "$STORE/audit.log"
+sleep 1
+sed '$d' "$STORE/audit.log" > "$OLD/audit.log"  # a checkout writes the log as it was before
+echo PR_CREATED > "$OLD/state"
+is "a log that continues the other wins without times" "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null; cat "$OLD/state")" MERGED
+printf '[1970-01-01T00:00:00] odd\n[0001-01-01T00:00:00] odder\n' >> "$OLD/audit.log"
+is "an odd time does not break the script"           "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null && echo ok)" ok
 rm -rf "$OLD" "$STORE"
 
 echo ""

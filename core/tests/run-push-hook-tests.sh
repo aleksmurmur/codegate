@@ -53,6 +53,26 @@ check "quoted title with spaces is one value"     feat/x "git push -o merge_requ
 check "quoted title does not hide HEAD on main"   main   "git push -o merge_request.title=\\\"two words\\\" origin HEAD" 2
 
 check "full ref onto main is blocked"             feat/x "git push origin HEAD:refs/heads/main"  2
+
+# says <name> <branch> <command> <text> [absent] — what the block message says (or must not)
+says() {
+    local out
+    git -C "$REPO" checkout -q -B "$2"
+    rm -f "$REPO/.ai/protected-target-allowed"
+    out=$(printf '{"tool_input":{"command":"%s"}}' "$3" | ( cd "$REPO" && bash "$HOOK" 2>&1 >/dev/null ))
+    case "$out" in *"$4"*) found=1 ;; *) found=0 ;; esac
+    if [ "$found" = "$([ -n "${5:-}" ] && echo 0 || echo 1)" ]; then
+        echo "PASS  $1"; PASS=$((PASS + 1))
+    else
+        echo "FAIL  $1  (message: $out)"; FAIL=$((FAIL + 1))
+    fi
+}
+says "a direct push is called one"                feat/x "git push origin main" "a direct push to 'main'"
+says "a PR/MR is called one"                      feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD" "a PR/MR into 'main'"
+says "a PR/MR that also pushes main is a push"    feat/x "git push -o merge_request.create -o merge_request.target=main origin main" "a direct push to 'main'"
+says "no target known: no advice to repeat it"    feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD" "open it from" absent
+says "a variable branch asks for the name"        feat/x 'git push origin \"$B\"' "Write the branch name out"
+says "--all names every branch"                   feat/x "git push --all origin" "every branch"
 check "forced refspec onto main is blocked"       feat/x "git push origin +main"                 2
 check "any of several refspecs onto main blocked" feat/x "git push origin feat/x:main feat/x:other" 2
 check "several refspecs off main pass"            feat/x "git push origin feat/x feat/x:other"   0

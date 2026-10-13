@@ -108,6 +108,7 @@ default_branch() {
 
 # --- Collect the landings: protected ones for gate 1, deliveries of the task's branch for gate 2 ---
 PROTECTED=""
+REF_PROTECTED=""
 PR_PROTECTED=""
 OWN_TIPS=""
 OWN=""
@@ -116,7 +117,7 @@ while read -r kind a b; do
   [ "$kind" = "ref" ] || continue
   dest=$(here "$a")
   [ -n "$SESSION_BRANCH" ] && [ "$dest" = "$SESSION_BRANCH" ] || ALL_REFS_OWN=""
-  protected_ref "$dest" && PROTECTED="$PROTECTED $dest"
+  protected_ref "$dest" && PROTECTED="$PROTECTED $dest" && REF_PROTECTED="$REF_PROTECTED $dest"
   if [ -z "$SESSION_BRANCH" ] || [ "$dest" = "$SESSION_BRANCH" ] || [ "$dest" = "@all" ]; then
     [ "$b" = "-" ] && continue  # a deletion carries no code
     OWN=1
@@ -158,29 +159,36 @@ if [ "$COUNT" -gt 1 ]; then
 fi
 if [ "$COUNT" -eq 1 ]; then
   CHECK=$(echo $PROTECTED)
-  INTO="${SESSION_TARGET:-${BASE_OPTION:-the base branch}}"
+  INTO="${SESSION_TARGET:-$BASE_OPTION}"
   if [ -f .ai/protected-target-allowed ]; then
     CONSUME=".ai/protected-target-allowed"
   elif [ "$CHECK" = "@unknown" ]; then
     echo "Blocked: the branch is named by a variable, so it cannot be checked. Write the branch name out and re-run." >&2
     exit 2
   else
-    case " $PR_PROTECTED " in
-      *" $CHECK "*)
+    KIND=push
+    case " $PR_PROTECTED " in *" $CHECK "*) KIND=pr ;; esac
+    case " $REF_PROTECTED " in *" $CHECK "*) KIND=push ;; esac  # it also lands there directly
+    [ "$CHECK" = "@all" ] && KIND=all
+    WAY=""
+    case "$KIND" in
+      all)
+        WHAT="a push of every branch (--all / --mirror), protected ones among them."
+        WHY="Landing on a protected branch bypasses review."
+        WAY="  - push the task's branch only, or"$'\n' ;;
+      pr)
         WHAT="a PR/MR into '$CHECK', a protected branch."
-        WAY=""
-        [ "$INTO" != "$CHECK" ] && WAY="  - open it from the task's branch into $INTO, or"$'\n' ;;
-      *)
+        WHY="A task opens its PR/MR into its own target branch."
+        [ -n "$INTO" ] && [ "$INTO" != "$CHECK" ] && WAY="  - open it from the task's branch into $INTO, or"$'\n' ;;
+      push)
         WHAT="a direct push to '$CHECK', a protected branch."
-        { [ "$CHECK" = "$SESSION_TARGET" ] || [ "$CHECK" = "$BASE_OPTION" ]; } && WHAT="$WHAT Tasks merge into it through a PR/MR."
-        WAY="  - push the task's branch and open a PR/MR into $INTO, or"$'\n' ;;
+        WHY="Landing on it bypasses review."
+        { [ "$CHECK" = "$SESSION_TARGET" ] || [ "$CHECK" = "$BASE_OPTION" ]; } && \
+          WHY="Tasks merge into it through a PR/MR; landing on it directly bypasses review."
+        WAY="  - push the task's branch and open a PR/MR${INTO:+ into $INTO}, or"$'\n' ;;
     esac
-    if [ "$CHECK" = "@all" ]; then
-      WHAT="a push of every branch (--all / --mirror), protected ones among them."
-      WAY="  - push the task's branch only, or"$'\n'
-    fi
-    printf 'Blocked: %s\n\nLanding on a protected branch bypasses review.\n%s  - if you really mean it, approve once:\n      touch %s/.ai/protected-target-allowed\n    then re-run the command. The marker is one-shot.\n' \
-      "$WHAT" "$WAY" "$ROOT" >&2
+    printf 'Blocked: %s\n%s\n\n%s  - if you really mean it, approve once:\n      touch %s/.ai/protected-target-allowed\n    then re-run the command. The marker is one-shot.\n' \
+      "$WHAT" "$WHY" "$WAY" "$ROOT" >&2
     exit 2
   fi
 fi
