@@ -171,11 +171,19 @@ if [ "$COUNT" -eq 1 ]; then
     case " $REF_PROTECTED " in *" $CHECK "*) KIND=push ;; esac  # it also lands there directly
     [ "$CHECK" = "@all" ] && KIND=all
     WAY=""
+    # A closed task is no way out: recording its branch or target would open a PR/MR its gate
+    # never checked. Only an open one is advised to record what it lacks.
+    CLOSED=""
+    case "$(cat "$SESSION_DIR/state" 2>/dev/null | tr -d '[:space:]')" in MERGED|ABANDONED) CLOSED=1 ;; esac
     # A task without a recorded target opens no PR/MR into a protected base: it records one first.
     NO_TARGET=""
-    [ -n "$SESSION_BRANCH" ] && [ -z "$SESSION_TARGET" ] && { [ -z "$INTO" ] || protected_pr "$INTO"; } && NO_TARGET=1
-    RECORD="  - write the task's target to the session's target-branch file, then open its PR/MR, or"$'\n'
-    BIND="  - write its branch to the session's branch file, then open its PR/MR, or"$'\n'
+    [ -z "$CLOSED" ] && [ -n "$SESSION_BRANCH" ] && [ -z "$SESSION_TARGET" ] && \
+      { [ -z "$INTO" ] || protected_pr "$INTO"; } && NO_TARGET=1
+    UNBOUND=""
+    [ -z "$CLOSED" ] && [ -z "$SESSION_BRANCH" ] && [ -n "$SESSION_DIR" ] && UNBOUND=1
+    RECORD="  - write the task's target to $SESSION_DIR/target-branch, then open its PR/MR, or"$'\n'
+    BIND="  - write its branch to $SESSION_DIR/branch, then open its PR/MR, or"$'\n'
+    START="  - start a task for this work, or"$'\n'
     case "$KIND" in
       all)
         WHAT="a push of every branch (--all / --mirror), protected ones among them."
@@ -183,12 +191,15 @@ if [ "$COUNT" -eq 1 ]; then
         WAY="  - push only the branch you mean, or"$'\n' ;;
       pr)
         WHAT="a PR/MR into '$CHECK', a protected branch."
-        if [ -z "$SESSION_BRANCH" ] && [ -n "$SESSION_DIR" ]; then
+        if [ -n "$CLOSED" ]; then
+          WHY="The task found here is closed."
+          WAY="$START"
+        elif [ -n "$UNBOUND" ]; then
           WHY="The task found here names no branch."
           WAY="$BIND"
         elif [ -z "$SESSION_BRANCH" ]; then
           WHY="Only the branch of a task that targets it may open one; this branch has no task."
-          WAY="  - start a task for this work, or"$'\n'
+          WAY="$START"
         elif [ -n "$NO_TARGET" ]; then
           WHY="The task on this branch has no target branch recorded."
           WAY="$RECORD"
@@ -204,11 +215,13 @@ if [ "$COUNT" -eq 1 ]; then
         WHY="Landing on it bypasses review."
         { [ "$CHECK" = "$SESSION_TARGET" ] || [ "$CHECK" = "$BASE_OPTION" ]; } && \
           WHY="Tasks merge into it through a PR/MR; landing on it directly bypasses review."
-        if [ -n "$NO_TARGET" ]; then
+        if [ -n "$CLOSED" ]; then
+          WAY="$START"
+        elif [ -n "$NO_TARGET" ]; then
           WAY="$RECORD"
         elif [ -n "$SESSION_BRANCH" ]; then
           WAY="  - push the task's branch and open a PR/MR${INTO:+ into $INTO}, or"$'\n'
-        elif [ -n "$SESSION_DIR" ]; then
+        elif [ -n "$UNBOUND" ]; then
           WAY="$BIND"
         else
           WAY="  - start a task for this work; its branch opens the PR/MR, or"$'\n'

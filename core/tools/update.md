@@ -372,8 +372,9 @@ did not. After the files are in place:
   inside the main checkout's `.git`, another folder: say where it wrote.
 - Bind the session `.ai/current-session` points at, if it is not closed: its branch is the
   `Branch <name> from` line of its audit log; without one, ask the user which branch it
-  belongs to. Write it to the session's `branch` file, then delete `.ai/current-session` —
-  a session naming no branch would otherwise count as the task of every branch.
+  belongs to. Write it to the session's `branch` file. Then delete `.ai/current-session`,
+  for a closed session too — a session naming no branch would otherwise count as the task
+  of every branch.
 - Every session past its gate (`QUALITY_REVIEWED`, `PR_CREATED`, `PR_UPDATED` in
   `python3 .claude/scripts/cg_session.py list`) and without `checked-sha` — not only the one
   the pointer named: the push gate would now hold back every push of it. Write the commit its PR/MR
