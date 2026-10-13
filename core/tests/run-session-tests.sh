@@ -156,12 +156,8 @@ rm -rf "$OLD" "$STORE"
 NEW="$REPO/.ai/sessions/20260102-100000-new"
 mkdir -p "$NEW"
 echo feature/N-8-n > "$NEW/branch"
-printf '[2026-01-02T10:00:00] Session started\n[ts] commit: abc\n' > "$NEW/audit.log"
-is "untimed lines after an old one: the file date"   "$(seen 20260102-100000-new | cut -c1-10)" "$(date +%Y-%m-%d)"
-g checkout -q -b scratch/tracked-session
-g add -f "$NEW/audit.log" && g commit -q -m "a tracked session"
-is "but not when git wrote that file"                "$(seen 20260102-100000-new)" "2026-01-02 10:00"
-g checkout -q main && g branch -q -D scratch/tracked-session
+printf '[ts] Session started\n[ts] commit: abc\n' > "$NEW/audit.log"
+is "a log without any time: its file date"           "$(seen 20260102-100000-new | cut -c1-10)" "$(date +%Y-%m-%d)"
 rm -rf "$NEW"
 
 echo ""

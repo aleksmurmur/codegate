@@ -195,33 +195,14 @@ def newest(copies: list[Path], name: str) -> Path:
     return best / name
 
 
-_TRACKED: set[str] | None = None
-
-
-def checked_out(f: Path) -> bool:
-    """Whether git tracks this file: its date is then the date of a checkout, not of work."""
-    global _TRACKED
-    if _TRACKED is None:
-        _TRACKED = set((git("-C", str(toplevel()), "ls-files", "--", ".ai/sessions") or "").splitlines())
-    try:
-        return f.resolve().relative_to(toplevel().resolve()).as_posix() in _TRACKED
-    except ValueError:
-        return False
-
-
 def activity(copies: list[Path]) -> float | None:
-    """When the session was last worked on, by its audit log.
+    """When the session was last worked on: the latest entry time of any copy's audit log.
 
-    The latest entry time counts; a log whose last line carries none (a literal `[ts]`) was
-    written after it, so its file date counts too — unless git checked that file out."""
-    seen = 0.0
-    for c in copies:
-        lines = audit(c) or []
-        t = latest(lines)
-        if lines and not latest(lines[-1:]) and not checked_out(c / "audit.log"):
-            t = max(t, mtime(c / "audit.log") or 0.0)
-        seen = max(seen, t)
-    return seen or mtime(newest(copies, "audit.log"))
+    File dates are no measure (a checkout dates old content today); the file date is used
+    only for a log with no timed entry at all. Lines without a time (a literal `[ts]` from
+    before the format was fixed) can make a session look older than it is — the cost is
+    being offered to close it, which the user declines."""
+    return max((latest(audit(c) or []) for c in copies), default=0.0) or mtime(newest(copies, "audit.log"))
 
 
 def session_branch(copies: list[Path]) -> str:
@@ -425,8 +406,9 @@ def facts() -> dict:
     merged = contained and ahead == 0 and (state in AFTER_PR or committed)
 
     times = []
-    if copies and activity(copies):
-        times.append(activity(copies))
+    seen = activity(copies) if copies else None
+    if seen:
+        times.append(seen)
     if ahead:
         last_commit = git("log", "-1", "--format=%ct")
         if last_commit:

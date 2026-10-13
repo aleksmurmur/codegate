@@ -175,6 +175,7 @@ if [ "$COUNT" -eq 1 ]; then
     NO_TARGET=""
     [ -n "$SESSION_BRANCH" ] && [ -z "$SESSION_TARGET" ] && { [ -z "$INTO" ] || protected_pr "$INTO"; } && NO_TARGET=1
     RECORD="  - write the task's target to the session's target-branch file, then open its PR/MR, or"$'\n'
+    BIND="  - write its branch to the session's branch file, then open its PR/MR, or"$'\n'
     case "$KIND" in
       all)
         WHAT="a push of every branch (--all / --mirror), protected ones among them."
@@ -182,9 +183,12 @@ if [ "$COUNT" -eq 1 ]; then
         WAY="  - push only the branch you mean, or"$'\n' ;;
       pr)
         WHAT="a PR/MR into '$CHECK', a protected branch."
-        if [ -z "$SESSION_BRANCH" ]; then
+        if [ -z "$SESSION_BRANCH" ] && [ -n "$SESSION_DIR" ]; then
+          WHY="The task found here names no branch."
+          WAY="$BIND"
+        elif [ -z "$SESSION_BRANCH" ]; then
           WHY="Only the branch of a task that targets it may open one; this branch has no task."
-          WAY="  - start a task for this work${INTO:+ (its PR/MR goes into $INTO)}, or"$'\n'
+          WAY="  - start a task for this work, or"$'\n'
         elif [ -n "$NO_TARGET" ]; then
           WHY="The task on this branch has no target branch recorded."
           WAY="$RECORD"
@@ -204,8 +208,10 @@ if [ "$COUNT" -eq 1 ]; then
           WAY="$RECORD"
         elif [ -n "$SESSION_BRANCH" ]; then
           WAY="  - push the task's branch and open a PR/MR${INTO:+ into $INTO}, or"$'\n'
+        elif [ -n "$SESSION_DIR" ]; then
+          WAY="$BIND"
         else
-          WAY="  - start a task; its branch opens the PR/MR${INTO:+ into $INTO}, or"$'\n'
+          WAY="  - start a task for this work; its branch opens the PR/MR, or"$'\n'
         fi ;;
     esac
     printf 'Blocked: %s\n%s\n\n%s  - if you really mean it, approve once:\n      touch %s/.ai/protected-target-allowed\n    then re-run the command. The marker is one-shot.\n' \
