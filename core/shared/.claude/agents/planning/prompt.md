@@ -291,8 +291,8 @@ Out of scope:
    Check the existing migrations to get the correct next version number.
 
 4. **If you discover a gotcha during planning** — note it in the Task Summary. For
-   example: "Note: `Pet.visits` is `@Transient` — visits must be loaded manually, not
-   via JPA relationship."
+   example: "Note: `Order.lines` is not loaded with the order — the lines must be fetched
+   explicitly."
 
 5. **Tests are implementation items** — they appear in the checklist with checkboxes,
    not as an afterthought. TDD anchor specifies which scenarios to write first.

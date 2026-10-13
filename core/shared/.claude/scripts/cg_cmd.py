@@ -23,6 +23,7 @@ Usage: cg_cmd.py
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import sys
@@ -196,12 +197,17 @@ def segments(cmd: str, depth: int = 0) -> list[list[str]]:
         if is_punctuation(tok):
             raw.append(seg)
             seg = []
+            # A subshell's `cd` ends with it: mark where subshells open and close.
+            raw.extend([c] for c in tok if c in "()")
         else:
             seg.append(tok)
         i += 1
     raw.append(seg)
     result: list[list[str]] = []
     for s in raw:
+        if s in (["("], [")"]):
+            result.append(s)
+            continue
         s = unwrap(s)
         if not s:
             continue
@@ -269,7 +275,7 @@ def git_args(seg: list[str], sub: str) -> tuple[list[str], str] | None:
 def join(where: str, path: str) -> str:
     if where == "@unknown" or unexpanded(path):
         return "@unknown"
-    path = path.replace("\\", "/")
+    path = os.path.expanduser(path).replace("\\", "/")
     if not where or path.startswith("/") or (len(path) > 1 and path[1] == ":"):
         return path
     return f"{where.rstrip('/')}/{path}"
@@ -371,9 +377,17 @@ def main() -> int:
     lines: list[str] = []
     dirs: set[str] = set()
     where = ""  # set by a `cd` earlier in the command
+    outside: list[str] = []  # the directory outside each open subshell
     for seg in segs:
-        if seg[0] == "cd":
-            where = join(where, seg[1]) if len(seg) > 1 and seg[1] != "-" else "@unknown"
+        if seg == ["("]:
+            outside.append(where)
+            continue
+        if seg == [")"]:
+            where = outside.pop() if outside else where
+            continue
+        if seg[0] in ("cd", "pushd", "popd"):
+            to = [w for w in seg[1:] if w != "--"]
+            where = join(where, to[0]) if seg[0] != "popd" and to and to[0] != "-" else "@unknown"
             continue
         pushed = git_args(seg, "push")
         if pushed is not None:

@@ -13,7 +13,7 @@ a new Claude Code window, or an unexpected stop.
 
    `python3 .claude/scripts/cg_session.py dir` → the session of the branch checked out here
    (restored from the shared copy if this worktree lost it). Not this branch's task? `/cg-tasks`
-   lists all of them; switch to that task's worktree or branch first.
+   lists all of them; move to that task's worktree first (`EnterWorktree`). Without `EnterWorktree` do not `cd` there — sub-agents would stay in this folder: tell the user to open a conversation in that directory and run `/cg-resume` there.
    If the file doesn't exist or is empty: say "No active session found. Start a new
    task with /cg-feature, /cg-bugfix, or /cg-refactor."
 

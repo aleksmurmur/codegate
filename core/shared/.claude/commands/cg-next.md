@@ -17,6 +17,6 @@ Suggest what to do next. Read-only until the user picks something.
    state). Put first what is already in progress here, then items blocked on nothing, newest
    first.
 4. Offer: "Start <KEY>?" — on yes, `/cg-feature <KEY>` (or `/cg-bugfix` for a bug); an item
-   with a local task continues in its worktree (`/cg-resume` there).
+   with a local task continues in its worktree (`EnterWorktree`, then `/cg-resume`). Without `EnterWorktree` do not `cd` there — sub-agents would stay in this folder: tell the user to open a conversation in that directory and run `/cg-resume` there.
 
 Respond in the user's language.

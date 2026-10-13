@@ -14,6 +14,7 @@ List the tasks of this repository across all branches and worktrees. Read-only.
    relevant), a branch checked out nowhere with unfinished work.
 
 To continue a task in another worktree: `EnterWorktree` with that path, then `/cg-resume`.
+Without `EnterWorktree` do not `cd` there — sub-agents would stay in this folder: tell the user to open a conversation in that directory and run `/cg-resume` there.
 Branch checked out nowhere: `git worktree add <path> <branch>` first.
 
 Respond in the user's language.

@@ -42,17 +42,17 @@ Steps:
      [10:38] commit: f2c4e5d — feat: implement weekly digest job
 
    Checklist progress:
-     [x] 1. Modify src/main/.../DigestScheduler.kt
-     [x] 2. Create src/main/.../DigestJob.kt
-     [ ] 3. Modify src/main/.../UserPreferences.kt
-     [ ] 4. Create src/test/.../DigestJobTest.kt
+     [x] 1. Modify src/digest/scheduler.py
+     [x] 2. Create src/digest/job.py
+     [ ] 3. Modify src/users/preferences.py
+     [ ] 4. Create tests/digest/test_job.py
 
    Diff (since 7a3b9c1):
-     src/main/kotlin/.../DigestScheduler.kt    | 18 ++++++++++++++++++
-     src/main/kotlin/.../DigestJob.kt          | 42 +++++++++++++++++++++++
+     src/digest/scheduler.py    | 18 ++++++++++++++++++
+     src/digest/job.py          | 42 +++++++++++++++++++++++
      2 files changed, 60 insertions(+)
 
-   Decisions logged: 2 (001-flyway-version-bump.md, 002-cron-vs-scheduler.md)
+   Decisions logged: 2 (001-migration-version-bump.md, 002-cron-vs-scheduler.md)
    Open clarifications: 0
 
    Next action: Continue implementation from checklist item 3.

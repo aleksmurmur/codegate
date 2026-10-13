@@ -72,7 +72,8 @@ it only when its answer changes the decision and it is idle. By default go to a 
   short English slug. Fill `PATTERN`; say the name in one line, do not ask for it.
 - **This folder**: `git fetch origin && git switch --no-track -c <name> origin/$BASE`. It
   starts from the latest remote state and works in a worktree too, where `$BASE` is usually
-  checked out by another checkout. No `reset --hard`, no merge.
+  checked out by another checkout. No `reset --hard`, no merge. A stacked task:
+  `git switch --no-track -c <name>` — from `CURRENT` as it is here, unpushed commits included.
 - **New worktree**:
   `MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')` (the main checkout — not
   the current one, which may itself be a worktree), then
