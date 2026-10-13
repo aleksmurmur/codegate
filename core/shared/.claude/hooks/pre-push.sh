@@ -157,19 +157,20 @@ if [ "$COUNT" -gt 1 ]; then
 fi
 if [ "$COUNT" -eq 1 ]; then
   CHECK=$(echo $PROTECTED)
-  [ "$CHECK" = "$SESSION_TARGET" ] || [ "$CHECK" = "$BASE_OPTION" ] && \
-    CHECK="$CHECK — tasks merge into it through a PR/MR"
-  [ "$CHECK" = "@unknown" ] && CHECK="a variable — write the branch name out"
-  [ "$CHECK" = "@all" ] && CHECK="every branch (--all / --mirror)"
+  NAME="'$CHECK'"
+  WHY=""
+  { [ "$CHECK" = "$SESSION_TARGET" ] || [ "$CHECK" = "$BASE_OPTION" ]; } && WHY=" Tasks merge into it through a PR/MR."
+  [ "$CHECK" = "@unknown" ] && NAME="a branch named by a variable" && WHY=" Write the branch name out."
+  [ "$CHECK" = "@all" ] && NAME="every branch (--all / --mirror)"
   if [ -f .ai/protected-target-allowed ]; then
     CONSUME=".ai/protected-target-allowed"
   else
     cat >&2 <<EOF
-Blocked: target branch is '$CHECK' (protected).
+Blocked: the target is $NAME, a protected branch.$WHY
 
 Landing on a protected branch bypasses review. Either:
-  - push to a feature branch and open the PR/MR against a non-protected base, or
-  - if you really mean to land on '$CHECK', approve once:
+  - push a task branch and open a PR/MR into ${BASE_OPTION:-the base branch}, or
+  - if you really mean to land on $NAME, approve once:
       touch $ROOT/.ai/protected-target-allowed
     then re-run the command. The marker is one-shot.
 EOF

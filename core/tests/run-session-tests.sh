@@ -94,6 +94,29 @@ is "a stale local copy does not win over a newer one" "$(cg "$REPO" list | grep 
 g worktree remove --force "$WT2"
 
 echo ""
+echo "-- activity is read from the audit log, not from file dates --"
+# A checkout of tracked session files writes old content with today's date.
+OLD="$REPO/.ai/sessions/20260101-100000-old"
+mkdir -p "$OLD"
+echo feature/O-9-o > "$OLD/branch"
+echo IMPLEMENTING > "$OLD/state"
+printf '[2026-01-01T09:00:00] Session started\n[2026-01-01T10:00:00] commit: abc\n' > "$OLD/audit.log"
+seen() { cg "$REPO" list --json | "$PY" -c "import json,sys; print([r['last_activity'] for r in json.load(sys.stdin) if r['id']=='$1'][0])"; }
+is "a freshly written old session: its last entry"   "$(seen 20260101-100000-old)" "2026-01-01 10:00"
+cg "$REPO" sync
+STORE="$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)/codegate/sessions/20260101-100000-old"
+sleep 1
+echo PR_CREATED > "$STORE/state"
+echo "[2026-01-02T10:00:00] PR created" >> "$STORE/audit.log"
+sleep 1
+echo IMPLEMENTING > "$OLD/state"
+printf '[2026-01-01T09:00:00] Session started\n[2026-01-01T10:00:00] commit: abc\n' > "$OLD/audit.log"
+is "an older copy with fresh dates is not read"      "$(cg "$REPO" list --json | "$PY" -c "import json,sys; print([r['state'] for r in json.load(sys.stdin) if r['id']=='20260101-100000-old'][0])")" PR_CREATED
+cg "$REPO" sync
+is "nor does sync write it over the newer one"       "$(cat "$STORE/state")" PR_CREATED
+rm -rf "$OLD" "$STORE"
+
+echo ""
 echo "-- facts about the checkout --"
 is "on the base branch"                              "$(fact "$REPO" status)" base
 g checkout -q feature/B-2-b

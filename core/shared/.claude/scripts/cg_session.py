@@ -39,6 +39,7 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 # A chat that touched this checkout within this window is treated as still working in it.
@@ -48,6 +49,7 @@ STALE_DAYS = int(os.environ.get("CG_STALE_DAYS", "7"))
 
 AFTER_PR = ("PR_CREATED", "REWORK", "PR_UPDATED", "MERGED")
 BRANCH_IN_AUDIT = re.compile(r"\] Branch (\S+) from ")
+AUDIT_ENTRY = re.compile(r"^\[([^\]]+)\]")
 
 
 def git(*args: str) -> str | None:
@@ -115,11 +117,30 @@ def session_dirs() -> dict[str, list[Path]]:
     return found
 
 
+def last_entry(audit: Path) -> float:
+    """When the audit log's last entry was written; 0 when it has none.
+
+    File dates are no measure: a checkout of tracked session files dates old content today."""
+    for line in reversed(read(audit).splitlines()):
+        m = AUDIT_ENTRY.match(line)
+        if m:
+            try:
+                return datetime.fromisoformat(m.group(1).replace("Z", "+00:00")).timestamp()
+            except ValueError:
+                continue
+    return 0.0
+
+
 def newest(copies: list[Path], name: str) -> Path:
     present = [c for c in copies if (c / name).exists()]
     if not present:
         return copies[0] / name
-    return max(present, key=lambda c: (c / name).stat().st_mtime) / name
+    return max(present, key=lambda c: (last_entry(c / "audit.log"), (c / name).stat().st_mtime)) / name
+
+
+def activity(copies: list[Path]) -> float | None:
+    """The last audit entry of any copy; the audit log's file date only when no entry has a time."""
+    return max((last_entry(c / "audit.log") for c in copies), default=0.0) or mtime(newest(copies, "audit.log"))
 
 
 def session_branch(copies: list[Path]) -> str:
@@ -157,11 +178,13 @@ def current(branch: str | None = None) -> str | None:
 
 
 def merge(src: Path, dst: Path) -> None:
+    # A copy whose audit log ends earlier is behind, however fresh its file dates: it only fills gaps.
+    behind = last_entry(src / "audit.log") < last_entry(dst / "audit.log")
     for f in src.rglob("*"):
         if not f.is_file():
             continue
         target = dst / f.relative_to(src)
-        if not target.exists() or f.stat().st_mtime > target.stat().st_mtime + 0.001:
+        if not target.exists() or (not behind and f.stat().st_mtime > target.stat().st_mtime + 0.001):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(f, target)
 
@@ -212,7 +235,7 @@ def listing() -> list[dict]:
     rows = []
     for sid, copies in sorted(session_dirs().items()):
         branch = session_branch(copies)
-        seen = mtime(newest(copies, "audit.log"))
+        seen = activity(copies)
         rows.append({
             "id": sid,
             "branch": branch,
@@ -320,8 +343,8 @@ def facts() -> dict:
     merged = contained and ahead == 0 and (state in AFTER_PR or committed)
 
     times = []
-    if copies and mtime(newest(copies, "audit.log")):
-        times.append(mtime(newest(copies, "audit.log")))
+    if copies and activity(copies):
+        times.append(activity(copies))
     if ahead:
         last_commit = git("log", "-1", "--format=%ct")
         if last_commit:
