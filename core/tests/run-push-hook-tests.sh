@@ -56,6 +56,7 @@ check "MR push options from main are blocked"     main   "git push -o merge_requ
 check "--push-option value is not a refspec"      feat/x "git push --push-option merge_request.remove_source_branch origin feat/x" 0
 check "MR into main via push options is blocked"  feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD" 2
 check "...also via a shortened --push"            feat/x "git push --push merge_request.create --push merge_request.target=main origin HEAD" 2
+check "--no-push-option drops the target before"  feat/x "git push -o merge_request.target=dev --no-push-option -o merge_request.create origin HEAD" 2
 check "MR into master via --push-option= blocked" feat/x "git push --push-option=merge_request.target=master origin HEAD" 2
 check "MR into dev via push options passes"       feat/x "git push -o merge_request.create -o merge_request.target=dev origin HEAD" 0
 check "quoted title with spaces is one value"     feat/x "git push -o merge_request.create -o merge_request.target=dev -o merge_request.title=\\\"Fix the main page\\\" origin HEAD" 0
@@ -105,6 +106,9 @@ check "-d after -- is a branch name"              feat/x "git push origin -- -d 
 check "-d in a combined short flag"               main   "git push -fd origin feat/x" 0
 check "--no-dry-run does not cancel -d"           main   "git push -d --no-dry-run origin feat/x" 0
 check "an unknown option: no deletion believed"   feat/x "git push -d --frobnicate origin feat/x" 2
+check "a later --no-tags cancels --tags"          feat/x "git push --tags --no-tags origin" 2
+check "...also shortened"                         feat/x "git push --ta --no-ta origin" 2
+check "a ref named '-' is not a deletion"         main   "git push origin +-:feat/x" 2
 echo ABANDONED > "$REPO/.ai/sessions/s0/state"
 check "an abandoned task's branch is not pushed"  feat/x "git push origin feat/x" 2
 touch "$REPO/.ai/push-unchecked-allowed"

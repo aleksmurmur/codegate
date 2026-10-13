@@ -314,7 +314,8 @@ def long_option(word: str) -> str | None:
 def push_lines(args: list[str]) -> list[str]:
     positional: list[str] = []
     options: list[str] = []
-    repo_given = every_branch = tags_only = deleting = unsure = False
+    repo_given = deleting = unsure = False
+    switches: set[str] = set()  # --all, --branches, --mirror, --tags as git leaves them
     i = 0
     while i < len(args):
         w = args[i]
@@ -332,13 +333,17 @@ def push_lines(args: list[str]) -> list[str]:
                 elif i + 1 < len(args):
                     i += 1
                     value = args[i]
-            # git reads options in order: a later --no-delete cancels -d.
+            # git reads options in order: a later --no-X cancels an earlier --X.
             deleting = {"delete": True, "no-delete": False}.get(opt, deleting)
-            every_branch = every_branch or opt in ("all", "branches", "mirror")
-            tags_only = tags_only or opt == "tags"
+            if opt in ("all", "branches", "mirror", "tags"):
+                switches.add(opt)
+            elif opt in ("no-all", "no-branches", "no-mirror", "no-tags"):
+                switches.discard(opt[3:])
             repo_given = repo_given or opt == "repo"
             if opt == "push-option" and value is not None:
                 options.append(value)
+            elif opt == "no-push-option":
+                options.clear()
         elif w.startswith("-") and len(w) > 1:
             for k, c in enumerate(w[1:], 1):
                 if c == "o":  # -o takes the rest of the word, or the next one
@@ -357,6 +362,8 @@ def push_lines(args: list[str]) -> list[str]:
         i += 1
     # A deletion is believed only when the whole command could be read.
     deleting = deleting and not unsure
+    every_branch = bool(switches & {"all", "branches", "mirror"})
+    tags_only = "tags" in switches
     refspecs = positional if repo_given else positional[1:]
     lines = []
     if every_branch:
@@ -366,7 +373,10 @@ def push_lines(args: list[str]) -> list[str]:
         src, dst = ref.rsplit(":", 1) if ":" in ref else (ref, ref)
         dst = branch(dst)
         dst = "@unknown" if unexpanded(dst) else (dst or "HEAD")
-        lines.append(f"ref {dst} {known(src.lstrip('+')) if src and not deleting else '-'}")
+        src = src.lstrip("+")
+        # "-" marks a deletion; a ref literally named so counts as a delivery of HEAD.
+        src = "-" if deleting or not src else known("HEAD" if src == "-" else src)
+        lines.append(f"ref {dst} {src}")
     if not refspecs and not every_branch and not tags_only:
         lines.append("ref HEAD HEAD")
     mr = [o.split("=", 1)[1] for o in options if o.startswith("merge_request.target=")]
