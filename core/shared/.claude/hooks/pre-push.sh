@@ -62,7 +62,8 @@ CONSUME=""
 trap 'rc=$?; [ $rc -eq 0 ] && [ -n "$CONSUME" ] && rm -f $CONSUME; exit $rc' EXIT
 
 # The branch worked on; during a rebase (detached HEAD), the branch being rebased.
-CURRENT_BRANCH=$("$PY" "$SCRIPTS/cg_session.py" current-branch 2>/dev/null)
+CURRENT_BRANCH=$("$PY" "$SCRIPTS/cg_session.py" current-branch 2>/dev/null) ||
+  CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)  # gate 1 must not depend on it
 here() { [ "$1" = "HEAD" ] && echo "$CURRENT_BRANCH" || echo "$1"; }
 
 # The session whose branch this call delivers — a pushed destination or a PR/MR head — and only

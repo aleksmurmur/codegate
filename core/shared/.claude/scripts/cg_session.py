@@ -23,6 +23,7 @@ Usage:
                                  with its target branch (the remote one unless the local is ahead)
   cg_session.py target-ref [--branch B]
                                  that target branch as a ref (see `base`); exit 1 when there is none
+  cg_session.py current-branch   the checked-out branch; during a rebase, the one being rebased
   cg_session.py branch           the branch this checkout's session is bound to; exit 1 when none
   cg_session.py checked          exit 0 when checked-sha covers HEAD: nothing but `.ai/` and
                                  merges of the target branch changed since it

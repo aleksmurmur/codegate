@@ -42,6 +42,14 @@ check "feature branch, plain push"                feat/x "git push -u origin fea
 check "explicit push to main is blocked"          feat/x "git push origin main"       2
 check "refspec onto main is blocked"              feat/x "git push origin HEAD:main"  2
 check "HEAD from main is blocked"                 main   "git push origin HEAD"       2
+# The interpreter itself, not a wrapper script that would find the stub again on PATH.
+REAL_PY=$(python3 -c "import sys; print(sys.executable)" 2>/dev/null || python -c "import sys; print(sys.executable)")
+REAL_PY=$(printf '%s' "$REAL_PY" | tr -d '\r')
+BROKEN=$(mktemp -d)
+{ echo '#!/bin/sh'; echo 'case "$*" in *current-branch*) exit 1 ;; esac'; echo "exec \"$REAL_PY\" \"\$@\""; } > "$BROKEN/python3"
+cp "$BROKEN/python3" "$BROKEN/python" && chmod +x "$BROKEN/python3" "$BROKEN/python"
+PATH="$BROKEN:$PATH" check "...also when the branch helper fails" main "git push origin HEAD" 2
+rm -rf "$BROKEN"
 check "HEAD from a feature branch passes"         feat/x "git push origin HEAD"       0
 check "MR push options from a feature branch"     feat/x "git push -u -o merge_request.create -o merge_request.target=dev -o merge_request.remove_source_branch origin HEAD" 0
 check "MR push options from main are blocked"     main   "git push -o merge_request.create -o merge_request.target=dev origin HEAD" 2
@@ -90,6 +98,7 @@ check "a closed task's branch opens no PR/MR"     feat/x "gh pr create --base ma
 check "...nor is pushed"                          feat/x "git push origin feat/x" 2
 check "...but is deleted after the merge"         main   "git push origin --delete feat/x" 0
 check "...also with -d"                           main   "git push -d origin feat/x" 0
+check "a later --no-delete cancels -d"            feat/x "git push -d --no-delete origin feat/x" 2
 echo ABANDONED > "$REPO/.ai/sessions/s0/state"
 check "an abandoned task's branch is not pushed"  feat/x "git push origin feat/x" 2
 touch "$REPO/.ai/push-unchecked-allowed"

@@ -318,6 +318,8 @@ def push_lines(args: list[str]) -> list[str]:
             tags_only = True
         elif w in ("--delete", "-d"):
             deleting = True
+        elif w.startswith("--no-d"):
+            deleting = False  # git reads options in order: a later --no-delete cancels -d
         elif w in ("--receive-pack", "--exec") and i + 1 < len(args):
             i += 1
         elif not w.startswith("-"):
