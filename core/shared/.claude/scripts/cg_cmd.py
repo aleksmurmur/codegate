@@ -293,38 +293,70 @@ def known(value: str) -> str:
     return "HEAD" if not value or unexpanded(value) else value
 
 
+# git push's long options; those in PUSH_VALUED take the next word as their value.
+PUSH_VALUED = {"repo", "recurse-submodules", "receive-pack", "exec", "push-option"}
+PUSH_FLAGS = {"verbose", "quiet", "all", "branches", "mirror", "delete", "tags", "dry-run",
+              "porcelain", "force", "force-with-lease", "force-if-includes", "thin", "set-upstream",
+              "progress", "prune", "verify", "follow-tags", "signed", "atomic", "ipv4", "ipv6"}
+PUSH_LONG = PUSH_VALUED | PUSH_FLAGS | {"no-" + o for o in PUSH_VALUED | PUSH_FLAGS}
+PUSH_SHORT_FLAGS = set("vqdnfu46")
+
+
+def long_option(word: str) -> str | None:
+    """The option a `--word` means: git accepts any unambiguous prefix. None when unknown."""
+    name = word[2:].split("=", 1)[0]
+    if name in PUSH_LONG:
+        return name
+    hits = [o for o in PUSH_LONG if o.startswith(name)]
+    return hits[0] if len(hits) == 1 else None
+
+
 def push_lines(args: list[str]) -> list[str]:
     positional: list[str] = []
     options: list[str] = []
-    repo_given = every_branch = tags_only = deleting = False
+    repo_given = every_branch = tags_only = deleting = unsure = False
     i = 0
     while i < len(args):
         w = args[i]
-        if w in ("-o", "--push-option") and i + 1 < len(args):
-            options.append(args[i + 1])
-            i += 1
-        elif w.startswith("--push-option="):
-            options.append(w.split("=", 1)[1])
-        elif w.startswith("-o") and len(w) > 2:
-            options.append(w[2:])
-        elif w == "--repo" and i + 1 < len(args):
-            repo_given = True
-            i += 1
-        elif w.startswith("--repo="):
-            repo_given = True
-        elif w in ("--all", "--mirror", "--branches"):
-            every_branch = True
-        elif w == "--tags":
-            tags_only = True
-        elif w in ("--delete", "-d"):
-            deleting = True
-        elif w.startswith("--no-d"):
-            deleting = False  # git reads options in order: a later --no-delete cancels -d
-        elif w in ("--receive-pack", "--exec") and i + 1 < len(args):
-            i += 1
-        elif not w.startswith("-"):
+        value = None
+        if w == "--":
+            positional.extend(args[i + 1:])  # after it every word is a remote or a refspec
+            break
+        if w.startswith("--"):
+            opt = long_option(w)
+            if opt is None:
+                unsure = True  # an option it cannot read may change what the rest means
+            elif opt in PUSH_VALUED:
+                if "=" in w:
+                    value = w.split("=", 1)[1]
+                elif i + 1 < len(args):
+                    i += 1
+                    value = args[i]
+            # git reads options in order: a later --no-delete cancels -d.
+            deleting = {"delete": True, "no-delete": False}.get(opt, deleting)
+            every_branch = every_branch or opt in ("all", "branches", "mirror")
+            tags_only = tags_only or opt == "tags"
+            repo_given = repo_given or opt == "repo"
+            if opt == "push-option" and value is not None:
+                options.append(value)
+        elif w.startswith("-") and len(w) > 1:
+            for k, c in enumerate(w[1:], 1):
+                if c == "o":  # -o takes the rest of the word, or the next one
+                    if k + 1 < len(w):
+                        options.append(w[k + 1:])
+                    elif i + 1 < len(args):
+                        i += 1
+                        options.append(args[i])
+                    break
+                if c == "d":
+                    deleting = True
+                elif c not in PUSH_SHORT_FLAGS:
+                    unsure = True
+        else:
             positional.append(w)
         i += 1
+    # A deletion is believed only when the whole command could be read.
+    deleting = deleting and not unsure
     refspecs = positional if repo_given else positional[1:]
     lines = []
     if every_branch:
