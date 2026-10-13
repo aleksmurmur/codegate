@@ -171,6 +171,10 @@ if [ "$COUNT" -eq 1 ]; then
     case " $REF_PROTECTED " in *" $CHECK "*) KIND=push ;; esac  # it also lands there directly
     [ "$CHECK" = "@all" ] && KIND=all
     WAY=""
+    # A task without a recorded target opens no PR/MR into a protected base: it records one first.
+    NO_TARGET=""
+    [ -n "$SESSION_BRANCH" ] && [ -z "$SESSION_TARGET" ] && { [ -z "$INTO" ] || protected_pr "$INTO"; } && NO_TARGET=1
+    RECORD="  - write the task's target to the session's target-branch file, then open its PR/MR, or"$'\n'
     case "$KIND" in
       all)
         WHAT="a push of every branch (--all / --mirror), protected ones among them."
@@ -181,12 +185,12 @@ if [ "$COUNT" -eq 1 ]; then
         if [ -z "$SESSION_BRANCH" ]; then
           WHY="Only the branch of a task that targets it may open one; this branch has no task."
           WAY="  - start a task for this work${INTO:+ (its PR/MR goes into $INTO)}, or"$'\n'
-        elif [ -n "$INTO" ] && [ "$INTO" != "$CHECK" ]; then
+        elif [ -n "$NO_TARGET" ]; then
+          WHY="The task on this branch has no target branch recorded."
+          WAY="$RECORD"
+        elif [ "$INTO" != "$CHECK" ]; then
           WHY="A task opens its PR/MR into its own target branch."
           WAY="  - open it from the task's branch into $INTO, or"$'\n'
-        elif [ -z "$SESSION_TARGET" ]; then
-          WHY="The task on this branch has no target branch recorded."
-          WAY="  - write its target to the session's target-branch file, or"$'\n'
         else
           WHY="Only the branch of the task that targets it may open one."
           WAY="  - open it from the task's branch $SESSION_BRANCH, or"$'\n'
@@ -196,7 +200,9 @@ if [ "$COUNT" -eq 1 ]; then
         WHY="Landing on it bypasses review."
         { [ "$CHECK" = "$SESSION_TARGET" ] || [ "$CHECK" = "$BASE_OPTION" ]; } && \
           WHY="Tasks merge into it through a PR/MR; landing on it directly bypasses review."
-        if [ -n "$SESSION_BRANCH" ]; then
+        if [ -n "$NO_TARGET" ]; then
+          WAY="$RECORD"
+        elif [ -n "$SESSION_BRANCH" ]; then
           WAY="  - push the task's branch and open a PR/MR${INTO:+ into $INTO}, or"$'\n'
         else
           WAY="  - start a task; its branch opens the PR/MR${INTO:+ into $INTO}, or"$'\n'

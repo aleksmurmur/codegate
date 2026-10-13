@@ -131,32 +131,34 @@ def stamp(text: str) -> float | None:
     return t if 0 < t < time.time() + 86400 else None
 
 
-_AUDITS: dict[tuple, tuple[list[str] | None, float]] = {}
+def latest(lines: list[str]) -> float:
+    """The latest time among the entries; 0 when none has one. Entries are not always in
+    order (a backfilled line), so the latest, not the last."""
+    times = [stamp(m.group(1)) for m in map(AUDIT_ENTRY.match, lines) if m]
+    return max((t for t in times if t is not None), default=0.0)
 
 
-def audit(copy: Path) -> tuple[list[str] | None, float]:
-    """A copy's audit lines and the latest time among them (0 when none has one).
+_AUDITS: dict[tuple, list[str] | None] = {}
 
-    Lines are compared without blank lines and trailing spaces; a log that exists but cannot
-    be read gives None — not the same as an empty one. Read once per run and file version:
-    hooks ask about every session several times. Entries are not always in order (a
-    backfilled line), so the latest time, not the last."""
+
+def audit(copy: Path) -> list[str] | None:
+    """A copy's audit lines, without blank lines and trailing spaces; [] without a log, None
+    when it exists but cannot be read. Read once per run and file version: hooks ask about
+    every session several times."""
     f = copy / "audit.log"
     try:
         st = f.stat()
     except OSError:
-        return [], 0.0
+        return []
     key = (str(f), st.st_mtime_ns, st.st_size)
     if key not in _AUDITS:
         try:
             # Another encoding (a shell redirect on Windows) spoils a line, not the whole log.
             text = f.read_text(encoding="utf-8", errors="surrogateescape")
         except OSError:
-            _AUDITS[key] = (None, 0.0)
-            return _AUDITS[key]
-        lines = [line.rstrip() for line in text.splitlines() if line.strip()]
-        times = [stamp(m.group(1)) for m in map(AUDIT_ENTRY.match, lines) if m]
-        _AUDITS[key] = (lines, max((t for t in times if t is not None), default=0.0))
+            _AUDITS[key] = None
+            return None
+        _AUDITS[key] = [line.rstrip() for line in text.splitlines() if line.strip()]
     return _AUDITS[key]
 
 
@@ -165,15 +167,20 @@ def further(a: Path, b: Path) -> int:
 
     File dates are no measure: a checkout of tracked session files dates old content today.
     The audit log only grows, so a log that continues the other is further along, whether
-    its lines carry a time or not; logs that went apart are told by their latest time."""
-    (la, ta), (lb, tb) = audit(a), audit(b)
+    its lines carry a time or not. Logs that went apart are told by the times of the lines
+    after the shared part, and only when both sides have one."""
+    la, lb = audit(a), audit(b)
     if la is None or lb is None or la == lb:
         return 0
-    if la[:len(lb)] == lb:
+    shared = 0
+    while shared < min(len(la), len(lb)) and la[shared] == lb[shared]:
+        shared += 1
+    if shared == len(lb):
         return 1
-    if lb[:len(la)] == la:
+    if shared == len(la):
         return -1
-    return (ta > tb) - (ta < tb)
+    ta, tb = latest(la[shared:]), latest(lb[shared:])
+    return (ta > tb) - (ta < tb) if ta and tb else 0
 
 
 def newest(copies: list[Path], name: str) -> Path:
@@ -188,9 +195,33 @@ def newest(copies: list[Path], name: str) -> Path:
     return best / name
 
 
+_TRACKED: set[str] | None = None
+
+
+def checked_out(f: Path) -> bool:
+    """Whether git tracks this file: its date is then the date of a checkout, not of work."""
+    global _TRACKED
+    if _TRACKED is None:
+        _TRACKED = set((git("-C", str(toplevel()), "ls-files", "--", ".ai/sessions") or "").splitlines())
+    try:
+        return f.resolve().relative_to(toplevel().resolve()).as_posix() in _TRACKED
+    except ValueError:
+        return False
+
+
 def activity(copies: list[Path]) -> float | None:
-    """The latest audit time of any copy; the audit log's file date only when no entry has a time."""
-    return max((audit(c)[1] for c in copies), default=0.0) or mtime(newest(copies, "audit.log"))
+    """When the session was last worked on, by its audit log.
+
+    The latest entry time counts; a log whose last line carries none (a literal `[ts]`) was
+    written after it, so its file date counts too — unless git checked that file out."""
+    seen = 0.0
+    for c in copies:
+        lines = audit(c) or []
+        t = latest(lines)
+        if lines and not latest(lines[-1:]) and not checked_out(c / "audit.log"):
+            t = max(t, mtime(c / "audit.log") or 0.0)
+        seen = max(seen, t)
+    return seen or mtime(newest(copies, "audit.log"))
 
 
 def session_branch(copies: list[Path]) -> str:

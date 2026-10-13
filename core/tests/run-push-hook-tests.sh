@@ -74,6 +74,10 @@ says "no target known: no advice to repeat it"    feat/x "git push -o merge_requ
 says "no task: the way out is a task"             feat/x "git push origin main" "start a task"
 says "no task: a refused PR/MR points to a task"  feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD" "start a task"
 says "no task: no 'task's branch' for --all"      feat/x "git push --all origin" "the task's branch" absent
+mkdir -p "$REPO/.ai/sessions/s0" && echo feat/x > "$REPO/.ai/sessions/s0/branch" && echo IMPLEMENTING > "$REPO/.ai/sessions/s0/state"
+says "a task without a target: record it (PR/MR)" feat/x "gh pr create --base main --head feat/x" "target-branch file"
+says "a task without a target: record it (push)"  feat/x "git push origin HEAD:main" "target-branch file"
+rm -rf "$REPO/.ai/sessions/s0" "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)/codegate/sessions/s0"
 says "a variable branch asks for the name"        feat/x 'git push origin \"$B\"' "Write the branch name out"
 says "--all names every branch"                   feat/x "git push --all origin" "every branch"
 check "forced refspec onto main is blocked"       feat/x "git push origin +main"                 2

@@ -143,7 +143,26 @@ sleep 1
 sed '$d' "$STORE/audit.log" | sed 's/$/ /' > "$OLD/audit.log"  # older, with trailing spaces
 echo QUALITY_REVIEWED > "$OLD/state"
 is "blank lines and trailing spaces are no divergence" "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null; cat "$OLD/state")" ABANDONED
+sync_and_wait() { cg "$REPO" sync; sleep 1; }
+sync_and_wait
+echo QUALITY_REVIEWED > "$STORE/state"
+echo "[2026-01-10T10:00:00+0300] gate passed" >> "$STORE/audit.log"
+sleep 1
+echo PR_CREATED > "$OLD/state"
+echo "[ts] PR created" >> "$OLD/audit.log"
+is "logs gone apart, one side untimed: the file date" "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null; cat "$OLD/state")" PR_CREATED
 rm -rf "$OLD" "$STORE"
+
+NEW="$REPO/.ai/sessions/20260102-100000-new"
+mkdir -p "$NEW"
+echo feature/N-8-n > "$NEW/branch"
+printf '[2026-01-02T10:00:00] Session started\n[ts] commit: abc\n' > "$NEW/audit.log"
+is "untimed lines after an old one: the file date"   "$(seen 20260102-100000-new | cut -c1-10)" "$(date +%Y-%m-%d)"
+g checkout -q -b scratch/tracked-session
+g add -f "$NEW/audit.log" && g commit -q -m "a tracked session"
+is "but not when git wrote that file"                "$(seen 20260102-100000-new)" "2026-01-02 10:00"
+g checkout -q main && g branch -q -D scratch/tracked-session
+rm -rf "$NEW"
 
 echo ""
 echo "-- facts about the checkout --"
