@@ -108,6 +108,7 @@ default_branch() {
 
 # --- Collect the landings: protected ones for gate 1, deliveries of the task's branch for gate 2 ---
 PROTECTED=""
+PR_PROTECTED=""
 OWN_TIPS=""
 OWN=""
 ALL_REFS_OWN=1
@@ -145,7 +146,7 @@ while read -r kind a b; do
       ;;
     *) continue ;;
   esac
-  protected_pr "$t" && PROTECTED="$PROTECTED $t"
+  protected_pr "$t" && PROTECTED="$PROTECTED $t" && PR_PROTECTED="$PR_PROTECTED $t"
 done <<< "$LANDINGS"
 
 # --- Gate 1: protected landings ---
@@ -157,23 +158,29 @@ if [ "$COUNT" -gt 1 ]; then
 fi
 if [ "$COUNT" -eq 1 ]; then
   CHECK=$(echo $PROTECTED)
-  NAME="'$CHECK'"
-  WHY=""
-  { [ "$CHECK" = "$SESSION_TARGET" ] || [ "$CHECK" = "$BASE_OPTION" ]; } && WHY=" Tasks merge into it through a PR/MR."
-  [ "$CHECK" = "@unknown" ] && NAME="a branch named by a variable" && WHY=" Write the branch name out."
-  [ "$CHECK" = "@all" ] && NAME="every branch (--all / --mirror)"
+  INTO="${SESSION_TARGET:-${BASE_OPTION:-the base branch}}"
   if [ -f .ai/protected-target-allowed ]; then
     CONSUME=".ai/protected-target-allowed"
+  elif [ "$CHECK" = "@unknown" ]; then
+    echo "Blocked: the branch is named by a variable, so it cannot be checked. Write the branch name out and re-run." >&2
+    exit 2
   else
-    cat >&2 <<EOF
-Blocked: the target is $NAME, a protected branch.$WHY
-
-Landing on a protected branch bypasses review. Either:
-  - push a task branch and open a PR/MR into ${BASE_OPTION:-the base branch}, or
-  - if you really mean to land on $NAME, approve once:
-      touch $ROOT/.ai/protected-target-allowed
-    then re-run the command. The marker is one-shot.
-EOF
+    case " $PR_PROTECTED " in
+      *" $CHECK "*)
+        WHAT="a PR/MR into '$CHECK', a protected branch."
+        WAY=""
+        [ "$INTO" != "$CHECK" ] && WAY="  - open it from the task's branch into $INTO, or"$'\n' ;;
+      *)
+        WHAT="a direct push to '$CHECK', a protected branch."
+        { [ "$CHECK" = "$SESSION_TARGET" ] || [ "$CHECK" = "$BASE_OPTION" ]; } && WHAT="$WHAT Tasks merge into it through a PR/MR."
+        WAY="  - push the task's branch and open a PR/MR into $INTO, or"$'\n' ;;
+    esac
+    if [ "$CHECK" = "@all" ]; then
+      WHAT="a push of every branch (--all / --mirror), protected ones among them."
+      WAY="  - push the task's branch only, or"$'\n'
+    fi
+    printf 'Blocked: %s\n\nLanding on a protected branch bypasses review.\n%s  - if you really mean it, approve once:\n      touch %s/.ai/protected-target-allowed\n    then re-run the command. The marker is one-shot.\n' \
+      "$WHAT" "$WAY" "$ROOT" >&2
     exit 2
   fi
 fi

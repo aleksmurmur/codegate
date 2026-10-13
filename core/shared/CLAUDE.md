@@ -48,7 +48,9 @@ names the skill to load.
 
 States (`{dir}/state`): `IDLE → ELICITED → PLAN_APPROVED → IMPLEMENTING → QUALITY_REVIEWED →
 PR_CREATED → (REWORK → PR_UPDATED)* → MERGED`; `ABANDONED` for a task closed as no longer
-relevant. Log every transition to `{dir}/audit.log` with a timestamp.
+relevant. Log every transition to `{dir}/audit.log` with a timestamp: `[ts]` is
+`date -Iseconds` (`[2026-01-31T14:05:00+03:00]`) — which copy of a session is newer is read
+from it.
 
 ## Session mode
 

@@ -46,7 +46,9 @@ awk '
 Read `$TMPDIR/core/options.yml`. Every option whose `key` is not in `$WORK/options`
 was added to codegate after this project's last install or update. Ask those (and
 only those) exactly as install does: propose the value its `default:` describes, ask
-all of them in one message. A `key=value` in `$ARGUMENTS` answers or **changes** an
+all of them in one message. For `pr_command`, read the project's CLAUDE.md: the PR creator
+is a sub-agent and never sees it, so a rule there on how a PR/MR is created (flags, push
+options) is the value to propose. A `key=value` in `$ARGUMENTS` answers or **changes** an
 option without asking, including one already recorded — that is how a user switches a
 setting later. Append new answers to `$WORK/options`; replace the row for a changed key.
 Rows for keys no longer in `options.yml` are dropped.
@@ -360,9 +362,7 @@ phase is now `.claude/skills/cg-phase-N/SKILL.md`.
   the matching skill file in `$STAGING` (it then shows as a local modification in the
   manifest) and list each one to the user: "kept your change to Phase N in cg-phase-N".
 - Project rules that are not about a phase (git hosting, PR/MR rules, domain notes) stay in the
-  project's part of CLAUDE.md. The PR creator is a sub-agent and does not read them: when they
-  prescribe how a PR/MR is created (flags, push options), propose that as the option
-  `pr_command`.
+  project's part of CLAUDE.md.
 
 **Sessions bound to branches** — upstream has `.claude/scripts/cg_session.py` and baseline
 did not. After the files are in place:

@@ -117,18 +117,24 @@ def session_dirs() -> dict[str, list[Path]]:
     return found
 
 
-def last_entry(audit: Path) -> float:
-    """When the audit log's last entry was written; 0 when it has none.
+def stamp(text: str) -> float | None:
+    """An ISO time as `date -Iseconds` and its relatives write it; None when it is not one."""
+    s = re.sub(r"Z$", "+00:00", text.strip())
+    s = re.sub(r"([+-]\d\d)(\d\d)$", r"\1:\2", s)  # +0300: fromisoformat before 3.11 wants +03:00
+    s = re.sub(r"\.(\d+)", lambda m: "." + (m.group(1) + "000000")[:6], s)
+    try:
+        return datetime.fromisoformat(s).timestamp()
+    except ValueError:
+        return None
 
-    File dates are no measure: a checkout of tracked session files dates old content today."""
-    for line in reversed(read(audit).splitlines()):
-        m = AUDIT_ENTRY.match(line)
-        if m:
-            try:
-                return datetime.fromisoformat(m.group(1).replace("Z", "+00:00")).timestamp()
-            except ValueError:
-                continue
-    return 0.0
+
+def last_entry(audit: Path) -> float:
+    """The latest time among the audit log's entries; 0 when none has one.
+
+    File dates are no measure: a checkout of tracked session files dates old content today.
+    Entries are not always in order (a backfilled line), so the latest, not the last."""
+    times = [stamp(m.group(1)) for m in map(AUDIT_ENTRY.match, read(audit).splitlines()) if m]
+    return max((t for t in times if t is not None), default=0.0)
 
 
 def newest(copies: list[Path], name: str) -> Path:
@@ -178,13 +184,15 @@ def current(branch: str | None = None) -> str | None:
 
 
 def merge(src: Path, dst: Path) -> None:
-    # A copy whose audit log ends earlier is behind, however fresh its file dates: it only fills gaps.
-    behind = last_entry(src / "audit.log") < last_entry(dst / "audit.log")
+    # The copy whose audit log reaches later wins whatever the file dates say; a copy behind it
+    # only fills gaps. File dates decide only between copies equally far along.
+    ahead = last_entry(src / "audit.log") - last_entry(dst / "audit.log")
     for f in src.rglob("*"):
         if not f.is_file():
             continue
         target = dst / f.relative_to(src)
-        if not target.exists() or (not behind and f.stat().st_mtime > target.stat().st_mtime + 0.001):
+        if not target.exists() or ahead > 0 or (
+                ahead == 0 and f.stat().st_mtime > target.stat().st_mtime + 0.001):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(f, target)
 

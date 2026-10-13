@@ -35,10 +35,14 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
    **The project's command** — `.claude/scripts/cg-option.sh pr_command ""` prints it when
    the project set one; it then replaces every path below. Fill `{branch}`, `{target}`,
    `{title}` and `{description_file}` (`.ai/sessions/{id}/pr-description.md`) with literal
-   values and run it; when it has no `git push`, run `git push -u origin {branch}` first.
-   The URL is in its output. Without `{description_file}` it carries no description: tell
-   the user and give them the file to paste. If it fails, report the error and stop — do not
-   fall back to another path.
+   values — the title single-quoted, any `'` in it written `'\''` — and run it; when it has
+   no `git push`, run `git push -u origin {branch}` first. The URL is in its output.
+   - No `{target}` in it: the command names its own target. If that is not `TARGET`, stop and
+     ask the user — never send the PR/MR elsewhere.
+   - No `{description_file}`: it carries no description; tell the user and give them the file
+     to paste.
+   - It fails: report the error and do not fall back to another path. If the push went
+     through, finish with `PR_URL: none` and the manual URL below for the host.
 
    **GitLab** (`gitlab.com` or a self-hosted GitLab in the URL) — two working paths, so a
    machine without `glab` still gets an MR:

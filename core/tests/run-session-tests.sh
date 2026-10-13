@@ -114,6 +114,10 @@ printf '[2026-01-01T09:00:00] Session started\n[2026-01-01T10:00:00] commit: abc
 is "an older copy with fresh dates is not read"      "$(cg "$REPO" list --json | "$PY" -c "import json,sys; print([r['state'] for r in json.load(sys.stdin) if r['id']=='20260101-100000-old'][0])")" PR_CREATED
 cg "$REPO" sync
 is "nor does sync write it over the newer one"       "$(cat "$STORE/state")" PR_CREATED
+is "the checkout gets the newer copy back"           "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null; cat "$OLD/state")" PR_CREATED
+printf '[2026-01-05T10:00:00+0300] late\n[2026-01-04T10:00:00Z] backfilled\n' >> "$OLD/audit.log"
+WANT=$("$PY" -c "import datetime as d; print(d.datetime(2026,1,5,7,0,tzinfo=d.timezone.utc).astimezone().strftime('%Y-%m-%d %H:%M'))")
+is "the latest entry, not the last line, any offset form" "$(seen 20260101-100000-old)" "$WANT"
 rm -rf "$OLD" "$STORE"
 
 echo ""
