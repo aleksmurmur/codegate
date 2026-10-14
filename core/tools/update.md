@@ -46,7 +46,10 @@ awk '
 Read `$TMPDIR/core/options.yml`. Every option whose `key` is not in `$WORK/options`
 was added to codegate after this project's last install or update. Ask those (and
 only those) exactly as install does: propose the value its `default:` describes, ask
-all of them in one message. A `key=value` in `$ARGUMENTS` answers or **changes** an
+all of them in one message. For `pr_command`, read the project's CLAUDE.md and CONTRIBUTING: the
+PR creator follows its own prompt, which knows no project rule, so a rule there on how a
+PR/MR is created (flags, push options) is what to propose — rewritten with the placeholders
+`options.yml` lists for it. A `key=value` in `$ARGUMENTS` answers or **changes** an
 option without asking, including one already recorded — that is how a user switches a
 setting later. Append new answers to `$WORK/options`; replace the row for a changed key.
 Rows for keys no longer in `options.yml` are dropped.
@@ -365,11 +368,13 @@ phase is now `.claude/skills/cg-phase-N/SKILL.md`.
 **Sessions bound to branches** — upstream has `.claude/scripts/cg_session.py` and baseline
 did not. After the files are in place:
 - `python3 .claude/scripts/cg_session.py sync` — copies the existing sessions into the shared
-  store in the git directory.
+  store in the git directory (`<git-common-dir>/codegate/sessions`). Run in a worktree, that is
+  inside the main checkout's `.git`, another folder: say where it wrote.
 - Bind the session `.ai/current-session` points at, if it is not closed: its branch is the
   `Branch <name> from` line of its audit log; without one, ask the user which branch it
-  belongs to. Write it to the session's `branch` file, then delete `.ai/current-session` —
-  a session naming no branch would otherwise count as the task of every branch.
+  belongs to. Write it to the session's `branch` file. Then delete `.ai/current-session`,
+  for a closed session too — a session naming no branch would otherwise count as the task
+  of every branch.
 - Every session past its gate (`QUALITY_REVIEWED`, `PR_CREATED`, `PR_UPDATED` in
   `python3 .claude/scripts/cg_session.py list`) and without `checked-sha` — not only the one
   the pointer named: the push gate would now hold back every push of it. Write the commit its PR/MR

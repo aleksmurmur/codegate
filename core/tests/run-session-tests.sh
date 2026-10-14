@@ -94,6 +94,73 @@ is "a stale local copy does not win over a newer one" "$(cg "$REPO" list | grep 
 g worktree remove --force "$WT2"
 
 echo ""
+echo "-- activity is read from the audit log, not from file dates --"
+# A checkout of tracked session files writes old content with today's date.
+OLD="$REPO/.ai/sessions/20260101-100000-old"
+mkdir -p "$OLD"
+echo feature/O-9-o > "$OLD/branch"
+echo IMPLEMENTING > "$OLD/state"
+printf '[2026-01-01T09:00:00] Session started\n[2026-01-01T10:00:00] commit: abc\n' > "$OLD/audit.log"
+seen() { cg "$REPO" list --json | "$PY" -c "import json,sys; print([r['last_activity'] for r in json.load(sys.stdin) if r['id']=='$1'][0])"; }
+is "a freshly written old session: its last entry"   "$(seen 20260101-100000-old)" "2026-01-01 10:00"
+cg "$REPO" sync
+STORE="$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)/codegate/sessions/20260101-100000-old"
+sleep 1
+echo PR_CREATED > "$STORE/state"
+echo "[2026-01-02T10:00:00] PR created" >> "$STORE/audit.log"
+sleep 1
+echo IMPLEMENTING > "$OLD/state"
+printf '[2026-01-01T09:00:00] Session started\n[2026-01-01T10:00:00] commit: abc\n' > "$OLD/audit.log"
+is "an older copy with fresh dates is not read"      "$(cg "$REPO" list --json | "$PY" -c "import json,sys; print([r['state'] for r in json.load(sys.stdin) if r['id']=='20260101-100000-old'][0])")" PR_CREATED
+cg "$REPO" sync
+is "nor does sync write it over the newer one"       "$(cat "$STORE/state")" PR_CREATED
+is "the checkout gets the newer copy back"           "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null; cat "$OLD/state")" PR_CREATED
+printf '[2026-01-05T10:00:00+0300] late\n[2026-01-04T10:00:00Z] backfilled\n' >> "$OLD/audit.log"
+WANT=$("$PY" -c "import datetime as d; print(d.datetime(2026,1,5,7,0,tzinfo=d.timezone.utc).astimezone().strftime('%Y-%m-%d %H:%M'))")
+is "the latest entry, not the last line, any offset form" "$(seen 20260101-100000-old)" "$WANT"
+cg "$REPO" sync
+sleep 1
+echo MERGED > "$STORE/state"
+echo "[ts] merged" >> "$STORE/audit.log"
+sleep 1
+sed '$d' "$STORE/audit.log" > "$OLD/audit.log"  # a checkout writes the log as it was before
+echo PR_CREATED > "$OLD/state"
+is "a log that continues the other wins without times" "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null; cat "$OLD/state")" MERGED
+printf '[1970-01-01T00:00:00] odd\n[0001-01-01T00:00:00] odder\n' >> "$OLD/audit.log"
+is "an odd time does not break the script"           "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null && echo ok)" ok
+printf '[1970-01-01T00:00:00+0300] typo\n[3026-01-01T00:00:00+0300] typo\n' >> "$OLD/audit.log"
+is "nor a typo'd year with an offset in the listing" "$(cg "$REPO" list >/dev/null && echo ok)" ok
+cg "$REPO" sync
+sleep 1
+echo QUALITY_REVIEWED > "$OLD/state"
+printf '[ts] gate \xe3\xee\xf2\xee\xe2\n' >> "$OLD/audit.log"  # a line in another encoding
+is "a line in another encoding keeps the newer copy" "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null; cat "$OLD/state")" QUALITY_REVIEWED
+cg "$REPO" sync
+sleep 1
+echo ABANDONED > "$STORE/state"
+printf '\n[ts] abandoned\n' >> "$STORE/audit.log"
+sleep 1
+sed '$d' "$STORE/audit.log" | sed 's/$/ /' > "$OLD/audit.log"  # older, with trailing spaces
+echo QUALITY_REVIEWED > "$OLD/state"
+is "blank lines and trailing spaces are no divergence" "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null; cat "$OLD/state")" ABANDONED
+sync_and_wait() { cg "$REPO" sync; sleep 1; }
+sync_and_wait
+echo QUALITY_REVIEWED > "$STORE/state"
+echo "[2026-01-10T10:00:00+0300] gate passed" >> "$STORE/audit.log"
+sleep 1
+echo PR_CREATED > "$OLD/state"
+echo "[ts] PR created" >> "$OLD/audit.log"
+is "logs gone apart, one side untimed: the file date" "$(cg "$REPO" dir --branch feature/O-9-o >/dev/null; cat "$OLD/state")" PR_CREATED
+rm -rf "$OLD" "$STORE"
+
+NEW="$REPO/.ai/sessions/20260102-100000-new"
+mkdir -p "$NEW"
+echo feature/N-8-n > "$NEW/branch"
+printf '[ts] Session started\n[ts] commit: abc\n' > "$NEW/audit.log"
+is "a log without any time: its file date"           "$(seen 20260102-100000-new | cut -c1-10)" "$(date +%Y-%m-%d)"
+rm -rf "$NEW"
+
+echo ""
 echo "-- facts about the checkout --"
 is "on the base branch"                              "$(fact "$REPO" status)" base
 g checkout -q feature/B-2-b

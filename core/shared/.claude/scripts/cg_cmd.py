@@ -293,44 +293,95 @@ def known(value: str) -> str:
     return "HEAD" if not value or unexpanded(value) else value
 
 
+# git push's long options; those in PUSH_VALUED take the next word as their value.
+PUSH_VALUED = {"repo", "recurse-submodules", "receive-pack", "exec", "push-option"}
+PUSH_FLAGS = {"verbose", "quiet", "all", "branches", "mirror", "delete", "tags", "dry-run",
+              "porcelain", "force", "force-with-lease", "force-if-includes", "thin", "set-upstream",
+              "progress", "prune", "verify", "follow-tags", "signed", "atomic", "ipv4", "ipv6"}
+PUSH_LONG = PUSH_VALUED | PUSH_FLAGS | {"no-" + o for o in PUSH_VALUED | PUSH_FLAGS}
+PUSH_SHORT_FLAGS = set("vqdnfu46")
+
+
+def long_option(word: str) -> str | None:
+    """The option a `--word` means: git accepts any unambiguous prefix. None when unknown."""
+    name = word[2:].split("=", 1)[0]
+    if name in PUSH_LONG:
+        return name
+    hits = [o for o in PUSH_LONG if o.startswith(name)]
+    return hits[0] if len(hits) == 1 else None
+
+
 def push_lines(args: list[str]) -> list[str]:
     positional: list[str] = []
     options: list[str] = []
-    repo_given = every_branch = tags_only = False
+    repo_given = deleting = unsure = False
+    switches: set[str] = set()  # --all (alias --branches), --mirror, --tags as git leaves them
     i = 0
     while i < len(args):
         w = args[i]
-        if w in ("-o", "--push-option") and i + 1 < len(args):
-            options.append(args[i + 1])
-            i += 1
-        elif w.startswith("--push-option="):
-            options.append(w.split("=", 1)[1])
-        elif w.startswith("-o") and len(w) > 2:
-            options.append(w[2:])
-        elif w == "--repo" and i + 1 < len(args):
-            repo_given = True
-            i += 1
-        elif w.startswith("--repo="):
-            repo_given = True
-        elif w in ("--all", "--mirror", "--branches"):
-            every_branch = True
-        elif w == "--tags":
-            tags_only = True
-        elif w in ("--receive-pack", "--exec") and i + 1 < len(args):
-            i += 1
-        elif not w.startswith("-"):
+        value = None
+        if w == "--":
+            positional.extend(args[i + 1:])  # after it every word is a remote or a refspec
+            break
+        if w.startswith("--"):
+            opt = long_option(w)
+            if opt is None:
+                unsure = True  # an option it cannot read may change what the rest means
+            elif opt in PUSH_VALUED:
+                if "=" in w:
+                    value = w.split("=", 1)[1]
+                elif i + 1 < len(args):
+                    i += 1
+                    value = args[i]
+            # git reads options in order: a later --no-X cancels an earlier --X.
+            deleting = {"delete": True, "no-delete": False}.get(opt, deleting)
+            opt = {"branches": "all", "no-branches": "no-all"}.get(opt, opt)  # an alias in git
+            if opt in ("all", "mirror", "tags"):
+                switches.add(opt)
+            elif opt in ("no-all", "no-mirror", "no-tags"):
+                switches.discard(opt[3:])
+            repo_given = repo_given or opt == "repo"
+            if opt == "push-option" and value is not None:
+                options.append(value)
+            elif opt == "no-push-option":
+                options.clear()
+        elif w.startswith("-") and len(w) > 1:
+            for k, c in enumerate(w[1:], 1):
+                if c == "o":  # -o takes the rest of the word, or the next one
+                    if k + 1 < len(w):
+                        options.append(w[k + 1:])
+                    elif i + 1 < len(args):
+                        i += 1
+                        options.append(args[i])
+                    break
+                if c == "d":
+                    deleting = True
+                elif c not in PUSH_SHORT_FLAGS:
+                    unsure = True
+        else:
             positional.append(w)
         i += 1
+    # A deletion is believed only when the whole command could be read.
+    deleting = deleting and not unsure
+    every_branch = bool(switches & {"all", "mirror"})
+    tags_only = "tags" in switches
     refspecs = positional if repo_given else positional[1:]
     lines = []
     if every_branch:
         lines.append("ref @all HEAD")
     # Every refspec, not just the last: `git push origin a:main b:x` lands on main too.
     for ref in refspecs:
+        # ":" pushes every matching branch, "*" a pattern of them: as many branches as --all.
+        if ref.lstrip("+") == ":" or "*" in ref:
+            lines.append("ref @all HEAD")
+            continue
         src, dst = ref.rsplit(":", 1) if ":" in ref else (ref, ref)
         dst = branch(dst)
         dst = "@unknown" if unexpanded(dst) else (dst or "HEAD")
-        lines.append(f"ref {dst} {known(src.lstrip('+')) if src else '-'}")
+        src = src.lstrip("+")
+        # "-" marks a deletion; a ref literally named so counts as a delivery of HEAD.
+        src = "-" if deleting or not src else known("refs/heads/-" if src == "-" else src)
+        lines.append(f"ref {dst} {src}")
     if not refspecs and not every_branch and not tags_only:
         lines.append("ref HEAD HEAD")
     mr = [o.split("=", 1)[1] for o in options if o.startswith("merge_request.target=")]

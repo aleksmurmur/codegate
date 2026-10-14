@@ -9,7 +9,8 @@ fall back to the old pointer `.ai/current-session`.
 
 The agent writes a session inside its own checkout (`.ai/sessions/<id>/`). A copy lives in
 the repository's common git dir (`<git-common-dir>/codegate/sessions/<id>/`): shared by every
-worktree, kept when a worktree is removed. The two are merged file by file, newer wins.
+worktree, kept when a worktree is removed. The two are merged: the copy whose audit log is
+further along wins (the log only grows); between copies equally far along, the newer file.
 
 Usage:
   cg_session.py current          the session id for this checkout; exit 1 if there is none
@@ -22,6 +23,7 @@ Usage:
                                  with its target branch (the remote one unless the local is ahead)
   cg_session.py target-ref [--branch B]
                                  that target branch as a ref (see `base`); exit 1 when there is none
+  cg_session.py current-branch   the checked-out branch; during a rebase, the one being rebased
   cg_session.py branch           the branch this checkout's session is bound to; exit 1 when none
   cg_session.py checked          exit 0 when checked-sha covers HEAD: nothing but `.ai/` and
                                  merges of the target branch changed since it
@@ -39,6 +41,7 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 # A chat that touched this checkout within this window is treated as still working in it.
@@ -48,6 +51,7 @@ STALE_DAYS = int(os.environ.get("CG_STALE_DAYS", "7"))
 
 AFTER_PR = ("PR_CREATED", "REWORK", "PR_UPDATED", "MERGED")
 BRANCH_IN_AUDIT = re.compile(r"\] Branch (\S+) from ")
+AUDIT_ENTRY = re.compile(r"^\[([^\]]+)\]")
 
 
 def git(*args: str) -> str | None:
@@ -115,11 +119,91 @@ def session_dirs() -> dict[str, list[Path]]:
     return found
 
 
+def stamp(text: str) -> float | None:
+    """An ISO time as `date +%Y-%m-%dT%H:%M:%S%z` and its relatives write it; None when it is not one."""
+    s = re.sub(r"Z$", "+00:00", text.strip())
+    s = re.sub(r"([+-]\d\d)(\d\d)$", r"\1:\2", s)  # +0300: fromisoformat before 3.11 wants +03:00
+    s = re.sub(r"\.(\d+)", lambda m: "." + (m.group(1) + "000000")[:6], s)
+    try:
+        t = datetime.fromisoformat(s).timestamp()
+    except (ValueError, OverflowError, OSError):  # OSError: Windows refuses times before 1970
+        return None
+    # A typo'd year must neither win every comparison nor break time.localtime() later.
+    return t if 0 < t < time.time() + 86400 else None
+
+
+def latest(lines: list[str]) -> float:
+    """The latest time among the entries; 0 when none has one. Entries are not always in
+    order (a backfilled line), so the latest, not the last."""
+    times = [stamp(m.group(1)) for m in map(AUDIT_ENTRY.match, lines) if m]
+    return max((t for t in times if t is not None), default=0.0)
+
+
+_AUDITS: dict[tuple, list[str] | None] = {}
+
+
+def audit(copy: Path) -> list[str] | None:
+    """A copy's audit lines, without blank lines and trailing spaces; [] without a log, None
+    when it exists but cannot be read. Read once per run and file version: hooks ask about
+    every session several times."""
+    f = copy / "audit.log"
+    try:
+        st = f.stat()
+    except OSError:
+        return []
+    key = (str(f), st.st_mtime_ns, st.st_size)
+    if key not in _AUDITS:
+        try:
+            # Another encoding (a shell redirect on Windows) spoils a line, not the whole log.
+            text = f.read_text(encoding="utf-8", errors="surrogateescape")
+        except OSError:
+            _AUDITS[key] = None
+            return None
+        _AUDITS[key] = [line.rstrip() for line in text.splitlines() if line.strip()]
+    return _AUDITS[key]
+
+
+def further(a: Path, b: Path) -> int:
+    """1 when copy a is further along than copy b, -1 when behind, 0 when it cannot be told.
+
+    File dates are no measure: a checkout of tracked session files dates old content today.
+    The audit log only grows, so a log that continues the other is further along, whether
+    its lines carry a time or not. Logs that went apart are told by the times of the lines
+    after the shared part, and only when both sides have one."""
+    la, lb = audit(a), audit(b)
+    if la is None or lb is None or la == lb:
+        return 0
+    shared = 0
+    while shared < min(len(la), len(lb)) and la[shared] == lb[shared]:
+        shared += 1
+    if shared == len(lb):
+        return 1
+    if shared == len(la):
+        return -1
+    ta, tb = latest(la[shared:]), latest(lb[shared:])
+    return (ta > tb) - (ta < tb) if ta and tb else 0
+
+
 def newest(copies: list[Path], name: str) -> Path:
     present = [c for c in copies if (c / name).exists()]
     if not present:
         return copies[0] / name
-    return max(present, key=lambda c: (c / name).stat().st_mtime) / name
+    best = present[0]
+    for c in present[1:]:
+        order = further(c, best)
+        if order > 0 or (order == 0 and (c / name).stat().st_mtime > (best / name).stat().st_mtime):
+            best = c
+    return best / name
+
+
+def activity(copies: list[Path]) -> float | None:
+    """When the session was last worked on: the latest entry time of any copy's audit log.
+
+    File dates are no measure (a checkout dates old content today); the file date is used
+    only for a log with no timed entry at all. Lines without a time (a literal `[ts]` from
+    before the format was fixed) can make a session look older than it is — the cost is
+    being offered to close it, which the user declines."""
+    return max((latest(audit(c) or []) for c in copies), default=0.0) or mtime(newest(copies, "audit.log"))
 
 
 def session_branch(copies: list[Path]) -> str:
@@ -157,11 +241,14 @@ def current(branch: str | None = None) -> str | None:
 
 
 def merge(src: Path, dst: Path) -> None:
+    # A copy further along wins whatever the file dates say; one behind only fills gaps.
+    order = further(src, dst)
     for f in src.rglob("*"):
         if not f.is_file():
             continue
         target = dst / f.relative_to(src)
-        if not target.exists() or f.stat().st_mtime > target.stat().st_mtime + 0.001:
+        if not target.exists() or order > 0 or (
+                order == 0 and f.stat().st_mtime > target.stat().st_mtime + 0.001):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(f, target)
 
@@ -212,7 +299,7 @@ def listing() -> list[dict]:
     rows = []
     for sid, copies in sorted(session_dirs().items()):
         branch = session_branch(copies)
-        seen = mtime(newest(copies, "audit.log"))
+        seen = activity(copies)
         rows.append({
             "id": sid,
             "branch": branch,
@@ -320,8 +407,9 @@ def facts() -> dict:
     merged = contained and ahead == 0 and (state in AFTER_PR or committed)
 
     times = []
-    if copies and mtime(newest(copies, "audit.log")):
-        times.append(mtime(newest(copies, "audit.log")))
+    seen = activity(copies) if copies else None
+    if seen:
+        times.append(seen)
     if ahead:
         last_commit = git("log", "-1", "--format=%ct")
         if last_commit:
@@ -399,6 +487,11 @@ def main(argv: list[str]) -> int:
         if ref:
             print(ref)
         return 0 if ref else 1
+    if cmd == "current-branch":
+        b = current_branch()
+        if b:
+            print(b)
+        return 0 if b else 1
     if cmd == "branch":
         sid = current(argv[argv.index("--branch") + 1] if "--branch" in argv[:-1] else None)
         b = session_branch(session_dirs()[sid]) if sid else ""

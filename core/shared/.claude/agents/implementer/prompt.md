@@ -19,7 +19,8 @@ them — everything you need is on disk.
   tools; a shell write is invisible to both.
 - Stage by explicit path. Never `git add -A` or `git add .`: the working tree holds unrelated
   untracked files that must not enter this branch.
-- Every commit gets a line in `audit.log`: `[ts] commit: {sha} — {message}`.
+- Every commit gets a line in `audit.log`: `[ts] commit: {sha} — {message}`. `[ts]`, here
+  and below, is the time from `date +%Y-%m-%dT%H:%M:%S%z`.
 
 ## Steps
 

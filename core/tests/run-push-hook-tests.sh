@@ -20,7 +20,7 @@ FAIL=0
 [ -f "$HOOK" ] || { echo "ERROR: pre-push.sh not found at $HOOK"; exit 2; }
 
 REPO=$(mktemp -d)
-trap 'rm -rf "$REPO"' EXIT
+trap 'rm -rf "$REPO" ${BROKEN:+"$BROKEN"}' EXIT
 git -C "$REPO" init -q -b main
 git -C "$REPO" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
 
@@ -42,17 +42,94 @@ check "feature branch, plain push"                feat/x "git push -u origin fea
 check "explicit push to main is blocked"          feat/x "git push origin main"       2
 check "refspec onto main is blocked"              feat/x "git push origin HEAD:main"  2
 check "HEAD from main is blocked"                 main   "git push origin HEAD"       2
+# The interpreter itself, not a wrapper script that would find the stub again on PATH.
+REAL_PY=$(python3 -c "import sys; print(sys.executable)" 2>/dev/null || python -c "import sys; print(sys.executable)")
+REAL_PY=$(printf '%s' "$REAL_PY" | tr -d '\r')
+BROKEN=$(mktemp -d)
+{ echo '#!/bin/sh'; echo 'case "$*" in *current-branch*) exit 1 ;; esac'; echo "exec \"$REAL_PY\" \"\$@\""; } > "$BROKEN/python3"
+cp "$BROKEN/python3" "$BROKEN/python" && chmod +x "$BROKEN/python3" "$BROKEN/python"
+PATH="$BROKEN:$PATH" check "...also when the branch helper fails" main "git push origin HEAD" 2
+rm -rf "$BROKEN"
 check "HEAD from a feature branch passes"         feat/x "git push origin HEAD"       0
 check "MR push options from a feature branch"     feat/x "git push -u -o merge_request.create -o merge_request.target=dev -o merge_request.remove_source_branch origin HEAD" 0
 check "MR push options from main are blocked"     main   "git push -o merge_request.create -o merge_request.target=dev origin HEAD" 2
 check "--push-option value is not a refspec"      feat/x "git push --push-option merge_request.remove_source_branch origin feat/x" 0
 check "MR into main via push options is blocked"  feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD" 2
+check "...also via a shortened --push"            feat/x "git push --push merge_request.create --push merge_request.target=main origin HEAD" 2
+check "--no-push-option drops the target before"  feat/x "git push -o merge_request.target=dev --no-push-option -o merge_request.create origin HEAD" 2
 check "MR into master via --push-option= blocked" feat/x "git push --push-option=merge_request.target=master origin HEAD" 2
 check "MR into dev via push options passes"       feat/x "git push -o merge_request.create -o merge_request.target=dev origin HEAD" 0
 check "quoted title with spaces is one value"     feat/x "git push -o merge_request.create -o merge_request.target=dev -o merge_request.title=\\\"Fix the main page\\\" origin HEAD" 0
 check "quoted title does not hide HEAD on main"   main   "git push -o merge_request.title=\\\"two words\\\" origin HEAD" 2
 
 check "full ref onto main is blocked"             feat/x "git push origin HEAD:refs/heads/main"  2
+
+# says <name> <branch> <command> <text> [absent] — what the block message says (or must not)
+says() {
+    local out
+    git -C "$REPO" checkout -q -B "$2"
+    rm -f "$REPO/.ai/protected-target-allowed"
+    out=$(printf '{"tool_input":{"command":"%s"}}' "$3" | ( cd "$REPO" && bash "$HOOK" 2>&1 >/dev/null ))
+    case "$out" in *"$4"*) found=1 ;; *) found=0 ;; esac
+    if [ "$found" = "$([ -n "${5:-}" ] && echo 0 || echo 1)" ]; then
+        echo "PASS  $1"; PASS=$((PASS + 1))
+    else
+        echo "FAIL  $1  (message: $out)"; FAIL=$((FAIL + 1))
+    fi
+}
+says "a direct push is called one"                feat/x "git push origin main" "a direct push to 'main'"
+says "a PR/MR is called one"                      feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD" "a PR/MR into 'main'"
+says "a PR/MR that also pushes main is a push"    feat/x "git push -o merge_request.create -o merge_request.target=main origin main" "a direct push to 'main'"
+says "no target known: no advice to repeat it"    feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD" "open it from" absent
+says "no task: the way out is a task"             feat/x "git push origin main" "start a task"
+says "no task: a refused PR/MR points to a task"  feat/x "git push -o merge_request.create -o merge_request.target=main origin HEAD" "start a task"
+says "no task: no 'task's branch' for --all"      feat/x "git push --all origin" "the task's branch" absent
+mkdir -p "$REPO/.ai/sessions/s0" && echo feat/x > "$REPO/.ai/sessions/s0/branch" && echo IMPLEMENTING > "$REPO/.ai/sessions/s0/state"
+says "a task without a target: record it (PR/MR)" feat/x "gh pr create --base main --head feat/x" "s0/target-branch"
+says "a task without a target: record it (push)"  feat/x "git push origin HEAD:main" "s0/target-branch"
+says "another branch's PR/MR: not this task's target" feat/z "gh pr create --base main --head feat/w" "s0/target-branch" absent
+mkdir -p "$REPO/.ai/sessions/s7" && echo feat/z > "$REPO/.ai/sessions/s7/branch" && echo IMPLEMENTING > "$REPO/.ai/sessions/s7/state"
+says "...nor told to open it 'into' nothing"      feat/z "gh pr create --base main --head feat/w" "into ," absent
+says "...but from the task's branch"              feat/z "gh pr create --base main --head feat/w" "from the task's branch feat/z"
+says "...and not asked for its target"            feat/z "gh pr create --base main --head feat/w" "s7/target-branch" absent
+rm -rf "$REPO/.ai/sessions/s7" "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)/codegate/sessions/s7"
+echo MERGED > "$REPO/.ai/sessions/s0/state"
+says "a closed task is not told to record a target" feat/x "gh pr create --base main --head feat/x" "start a task"
+echo main > "$REPO/.ai/sessions/s0/target-branch"
+check "a closed task's branch opens no PR/MR"     feat/x "gh pr create --base main --head feat/x" 2
+check "...nor is pushed"                          feat/x "git push origin feat/x" 2
+check "...but is deleted after the merge"         main   "git push origin --delete feat/x" 0
+check "...also with -d"                           main   "git push -d origin feat/x" 0
+check "a later --no-delete cancels -d"            feat/x "git push -d --no-delete origin feat/x" 2
+check "-d as a shortened option's value"          feat/x "git push --push -d origin feat/x" 2
+check "-d after -- is a branch name"              feat/x "git push origin -- -d feat/x" 2
+check "-d in a combined short flag"               main   "git push -fd origin feat/x" 0
+check "--no-dry-run does not cancel -d"           main   "git push -d --no-dry-run origin feat/x" 0
+check "an unknown option: no deletion believed"   feat/x "git push -d --frobnicate origin feat/x" 2
+check "a later --no-tags cancels --tags"          feat/x "git push --tags --no-tags origin" 2
+check "...also shortened"                         feat/x "git push --ta --no-ta origin" 2
+check "a ref named '-' is not a deletion"         main   "git push origin +-:feat/x" 2
+check "':' pushes every matching branch"          feat/x "git push origin :" 2
+check "...also forced"                            feat/x "git push origin +:" 2
+check "a wildcard refspec is many branches"       feat/x "git push origin refs/heads/*:refs/heads/*" 2
+check "':branch' is still a deletion"             main   "git push origin :feat/x" 0
+echo ABANDONED > "$REPO/.ai/sessions/s0/state"
+check "an abandoned task's branch is not pushed"  feat/x "git push origin feat/x" 2
+touch "$REPO/.ai/push-unchecked-allowed"
+check "...unless the user approves once"          feat/x "git push origin feat/x" 0
+check "...and only once"                          feat/x "git push origin feat/x" 2
+says "a closed task's branch: start a new task"   feat/x "gh pr create --base main --head feat/x" "Start a new task"
+rm -rf "$REPO/.ai/sessions/s0" "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)/codegate/sessions/s0"
+mkdir -p "$REPO/.ai/sessions/s9" && echo IMPLEMENTING > "$REPO/.ai/sessions/s9/state" && echo s9 > "$REPO/.ai/current-session"
+says "an open session naming no branch: bind it"  feat/x "gh pr create --base main --head feat/x" "write feat/x to"
+says "binding it asks for the target too"         feat/x "gh pr create --base main --head feat/x" "s9/target-branch"
+says "never bound to a protected branch"          main   "git push origin HEAD" "s9/branch" absent
+says "on a protected branch: start a task"        main   "git push origin HEAD" "start a task"
+echo MERGED > "$REPO/.ai/sessions/s9/state"
+says "a closed one is no way out"                 feat/x "gh pr create --base main --head feat/x" "start a task"
+rm -rf "$REPO/.ai/sessions/s9" "$REPO/.ai/current-session" "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)/codegate/sessions/s9"
+says "a variable branch asks for the name"        feat/x 'git push origin \"$B\"' "Write the branch name out"
+says "--all names every branch"                   feat/x "git push --all origin" "every branch"
 check "forced refspec onto main is blocked"       feat/x "git push origin +main"                 2
 check "any of several refspecs onto main blocked" feat/x "git push origin feat/x:main feat/x:other" 2
 check "several refspecs off main pass"            feat/x "git push origin feat/x feat/x:other"   0
@@ -89,6 +166,18 @@ session IMPLEMENTING feat/other
 check "another task's branch is not held back"    feat/x "git push -u origin feat/x"  0
 session IMPLEMENTING ""
 check "session without a recorded branch blocks"  feat/x "git push -u origin feat/x"  2
+session IMPLEMENTING feat/x
+echo main > "$REPO/.ai/sessions/s1/target-branch"
+git -C "$REPO" checkout -q -B feat/x && git -C "$REPO" checkout -q --detach
+mkdir -p "$REPO/.git/rebase-merge" && echo refs/heads/feat/x > "$REPO/.git/rebase-merge/head-name"
+out=$(printf '{"tool_input":{"command":"git push origin HEAD:main"}}' | ( cd "$REPO" && bash "$HOOK" 2>&1 >/dev/null ))
+case "$out" in *"s1/branch"*) echo "FAIL  mid-rebase the task is still found  (message: $out)"; FAIL=$((FAIL + 1)) ;;
+  *"push the task's branch"*) echo "PASS  mid-rebase the task is still found"; PASS=$((PASS + 1)) ;;
+  *) echo "FAIL  mid-rebase the task is still found  (message: $out)"; FAIL=$((FAIL + 1)) ;; esac
+out=$(printf '{"tool_input":{"command":"gh pr create --base main"}}' | ( cd "$REPO" && bash "$HOOK" 2>&1 >/dev/null ))
+case "$out" in *"open it from"*) echo "FAIL  mid-rebase a PR/MR's head is the rebased branch  (message: $out)"; FAIL=$((FAIL + 1)) ;;
+  *) echo "PASS  mid-rebase a PR/MR's head is the rebased branch"; PASS=$((PASS + 1)) ;; esac
+rm -rf "$REPO/.git/rebase-merge" "$REPO/.ai/sessions/s1/target-branch"
 rm -rf "$REPO/.ai/sessions" "$REPO/.ai/current-session"
 
 # ── after the gate: rework and commits made after the last check ────────────────────────
