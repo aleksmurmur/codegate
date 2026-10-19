@@ -20,7 +20,7 @@ Session dir: `python3 .claude/scripts/cg_session.py dir` (below: `{dir}`).
    Stop and ask only when the fix changes what the task delivers.
 4. Pattern review sub-agent: `.claude/agents/plan-review/prompt.md`, with PLAN.md,
    integrity-report.md and CODEBASE_CONTEXT.md when present (run it without the context
-   file too: its prior-art check reads the repository). It appends `## Pattern Review` to
+   file too: its prior-art check reads the repository). It writes `## Pattern Review` into
    integrity-report.md. `PRIOR ART:` findings name something that already does what the plan
    builds — this is the cheapest moment to act on them.
 5. Present the plan. Optional: when `ExitPlanMode` is available and `.ai/plan-mode-disabled`

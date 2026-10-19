@@ -18,6 +18,8 @@ Quality matters more than speed. Read as much code as you need.
 - **Task description**: what the user wants to build or fix
 - **CODEBASE_CONTEXT.md**: architecture, patterns, domain map, gotchas (may be absent)
 - **Checklist**: minimum question triggers for this task type
+- **User's language**: the language the user writes in. The message is written in it; the
+  file part may stay in English.
 - **Previous rounds** (from round 2 on, unless you are the same agent resumed with the
   answers): `elicitation.md` — your data map, your backlog and the user's answers so far.
   Continue from it: update the data map where the answers change it, do not redo it.

@@ -6,6 +6,7 @@
 #
 # Silent when there is no task on this branch, or the task is closed.
 
+SCRIPTS="$(cd "$(dirname "$0")" && pwd)/../scripts"  # this hook's own version, not the checkout's
 PY=$(command -v python3 2>/dev/null)
 "${PY:-false}" -c "" 2>/dev/null || PY=$(command -v python 2>/dev/null)
 "${PY:-false}" -c "" 2>/dev/null || exit 0
@@ -29,14 +30,15 @@ SOURCE=$(printf '%s\n' "$FIELDS" | sed -n 3p)
 cd "$CWD" 2>/dev/null || exit 0
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 cd "$ROOT" || exit 0
+[ -f .claude/scripts/plan-integrity.py ] || [ -f .claude/scripts/cg_session.py ] || exit 0  # not a codegate checkout
 
-"$PY" .claude/scripts/cg_session.py sync >/dev/null 2>&1
+"$PY" "$SCRIPTS"/cg_session.py sync >/dev/null 2>&1
 # /clear and compaction continue the same conversation under a new id: take the folder over
 # silently, or the next message would report this very chat as "another chat".
 case "$SOURCE" in
-  clear|compact|resume) [ -n "$CHAT" ] && "$PY" .claude/scripts/cg_session.py claim --chat "$CHAT" >/dev/null 2>&1 ;;
+  clear|compact|resume) [ -n "$CHAT" ] && "$PY" "$SCRIPTS"/cg_session.py claim --chat "$CHAT" >/dev/null 2>&1 ;;
 esac
-REL_DIR=$("$PY" .claude/scripts/cg_session.py dir 2>/dev/null)
+REL_DIR=$("$PY" "$SCRIPTS"/cg_session.py dir 2>/dev/null)
 [ -z "$REL_DIR" ] && exit 0
 SESSION=$(basename "$REL_DIR")
 SESSION_DIR="$ROOT/$REL_DIR"
@@ -79,6 +81,7 @@ echo ""
 echo "Session : $SESSION ($REL_DIR)"
 echo "State   : $STATE  mode: ${MODE:-interactive}"
 echo "Task    : $TASK"
+echo "Reply to the user in the language they write in."
 echo ""
 
 case "$STATE" in
@@ -110,7 +113,7 @@ case "$STATE" in
     fi
     ;;
   QUALITY_REVIEWED)
-    if "$PY" .claude/scripts/cg_session.py checked 2>/dev/null; then
+    if "$PY" "$SCRIPTS"/cg_session.py checked 2>/dev/null; then
       echo "▶ Gate and independent review done. Next: the PR/MR (skill cg-phase-5)."
     else
       echo "▶ Quality gate done (report: $REL_DIR/QUALITY_REPORT.md). Next: fix rounds, then the independent review (skill cg-phase-4, §4–5)."

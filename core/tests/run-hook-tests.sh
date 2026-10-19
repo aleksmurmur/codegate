@@ -172,6 +172,10 @@ from_main "another worktree's source without a task is blocked" "{\"tool_input\"
 from_main "the call's cwd decides the checkout"                 "{\"cwd\":\"$WT_ABS\",\"tool_input\":{\"file_path\":\"src/Foo.kt\"}}" 2
 mkdir -p "$WTREE/.ai/sessions/w1" && echo IMPLEMENTING > "$WTREE/.ai/sessions/w1/state" && echo feat/w > "$WTREE/.ai/sessions/w1/branch"
 from_main "another worktree's task in progress allows it"       "{\"tool_input\":{\"file_path\":\"$WT_ABS/src/Foo.kt\"}}" 0
+# The session's hooks may come from a checkout with another codegate version: a worktree
+# without this version's scripts still has its task found, by the hook's own scripts.
+rm -f "$WTREE/.claude/scripts/cg_session.py"
+in_wt "a worktree without the hook's scripts keeps its task" "$WT_ABS/src/Foo.kt" 0
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

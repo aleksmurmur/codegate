@@ -101,7 +101,7 @@ def run() -> None:
     check("parse: enum constant line tracked with instructions", lt.get(4) == (0, 37), f"got {lt.get(4)}")
     check("parse: enum class header line absent (non-executable)", 3 not in lt, f"keys={sorted(lt)}")
 
-    uncovered, executable, covered, non_exec = dc.evaluate_jacoco(ADDED, tracked)
+    uncovered, executable, covered, non_exec, _ = dc.evaluate_jacoco(ADDED, tracked, source=lambda p: "")
 
     joined = "\n".join(uncovered)
 
@@ -135,9 +135,70 @@ def run() -> None:
     clean_added = {
         k: v for k, v in ADDED.items() if "Widget.kt" not in k
     }
-    unc2, _, _, nonexec2 = dc.evaluate_jacoco(clean_added, tracked)
+    unc2, _, _, nonexec2, _ = dc.evaluate_jacoco(clean_added, tracked, source=lambda p: "")
     check("the original repro: only non-exec lines -> CLEAN", unc2 == [], f"uncovered={unc2}")
     check("the original repro: both lines excluded as non-exec", nonexec2 == 2, f"got {nonexec2}")
+
+
+INLINE_SOURCE = """class Gateway {
+    fun create(path: String) = step(path) { save(path) }
+
+    private inline fun <T> step(path: String, write: () -> T): T = try {
+        write()
+    } catch (e: IllegalStateException) {
+        throw Refused(path, e)
+    }
+
+    fun other() {
+        doThing()
+    }
+
+    private inline fun log(message: String) = println(message)
+}
+"""
+
+
+def run_inline() -> None:
+    """The body of an `inline fun` runs at its call sites and JaCoCo shows its own copy as missed.
+    Those lines are labelled for the reader; they still count as uncovered."""
+    path = "src/main/kotlin/com/example/Gateway.kt"
+    tracked = {"com/example/Gateway.kt": {n: (3, 0) for n in range(1, 16)}}
+    added = {path: {n: line for n, line in enumerate(INLINE_SOURCE.splitlines(), 1) if line.strip()}}
+    uncovered, _, _, _, inline = dc.evaluate_jacoco(added, tracked, source=lambda p: INLINE_SOURCE)
+    lines = lambda xs: sorted(int(x.split(":")[1].split()[0]) for x in xs)
+    check("a braced inline body is labelled", lines(inline) == [4, 5, 6, 7, 8, 14], f"inline={lines(inline)}")
+    check("labelled lines still count as uncovered", lines(uncovered) == [1, 2, 4, 5, 6, 7, 8, 10, 11, 12, 14, 15],
+          f"uncovered={lines(uncovered)}")
+    check("bodies of inline funs in other files are not guessed",
+          dc.inline_bodies("fun plain() {\n    x()\n}\n") == set())
+
+    # Nothing outside a real inline body may be taken for one: that would hide missed code.
+    nothing = {
+        "a comment naming it": "// could be an inline fun one day\nfun process() {\n    a()\n}\n",
+        "KDoc naming it": "/**\n * Unlike an inline fun, this one\n */\nfun process() {\n    a()\n}\n",
+        "a string naming it": 'fun f() {\n    println("inline fun")\n}\nfun g() {\n    b()\n}\n',
+        "a declaration without a body": "expect inline fun f(): Int\nfun g() {\n    b()\n}\n",
+        "brackets that never balance": "inline fun f() {\n    a(\n",
+    }
+    for name, src in nothing.items():
+        check(f"not an inline body: {name}", dc.inline_bodies(src) == set(), f"got {sorted(dc.inline_bodies(src))}")
+    quoted = 'inline fun log(m: String) = println("(" + m)\nfun g() {\n    b()\n}\n'
+    check("a bracket in a string does not run on", dc.inline_bodies(quoted) == {1}, f"got {sorted(dc.inline_bodies(quoted))}")
+    char = "inline fun f(): Char {\n    return '{'\n}\nfun g() {\n    b()\n}\n"
+    check("a brace in a char literal does not run on", dc.inline_bodies(char) == {1, 2, 3},
+          f"got {sorted(dc.inline_bodies(char))}")
+    wrapped = "inline fun f() =\n    a()\nfun g() {\n    b()\n}\n"
+    check("an expression body on the next line", dc.inline_bodies(wrapped) == {1, 2}, f"got {sorted(dc.inline_bodies(wrapped))}")
+
+    # End to end: a comment naming an inline fun leaves the missed function failing.
+    src = "// TODO: turn into an inline fun\nfun charge() {\n    pay()\n}\n"
+    tracked2 = {"com/example/Pay.kt": {2: (2, 0), 3: (3, 0)}}
+    added2 = {"src/main/kotlin/com/example/Pay.kt": {2: "fun charge() {", 3: "    pay()"}}
+    unc, executable2, _, _, inl = dc.evaluate_jacoco(added2, tracked2, source=lambda p: src)
+    check("a comment does not label missed code inline", len(unc) == 2 and not inl, f"uncovered={unc} inline={inl}")
+    _, executable3, _, _, inl3 = dc.evaluate_jacoco(added, tracked, source=lambda p: INLINE_SOURCE)
+    check("labelled lines stay in the executable count", executable3 == len(added[path]),
+          f"executable={executable3} added={len(added[path])} inline={len(inl3)}")
 
 
 def run_parse_error() -> None:
@@ -215,6 +276,7 @@ def run_stale_report() -> None:
 
 if __name__ == "__main__":
     run()
+    run_inline()
     run_parse_error()
     run_stale_report()
     print(f"\nResults: {PASS} passed, {FAIL} failed")

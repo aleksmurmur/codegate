@@ -36,6 +36,7 @@ new one goes:
 | `merged` | write `MERGED` to its state, `tracker.py event merged` | this folder, new branch from fresh `BASE` |
 | `review-open` | stays as is (its PR/MR is open) | this folder, new branch from fresh `BASE` |
 | `stale` | ask one line: "close `<branch>` as no longer relevant?" — yes → write `ABANDONED` to its state; no → paused | this folder, new branch from fresh `BASE` |
+| `no-session`, the branch carries a tracker key, and the task is that key — or, given as text, the user confirms it is that item (an earlier chat made the branch and the item, but no session) | — | **this branch**, no new one; the item is `tracker.py get <KEY>` (§2), no new item. Target: `BASE`, unless the branch was cut from another unmerged branch — then ask |
 | `paused`, `no-session` | paused | this folder, new branch from fresh `BASE` |
 
 A stacked task (the new work needs the current branch's unmerged code) is the one exception:

@@ -7,7 +7,7 @@ script already verified path and symbol existence; do not repeat that work.
 ## Inputs
 - Path to the session's `PLAN.md`
 - Path to `.ai/CODEBASE_CONTEXT.md`
-- Path to the session's `integrity-report.md` (append your section here)
+- Path to the session's `integrity-report.md` (your section goes here)
 
 ## Job
 
@@ -63,7 +63,8 @@ Compare the plan against **HIGH-confidence** findings in CODEBASE_CONTEXT.md.
 
 ## Output
 
-Append to `integrity-report.md`:
+Write your section into `integrity-report.md`, replacing an earlier `## Pattern Review`
+section if there is one (a re-planned plan gets a fresh review), appending otherwise:
 
     ## Pattern Review (advisory)
 
