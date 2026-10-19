@@ -5,6 +5,7 @@
 # the message continues it, concerns its open PR/MR, or is another task. It also records which
 # chat works in this folder, and warns when another chat did so recently.
 
+SCRIPTS="$(cd "$(dirname "$0")" && pwd)/../scripts"  # this hook's own version, not the checkout's
 PY=$(command -v python3 2>/dev/null)
 "${PY:-false}" -c "" 2>/dev/null || PY=$(command -v python 2>/dev/null)
 "${PY:-false}" -c "" 2>/dev/null || exit 0
@@ -24,11 +25,11 @@ CWD=$(printf '%s\n' "$FIELDS" | sed -n 2p)
 [ -n "$CWD" ] && [ "$CWD" != "-" ] && cd "$CWD" 2>/dev/null
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$ROOT" || exit 0
-[ -f .claude/scripts/cg_session.py ] || exit 0
+[ -d .claude/scripts ] || exit 0  # not a codegate checkout
 
-"$PY" .claude/scripts/cg_session.py sync >/dev/null 2>&1
+"$PY" "$SCRIPTS"/cg_session.py sync >/dev/null 2>&1
 BRANCH=$(git branch --show-current 2>/dev/null)
-REL_DIR=$("$PY" .claude/scripts/cg_session.py dir 2>/dev/null)
+REL_DIR=$("$PY" "$SCRIPTS"/cg_session.py dir 2>/dev/null)
 
 if [ -n "$REL_DIR" ]; then
   STATE=$(cat "$REL_DIR/state" 2>/dev/null | tr -d '[:space:]')
@@ -48,7 +49,7 @@ else
 fi
 
 if [ -n "$CHAT" ] && [ "$CHAT" != "-" ]; then
-  OTHER=$("$PY" .claude/scripts/cg_session.py claim --chat "$CHAT" 2>/dev/null)
+  OTHER=$("$PY" "$SCRIPTS"/cg_session.py claim --chat "$CHAT" 2>/dev/null)
   case "$OTHER" in
     *minutes_ago*)
       MIN=$(printf '%s' "$OTHER" | sed -E 's/.*"minutes_ago": ?([0-9]+).*/\1/')

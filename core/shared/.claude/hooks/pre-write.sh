@@ -5,6 +5,7 @@
 
 # Python runs every check below. Without it the parsing silently yields nothing and the hook
 # would let everything through; the Windows Store stub `python3` exists but does not run.
+SCRIPTS="$(cd "$(dirname "$0")" && pwd)/../scripts"  # this hook's own version, not the checkout's
 PY=$(command -v python3 2>/dev/null)
 "${PY:-false}" -c "" 2>/dev/null || PY=$(command -v python 2>/dev/null)
 if ! "${PY:-false}" -c "" 2>/dev/null; then
@@ -104,7 +105,7 @@ esac
 
 # The task of this checkout: the session bound to the branch checked out here.
 ROOT=${REPO_ROOT:-$(pwd)}
-SESSION_DIR=$(cd "$ROOT" && "$PY" .claude/scripts/cg_session.py dir 2>/dev/null)
+SESSION_DIR=$(cd "$ROOT" && "$PY" "$SCRIPTS"/cg_session.py dir 2>/dev/null)
 if [ -z "$SESSION_DIR" ]; then
   echo "No task on branch '$(git branch --show-current 2>/dev/null)'. Start one (/cg-feature, /cg-bugfix, /cg-refactor — skill cg-phase-0) before editing source files." >&2
   exit 2

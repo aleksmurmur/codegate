@@ -5,6 +5,7 @@
 # for a task whose PR/MR already exists, means a new task was started without Phase 0 — the
 # work would land on the wrong branch.
 
+SCRIPTS="$(cd "$(dirname "$0")" && pwd)/../scripts"  # this hook's own version, not the checkout's
 PY=$(command -v python3 2>/dev/null)
 "${PY:-false}" -c "" 2>/dev/null || PY=$(command -v python 2>/dev/null)
 "${PY:-false}" -c "" 2>/dev/null || exit 0
@@ -27,9 +28,9 @@ esac
 
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$ROOT" || exit 0
-[ -f .claude/scripts/cg_session.py ] || exit 0
+[ -d .claude/scripts ] || exit 0  # not a codegate checkout
 
-REL_DIR=$("$PY" .claude/scripts/cg_session.py dir 2>/dev/null)
+REL_DIR=$("$PY" "$SCRIPTS"/cg_session.py dir 2>/dev/null)
 BRANCH=$(git branch --show-current 2>/dev/null)
 if [ -z "$REL_DIR" ]; then
   echo "No task on branch '$BRANCH': elicitation and planning run inside a task. Start it first (skill cg-phase-0, then cg-phase-1 opens the session)." >&2
