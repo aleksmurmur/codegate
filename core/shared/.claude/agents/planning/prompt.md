@@ -106,6 +106,9 @@ Given/When/Then or must/must-not form. Each criterion must be:
 - **Observable from outside** the implementation (HTTP response, return value, persisted state, log line, UI element).
 - **Testable** — at least one test in the Checklist verifies it.
 - **Specific** — no "works correctly", "is fast enough"; name the actual outcome.
+- **A limit on time or size, or a measurement**, says how it is measured: cold or warm run,
+  where the time goes (split by part), and how many database statements run. One end-to-end
+  number cannot tell new code from the cost of code it calls.
 
 Example:
 ```
@@ -124,6 +127,11 @@ explicit security criterion, written in the form:
 Security: <what input must be validated | what data must not appear in logs |
           who must / must-not access this | what redaction or constraint applies>
 ```
+
+The same holds when the task adds a new entry point (endpoint, handler, job, tool) that
+calls existing services: one `Security:` criterion states that every access check the
+existing entry points to those services make is made here too, or by the service itself.
+Checks that live in an existing controller are skipped by a new caller of its services.
 
 Quality gate dimension 4.6 reads these `Security:` criteria first and verifies
 the diff implements each one, with a corresponding test. Without an explicit
