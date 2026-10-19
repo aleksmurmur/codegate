@@ -283,15 +283,32 @@ def grep_symbol(symbol: str) -> bool:
         return False
 
 
-def check_symbols(text: str) -> list[str]:
-    """Return warnings for backtick-wrapped symbols not found in the repo."""
+def created_names(items) -> set[str]:
+    """Names the plan's Create items bring into being: a new file's stem, and its CamelCase
+    form for snake/kebab names. They cannot be in the repository yet."""
+    names: set[str] = set()
+    for verb, path in items:
+        if verb in CREATE_VERBS:
+            stem = Path(path).stem
+            names.add(stem)
+            if SNAKE_OR_KEBAB.search(stem):
+                names.add("".join(w.capitalize() for w in SNAKE_OR_KEBAB.split(stem)))
+    return names
+
+
+def check_symbols(text: str, created: set[str] = frozenset()) -> list[str]:
+    """Return warnings for backtick-wrapped symbols not found in the repo. A symbol the plan
+    creates — a new file's class, or a member of it — is not looked for."""
     warnings: list[str] = []
     seen: set[str] = set()
     for m in SYMBOL_IN_BACKTICKS.finditer(text):
         raw = m.group(1)
         sym = raw.rstrip("()")
+        owner = ""
         if "." in sym:
-            _, sym = sym.rsplit(".", 1)
+            owner, sym = sym.rsplit(".", 1)
+        if sym in created or owner.rsplit(".", 1)[-1] in created:
+            continue
         if sym in seen or len(sym) < 3:
             continue
         seen.add(sym)
@@ -368,9 +385,30 @@ def check_create_collisions(items) -> list[str]:
     return warnings
 
 
+OWN_SECTIONS = ("## Verified", "## Mirages", "## Warnings")
+
+
+def kept_sections(report_path: Path) -> list[str]:
+    """Sections other steps appended to an earlier report (the pattern review's): a re-run
+    after the plan is edited rewrites this script's own sections and keeps those."""
+    try:
+        old = report_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    kept: list[str] = []
+    keep = False
+    for line in old:
+        if line.startswith("## "):
+            keep = not line.startswith(OWN_SECTIONS)
+        if keep:
+            kept.append(line)
+    return kept
+
+
 def write_report(
     report_path: Path, verdict: str, tool: str, verified, mirages, warnings
 ) -> None:
+    kept = kept_sections(report_path)
     lines = [
         "# Plan Integrity Report",
         "",
@@ -396,6 +434,7 @@ def write_report(
         lines.append("")
         lines.extend(f"- WARN: {w}" for w in warnings)
         lines.append("")
+    lines.extend(kept)
     report_path.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -446,7 +485,7 @@ def main() -> None:
         mirages.extend(check_migration_collisions(items, tracked))
     mirages.extend(validate_acceptance_criteria(text))
     mirages.extend(validate_commit_plan(text, len(items)))
-    warnings = check_symbols(text)
+    warnings = check_symbols(text, created_names(items))
     warnings.extend(check_create_collisions(items))
     warnings.extend(check_design_notes(text))
     warnings.extend(check_security_acs(text))

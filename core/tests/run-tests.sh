@@ -88,6 +88,23 @@ check "ac-too-few"           "$FIXTURES_DIR/ac-too-few.md"           1 "MIRAGES_
 check "commit-plan-coverage" "$FIXTURES_DIR/commit-plan-coverage.md" 1 "MIRAGES_FOUND"
 check "create-collision"     "$FIXTURES_DIR/create-collision.md"     0 "CLEAN" "already exists"
 
+# A re-run after the plan is edited keeps what other steps appended; the plan's own new
+# classes are not "symbols not found".
+{ sed 's/^\[ \] 2\. Modify .claude\/settings.json — update examples$/[ ] 2. Create src\/OnboardingGateway.kt — the new gateway/' \
+    "$FIXTURES_DIR/clean.md"
+  printf '\nThe plan adds `OnboardingGateway` with `OnboardingGateway.createComplex()`.\n'; } > "$REPO/PLAN.md"
+printf '# Plan Integrity Report\n\n## Warnings (1)\n- WARN: old\n\n## Pattern Review\n- PRIOR ART: something\n' \
+    > "$REPO/integrity-report.md"
+( cd "$REPO" && python3 "$SCRIPT" "$REPO/PLAN.md" ) >/dev/null 2>&1
+report=$(cat "$REPO/integrity-report.md")
+case "$report" in *"## Pattern Review"*"PRIOR ART: something"*) echo "PASS  a re-run keeps the pattern review"; PASS=$((PASS + 1)) ;;
+  *) echo "FAIL  a re-run keeps the pattern review"; FAIL=$((FAIL + 1)) ;; esac
+case "$report" in *"WARN: old"*) echo "FAIL  ...but not its own old sections"; FAIL=$((FAIL + 1)) ;;
+  *) echo "PASS  ...but not its own old sections"; PASS=$((PASS + 1)) ;; esac
+case "$report" in *"not found in repo: \`OnboardingGateway"*) echo "FAIL  a class the plan creates is not 'not found'"; FAIL=$((FAIL + 1)) ;;
+  *) echo "PASS  a class the plan creates is not 'not found'"; PASS=$((PASS + 1)) ;; esac
+rm -f "$REPO/PLAN.md" "$REPO/integrity-report.md"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]
