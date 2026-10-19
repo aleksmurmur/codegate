@@ -266,23 +266,69 @@ def match_jacoco_path(
     return {}
 
 
+INLINE_FUN = re.compile(r"\binline\s+fun\b")
+
+
+def inline_bodies(text: str) -> set[int]:
+    """1-based numbers of the lines that make up the bodies of Kotlin `inline fun`s.
+
+    Such a body runs inlined at each call site, and JaCoCo credits it there; the function's
+    own copy is never called, so its lines read as uncovered however well it is tested.
+    Braces in strings and comments are not told apart: the cost is a missed or an extra
+    line in a list that is shown, not one that decides the verdict on its own."""
+    lines = text.splitlines()
+    starts = [n for n, line in enumerate(lines) if INLINE_FUN.search(line)]
+    body: set[int] = set()
+    for start in starts:
+        parens = depth = 0
+        opened = False
+        for n in range(start, len(lines)):
+            for c in lines[n]:
+                if c == "(":
+                    parens += 1
+                elif c == ")":
+                    parens -= 1
+                elif c == "{":
+                    depth += 1
+                    opened = True
+                elif c == "}":
+                    depth -= 1
+            body.add(n + 1)
+            # An expression body without braces ends with its line; a braced one when they close.
+            if parens <= 0 and depth <= 0 and (opened or "=" in lines[n]):
+                break
+    return body
+
+
+def head_text(path: str) -> str:
+    try:
+        return run_git("show", f"HEAD:{path}")
+    except SystemExit:
+        return ""
+
+
 def evaluate_jacoco(
     added: dict[str, dict[int, str]],
     tracked_map: dict[str, dict[int, tuple[int, int]]],
-) -> tuple[list[str], int, int, int]:
+    source=head_text,
+) -> tuple[list[str], int, int, int, list[str]]:
     """Classify each added production line against JaCoCo per-line instruction
-    data. Returns (uncovered, executable, covered, non_executable).
+    data. Returns (uncovered, executable, covered, non_executable, inline).
 
     A line counts as executable only when JaCoCo tracked it with (mi+ci) > 0;
     such a line is covered when ci > 0 and uncovered when ci == 0. Lines JaCoCo
     never emitted a <line> for carry no bytecode (annotations, `enum class`/class
     declaration headers) and are excluded from both the denominator and the
     uncovered list — they cannot be "uncovered" because there is nothing to run.
+    An uncovered line in the body of a Kotlin `inline fun` goes to `inline` instead: it runs
+    at the call sites, where JaCoCo credits it (see inline_bodies).
     """
     uncovered: list[str] = []
+    inline: list[str] = []
     executable = covered = non_executable = 0
     for path, lines in added.items():
         project_lines = match_jacoco_path(path, tracked_map)
+        inlined: set[int] | None = None
         for nr, text in sorted(lines.items()):
             tracked = project_lines.get(nr)
             if tracked is None or tracked[0] + tracked[1] == 0:
@@ -292,9 +338,11 @@ def evaluate_jacoco(
             executable += 1
             if ci > 0:
                 covered += 1
-            else:
-                uncovered.append(f"{path}:{nr}  {text.strip()[:80]}")
-    return uncovered, executable, covered, non_executable
+                continue
+            if inlined is None:
+                inlined = inline_bodies(source(path)) if path.endswith(".kt") else set()
+            (inline if nr in inlined else uncovered).append(f"{path}:{nr}  {text.strip()[:80]}")
+    return uncovered, executable, covered, non_executable, inline
 
 
 # --- Grep fallback -----------------------------------------------------------
@@ -351,6 +399,7 @@ def write_report(
     result: str,
     summary: list[str],
     uncovered: list[str],
+    inline: list[str] = (),
 ) -> None:
     lines = [
         "# Coverage Report",
@@ -369,6 +418,12 @@ def write_report(
         lines.append("## Next step")
         lines.append("Add at least one test exercising each item above, commit,")
         lines.append("then run the tests with coverage again and re-run this check.")
+    if inline:
+        lines.append("")
+        lines.append("## Inline function bodies (not counted)")
+        lines.append("An `inline fun` body runs at its call sites and is credited there; the")
+        lines.append("function's own copy never runs. Check that the calls are covered.")
+        lines.extend(f"- {u}" for u in inline)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -433,7 +488,7 @@ def main() -> None:
                 uncovered=[],
             )
             sys.exit(2)
-        uncovered, executable_lines, covered_lines, non_executable_lines = (
+        uncovered, executable_lines, covered_lines, non_executable_lines, inline = (
             evaluate_jacoco(added, tracked_map)
         )
         result = "CLEAN" if not uncovered else "FAIL"
@@ -444,9 +499,11 @@ def main() -> None:
                 f"Executable new/modified lines: {executable_lines}",
                 f"Covered: {covered_lines}",
                 f"Uncovered: {len(uncovered)}",
+                f"Inline function bodies, not counted: {len(inline)}",
                 f"Non-executable lines excluded: {non_executable_lines}",
             ],
             uncovered=uncovered,
+            inline=inline,
         )
         print(f"Coverage: {result} (JaCoCo)")
         print(f"  Executable: {executable_lines}   Covered: {covered_lines}   "

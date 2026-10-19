@@ -36,7 +36,9 @@ informational only — say coverage was not measured. Audit
 Then `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output {dir}/coverage-report.md`.
 - `0` CLEAN → 2b.
 - `1` FAIL → write the missing tests (not production code bent to the metric), commit, and
-  re-run **coverage only**. Up to 3 rounds; then escalate: show what is still uncovered; the
+  re-run **coverage only**. A line no test can reach (unreachable by construction, a tool
+  artifact) is not a round's work: when only such lines are left, escalate at once, each
+  with why it cannot be covered. Up to 3 rounds; then escalate: show what is still uncovered; the
   user says what to do, or accepts it — audit `[ts] Coverage accepted by user — N items`,
   the report goes into the PR description, go on to 2b. Audit each FAIL
   `[ts] Coverage check FAIL — N uncovered items`.

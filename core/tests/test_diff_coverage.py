@@ -101,7 +101,7 @@ def run() -> None:
     check("parse: enum constant line tracked with instructions", lt.get(4) == (0, 37), f"got {lt.get(4)}")
     check("parse: enum class header line absent (non-executable)", 3 not in lt, f"keys={sorted(lt)}")
 
-    uncovered, executable, covered, non_exec = dc.evaluate_jacoco(ADDED, tracked)
+    uncovered, executable, covered, non_exec, _ = dc.evaluate_jacoco(ADDED, tracked, source=lambda p: "")
 
     joined = "\n".join(uncovered)
 
@@ -135,9 +135,42 @@ def run() -> None:
     clean_added = {
         k: v for k, v in ADDED.items() if "Widget.kt" not in k
     }
-    unc2, _, _, nonexec2 = dc.evaluate_jacoco(clean_added, tracked)
+    unc2, _, _, nonexec2, _ = dc.evaluate_jacoco(clean_added, tracked, source=lambda p: "")
     check("the original repro: only non-exec lines -> CLEAN", unc2 == [], f"uncovered={unc2}")
     check("the original repro: both lines excluded as non-exec", nonexec2 == 2, f"got {nonexec2}")
+
+
+INLINE_SOURCE = """class Gateway {
+    fun create(path: String) = step(path) { save(path) }
+
+    private inline fun <T> step(path: String, write: () -> T): T = try {
+        write()
+    } catch (e: IllegalStateException) {
+        throw Refused(path, e)
+    }
+
+    fun other() {
+        doThing()
+    }
+
+    private inline fun log(message: String) = println(message)
+}
+"""
+
+
+def run_inline() -> None:
+    """The body of an `inline fun` runs at its call sites; JaCoCo credits it there and shows the
+    function's own copy as uncovered. Those lines are listed apart and do not fail the check."""
+    path = "src/main/kotlin/com/example/Gateway.kt"
+    tracked = {"com/example/Gateway.kt": {n: (3, 0) for n in range(1, 16)}}
+    added = {path: {n: line for n, line in enumerate(INLINE_SOURCE.splitlines(), 1) if line.strip()}}
+    uncovered, _, _, _, inline = dc.evaluate_jacoco(added, tracked, source=lambda p: INLINE_SOURCE)
+    lines = lambda xs: sorted(int(x.split(":")[1].split()[0]) for x in xs)
+    check("a braced inline body is listed apart", lines(inline) == [4, 5, 6, 7, 8, 14], f"inline={lines(inline)}")
+    check("code outside inline bodies still fails", lines(uncovered) == [1, 2, 10, 11, 12, 15],
+          f"uncovered={lines(uncovered)}")
+    check("bodies of inline funs in other files are not guessed",
+          dc.inline_bodies("fun plain() {\n    x()\n}\n") == set())
 
 
 def run_parse_error() -> None:
@@ -215,6 +248,7 @@ def run_stale_report() -> None:
 
 if __name__ == "__main__":
     run()
+    run_inline()
     run_parse_error()
     run_stale_report()
     print(f"\nResults: {PASS} passed, {FAIL} failed")
