@@ -33,7 +33,7 @@ user-invocable: false
 ## Elicitation
 
 6. Run the elicitation sub-agent: `.claude/agents/elicitation/prompt.md`, with the task text,
-   task type, CODEBASE_CONTEXT.md if present, and the checklist
+   task type, the language the user writes in, CODEBASE_CONTEXT.md if present, and the checklist
    `.claude/agents/elicitation/checklists/{type}.md`. It returns a **fast-path proposal**
    (cosmetic change), a **round** of questions, or **Elicitation complete**.
 

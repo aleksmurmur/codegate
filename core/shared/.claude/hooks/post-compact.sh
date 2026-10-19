@@ -81,6 +81,7 @@ echo ""
 echo "Session : $SESSION ($REL_DIR)"
 echo "State   : $STATE  mode: ${MODE:-interactive}"
 echo "Task    : $TASK"
+echo "Reply to the user in the language they write in, as before this break."
 echo ""
 
 case "$STATE" in
