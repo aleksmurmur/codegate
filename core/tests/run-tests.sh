@@ -88,21 +88,37 @@ check "ac-too-few"           "$FIXTURES_DIR/ac-too-few.md"           1 "MIRAGES_
 check "commit-plan-coverage" "$FIXTURES_DIR/commit-plan-coverage.md" 1 "MIRAGES_FOUND"
 check "create-collision"     "$FIXTURES_DIR/create-collision.md"     0 "CLEAN" "already exists"
 
-# A re-run after the plan is edited keeps what other steps appended; the plan's own new
-# classes are not "symbols not found".
-{ sed 's/^\[ \] 2\. Modify .claude\/settings.json — update examples$/[ ] 2. Create src\/OnboardingGateway.kt — the new gateway/' \
-    "$FIXTURES_DIR/clean.md"
-  printf '\nThe plan adds `OnboardingGateway` with `OnboardingGateway.createComplex()`.\n'; } > "$REPO/PLAN.md"
-printf '# Plan Integrity Report\n\n## Warnings (1)\n- WARN: old\n\n## Pattern Review\n- PRIOR ART: something\n' \
+# A re-run after the plan is edited keeps what other steps appended (the latest of each);
+# the plan's own new classes are not "symbols not found".
+has() {  # has <name> <text> <yes|no>
+    case "$report" in *"$2"*) got=yes ;; *) got=no ;; esac
+    if [ "$got" = "$3" ]; then echo "PASS  $1"; PASS=$((PASS + 1)); else echo "FAIL  $1"; FAIL=$((FAIL + 1)); fi
+}
+plan_creating() {  # plan_creating <path> <sentence>
+    { sed "s#^\[ \] 2\. Modify .claude/settings.json — update examples\$#[ ] 2. Create $1 — the new file#" \
+        "$FIXTURES_DIR/clean.md"
+      printf '\n%s\n' "$2"; } > "$REPO/PLAN.md"
+}
+run_plan() { ( cd "$REPO" && python3 "$SCRIPT" "$REPO/PLAN.md" ) >/dev/null 2>&1; report=$(cat "$REPO/integrity-report.md"); }
+
+plan_creating src/WidgetGateway.kt 'The plan adds `WidgetGateway` with `WidgetGateway.createAll()`.'
+printf '# Plan Integrity Report\n\n## Warnings (1)\n- WARN: old\n\n## Pattern Review (advisory)\n- PRIOR ART: first\n\n## Pattern Review (advisory)\n- PRIOR ART: second\n' \
     > "$REPO/integrity-report.md"
-( cd "$REPO" && python3 "$SCRIPT" "$REPO/PLAN.md" ) >/dev/null 2>&1
-report=$(cat "$REPO/integrity-report.md")
-case "$report" in *"## Pattern Review"*"PRIOR ART: something"*) echo "PASS  a re-run keeps the pattern review"; PASS=$((PASS + 1)) ;;
-  *) echo "FAIL  a re-run keeps the pattern review"; FAIL=$((FAIL + 1)) ;; esac
-case "$report" in *"WARN: old"*) echo "FAIL  ...but not its own old sections"; FAIL=$((FAIL + 1)) ;;
-  *) echo "PASS  ...but not its own old sections"; PASS=$((PASS + 1)) ;; esac
-case "$report" in *"not found in repo: \`OnboardingGateway"*) echo "FAIL  a class the plan creates is not 'not found'"; FAIL=$((FAIL + 1)) ;;
-  *) echo "PASS  a class the plan creates is not 'not found'"; PASS=$((PASS + 1)) ;; esac
+run_plan
+has "a re-run keeps the pattern review"          "PRIOR ART: second" yes
+has "...only the latest one"                     "PRIOR ART: first"  no
+has "...but not its own old sections"            "WARN: old"         no
+has "a class the plan creates is not 'not found'" 'not found in repo: `WidgetGateway' no
+
+cp "$FIXTURES_DIR/no-checklist.md" "$REPO/PLAN.md"
+run_plan
+has "a plan that cannot be parsed drops the review" "PRIOR ART" no
+
+mkdir -p "$REPO/src/v1" && printf 'class OrderController {\n    fun cancelOrder() = Unit\n}\n' > "$REPO/src/v1/OrderController.kt"
+git -C "$REPO" add src/v1/OrderController.kt && git -C "$REPO" commit -qm "an existing class"
+plan_creating src/v2/OrderController.kt 'It calls `OrderController.cancelOrdr()`.'
+run_plan
+has "a name already in the repo is not new"      'not found in repo: `OrderController.cancelOrdr()`' yes
 rm -f "$REPO/PLAN.md" "$REPO/integrity-report.md"
 
 echo ""

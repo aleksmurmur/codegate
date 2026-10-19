@@ -25,7 +25,7 @@ CWD=$(printf '%s\n' "$FIELDS" | sed -n 2p)
 [ -n "$CWD" ] && [ "$CWD" != "-" ] && cd "$CWD" 2>/dev/null
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$ROOT" || exit 0
-[ -d .claude/scripts ] || exit 0  # not a codegate checkout
+[ -f .claude/scripts/plan-integrity.py ] || [ -f .claude/scripts/cg_session.py ] || exit 0  # not a codegate checkout
 
 "$PY" "$SCRIPTS"/cg_session.py sync >/dev/null 2>&1
 BRANCH=$(git branch --show-current 2>/dev/null)

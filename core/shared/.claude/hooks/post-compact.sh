@@ -30,7 +30,7 @@ SOURCE=$(printf '%s\n' "$FIELDS" | sed -n 3p)
 cd "$CWD" 2>/dev/null || exit 0
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 cd "$ROOT" || exit 0
-[ -d .claude/scripts ] || exit 0  # not a codegate checkout
+[ -f .claude/scripts/plan-integrity.py ] || [ -f .claude/scripts/cg_session.py ] || exit 0  # not a codegate checkout
 
 "$PY" "$SCRIPTS"/cg_session.py sync >/dev/null 2>&1
 # /clear and compaction continue the same conversation under a new id: take the folder over
@@ -81,7 +81,7 @@ echo ""
 echo "Session : $SESSION ($REL_DIR)"
 echo "State   : $STATE  mode: ${MODE:-interactive}"
 echo "Task    : $TASK"
-echo "Reply to the user in the language they write in, as before this break."
+echo "Reply to the user in the language they write in."
 echo ""
 
 case "$STATE" in

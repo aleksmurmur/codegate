@@ -172,6 +172,34 @@ def run_inline() -> None:
     check("bodies of inline funs in other files are not guessed",
           dc.inline_bodies("fun plain() {\n    x()\n}\n") == set())
 
+    # Nothing outside a real inline body may be taken for one: that would hide missed code.
+    nothing = {
+        "a comment naming it": "// could be an inline fun one day\nfun process() {\n    a()\n}\n",
+        "KDoc naming it": "/**\n * Unlike an inline fun, this one\n */\nfun process() {\n    a()\n}\n",
+        "a string naming it": 'fun f() {\n    println("inline fun")\n}\nfun g() {\n    b()\n}\n',
+        "a declaration without a body": "expect inline fun f(): Int\nfun g() {\n    b()\n}\n",
+        "brackets that never balance": "inline fun f() {\n    a(\n",
+    }
+    for name, src in nothing.items():
+        check(f"not an inline body: {name}", dc.inline_bodies(src) == set(), f"got {sorted(dc.inline_bodies(src))}")
+    quoted = 'inline fun log(m: String) = println("(" + m)\nfun g() {\n    b()\n}\n'
+    check("a bracket in a string does not run on", dc.inline_bodies(quoted) == {1}, f"got {sorted(dc.inline_bodies(quoted))}")
+    char = "inline fun f(): Char {\n    return '{'\n}\nfun g() {\n    b()\n}\n"
+    check("a brace in a char literal does not run on", dc.inline_bodies(char) == {1, 2, 3},
+          f"got {sorted(dc.inline_bodies(char))}")
+    wrapped = "inline fun f() =\n    a()\nfun g() {\n    b()\n}\n"
+    check("an expression body on the next line", dc.inline_bodies(wrapped) == {1, 2}, f"got {sorted(dc.inline_bodies(wrapped))}")
+
+    # End to end: a comment naming an inline fun leaves the missed function failing.
+    src = "// TODO: turn into an inline fun\nfun charge() {\n    pay()\n}\n"
+    tracked2 = {"com/example/Pay.kt": {2: (2, 0), 3: (3, 0)}}
+    added2 = {"src/main/kotlin/com/example/Pay.kt": {2: "fun charge() {", 3: "    pay()"}}
+    unc, executable2, _, _, inl = dc.evaluate_jacoco(added2, tracked2, source=lambda p: src)
+    check("a comment cannot turn missed code CLEAN", len(unc) == 2 and not inl, f"uncovered={unc} inline={inl}")
+    _, executable3, _, _, inl3 = dc.evaluate_jacoco(added, tracked, source=lambda p: INLINE_SOURCE)
+    check("inline lines leave the executable count", executable3 == len(added[path]) - len(inl3),
+          f"executable={executable3} added={len(added[path])} inline={len(inl3)}")
+
 
 def run_parse_error() -> None:
     """main() must NOT silently pass when a JaCoCo report exists but is unparseable.

@@ -390,25 +390,34 @@ OWN_SECTIONS = ("## Verified", "## Mirages", "## Warnings")
 
 def kept_sections(report_path: Path) -> list[str]:
     """Sections other steps appended to an earlier report (the pattern review's): a re-run
-    after the plan is edited rewrites this script's own sections and keeps those."""
+    after the plan is edited rewrites this script's own sections and keeps those, the
+    latest one of each heading only."""
     try:
         old = report_path.read_text(encoding="utf-8").splitlines()
     except OSError:
         return []
-    kept: list[str] = []
-    keep = False
+    sections: dict[str, list[str]] = {}
+    current: list[str] | None = None
     for line in old:
         if line.startswith("## "):
-            keep = not line.startswith(OWN_SECTIONS)
-        if keep:
-            kept.append(line)
+            current = None
+            if not line.startswith(OWN_SECTIONS):
+                current = sections[line.split("(")[0].strip()] = []
+        if current is not None:
+            current.append(line)
+    kept: list[str] = []
+    for lines in sections.values():
+        while lines and not lines[-1].strip():
+            lines.pop()
+        kept.extend(lines + [""])
     return kept
 
 
 def write_report(
     report_path: Path, verdict: str, tool: str, verified, mirages, warnings
 ) -> None:
-    kept = kept_sections(report_path)
+    # A plan that cannot be parsed is not the plan a kept review looked at.
+    kept = kept_sections(report_path) if verdict != "PARSE_FAILED" else []
     lines = [
         "# Plan Integrity Report",
         "",
@@ -435,7 +444,7 @@ def write_report(
         lines.extend(f"- WARN: {w}" for w in warnings)
         lines.append("")
     lines.extend(kept)
-    report_path.write_text("\n".join(lines), encoding="utf-8")
+    report_path.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
 
 
 def main() -> None:
@@ -485,7 +494,8 @@ def main() -> None:
         mirages.extend(check_migration_collisions(items, tracked))
     mirages.extend(validate_acceptance_criteria(text))
     mirages.extend(validate_commit_plan(text, len(items)))
-    warnings = check_symbols(text, created_names(items))
+    # A name already in the repository is not new, whatever the plan creates: its members are checked.
+    warnings = check_symbols(text, {n for n in created_names(items) if not grep_symbol(n)})
     warnings.extend(check_create_collisions(items))
     warnings.extend(check_design_notes(text))
     warnings.extend(check_security_acs(text))

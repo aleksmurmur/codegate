@@ -28,7 +28,7 @@ esac
 
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$ROOT" || exit 0
-[ -d .claude/scripts ] || exit 0  # not a codegate checkout
+[ -f .claude/scripts/plan-integrity.py ] || [ -f .claude/scripts/cg_session.py ] || exit 0  # not a codegate checkout
 
 REL_DIR=$("$PY" "$SCRIPTS"/cg_session.py dir 2>/dev/null)
 BRANCH=$(git branch --show-current 2>/dev/null)

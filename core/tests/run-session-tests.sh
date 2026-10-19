@@ -229,6 +229,16 @@ is "planning for a task past its MR is blocked" "$(agent 'Run .claude/agents/pla
 echo REWORK > "$REPO/.ai/sessions/20261001-090000-b/state"
 is "but a scoped rework may elicit"            "$(agent 'Use .claude/agents/elicitation/prompt.md')" 0
 
+echo "-- hooks of this version in another checkout --"
+# The session's hooks run with the cwd of the work: a repository without codegate stays
+# untouched even when it has a .claude/scripts of its own.
+PLAIN=$(mktemp -d)
+git init -q -b main "$PLAIN" && mkdir -p "$PLAIN/.claude/scripts" && echo 'echo mine' > "$PLAIN/.claude/scripts/mine.sh"
+OUT=$( cd "$PLAIN" && printf '{"session_id":"p1","cwd":"%s"}' "$PLAIN" | bash "$SHARED/hooks/task-context.sh" 2>&1 )
+is "a repository without codegate gets no line"  "$OUT" ""
+is "...and nothing written into it"             "$(ls "$PLAIN/.git/codegate" 2>/dev/null)" ""
+rm -rf "$PLAIN"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
