@@ -119,6 +119,11 @@ git -C "$REPO" add src/v1/OrderController.kt && git -C "$REPO" commit -qm "an ex
 plan_creating src/v2/OrderController.kt 'It calls `OrderController.cancelOrdr()`.'
 run_plan
 has "a name already in the repo is not new"      'not found in repo: `OrderController.cancelOrdr()`' yes
+printf 'class LegacyWidgetGatewayAdapter\n' > "$REPO/src/v1/Legacy.kt"
+git -C "$REPO" add src/v1/Legacy.kt && git -C "$REPO" commit -qm "a longer name"
+plan_creating src/WidgetGateway.kt 'The plan adds `WidgetGateway` with `WidgetGateway.createAll()`.'
+run_plan
+has "...a longer name containing it is another"   'not found in repo: `WidgetGateway' no
 rm -f "$REPO/PLAN.md" "$REPO/integrity-report.md"
 
 echo ""

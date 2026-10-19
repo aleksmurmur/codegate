@@ -495,7 +495,7 @@ def main() -> None:
     mirages.extend(validate_acceptance_criteria(text))
     mirages.extend(validate_commit_plan(text, len(items)))
     # A name already in the repository is not new, whatever the plan creates: its members are checked.
-    warnings = check_symbols(text, {n for n in created_names(items) if not grep_symbol(n)})
+    warnings = check_symbols(text, {n for n in created_names(items) if not grep_symbol_locations(n, 1)})
     warnings.extend(check_create_collisions(items))
     warnings.extend(check_design_notes(text))
     warnings.extend(check_security_acs(text))

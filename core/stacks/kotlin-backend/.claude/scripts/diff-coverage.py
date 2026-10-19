@@ -321,9 +321,9 @@ def inline_bodies(text: str) -> set[int]:
     """1-based numbers of the lines that make up the bodies of Kotlin `inline fun`s.
 
     Such a body runs inlined at each call site; the function's own copy is never called, so
-    JaCoCo shows its lines as missed however well it is tested. Only a body that can be read
-    to its end counts: a declaration without one, or brackets that never balance, mark
-    nothing — a line wrongly taken for an inline body would leave the verdict unseen."""
+    JaCoCo shows its lines as missed however well it is tested. A best-effort reading: it
+    only labels missed lines for the reader and never changes the verdict, so a wrong guess
+    costs a wrong label, not a missed line passing."""
     lines = blank_comments_and_strings(text).split("\n")
     body: set[int] = set()
     for start, line in enumerate(lines):
@@ -380,8 +380,9 @@ def evaluate_jacoco(
     never emitted a <line> for carry no bytecode (annotations, `enum class`/class
     declaration headers) and are excluded from both the denominator and the
     uncovered list — they cannot be "uncovered" because there is nothing to run.
-    A missed line in the body of a Kotlin `inline fun` goes to `inline` instead and out of
-    the executable count: it runs at the call sites, not in its own copy (see inline_bodies).
+    A missed line that looks like the body of a Kotlin `inline fun` stays uncovered and is
+    also listed in `inline`: it may run only at the call sites (see inline_bodies), which a
+    person confirms — a guess about the source never passes a line.
     """
     uncovered: list[str] = []
     inline: list[str] = []
@@ -401,11 +402,9 @@ def evaluate_jacoco(
                 continue
             if inlined is None:
                 inlined = inline_bodies(source(path)) if path.endswith(".kt") else set()
+            uncovered.append(f"{path}:{nr}  {text.strip()[:80]}")
             if nr in inlined:
-                executable -= 1
-                inline.append(f"{path}:{nr}  {text.strip()[:80]}")
-            else:
-                uncovered.append(f"{path}:{nr}  {text.strip()[:80]}")
+                inline.append(uncovered[-1])
     return uncovered, executable, covered, non_executable, inline
 
 
@@ -484,9 +483,10 @@ def write_report(
         lines.append("then run the tests with coverage again and re-run this check.")
     if inline:
         lines.append("")
-        lines.append("## Inline function bodies (not counted)")
-        lines.append("An `inline fun` body runs at its call sites and is credited there; the")
-        lines.append("function's own copy never runs. Check that the calls are covered.")
+        lines.append("## Of these, likely inline function bodies")
+        lines.append("An `inline fun` body runs at its call sites; its own copy never runs, so")
+        lines.append("JaCoCo shows it missed. If the calls are covered, no test can cover these:")
+        lines.append("escalate them at once with that reason rather than spend a fix round.")
         lines.extend(f"- {u}" for u in inline)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -563,7 +563,7 @@ def main() -> None:
                 f"Executable new/modified lines: {executable_lines}",
                 f"Covered: {covered_lines}",
                 f"Uncovered: {len(uncovered)}",
-                f"Inline function bodies, not counted: {len(inline)}",
+                f"Of these, likely inline function bodies: {len(inline)}",
                 f"Non-executable lines excluded: {non_executable_lines}",
             ],
             uncovered=uncovered,
@@ -571,7 +571,7 @@ def main() -> None:
         )
         print(f"Coverage: {result} (JaCoCo)")
         print(f"  Executable: {executable_lines}   Covered: {covered_lines}   "
-              f"Uncovered: {len(uncovered)}   Inline not counted: {len(inline)}   "
+              f"Uncovered: {len(uncovered)} (likely inline: {len(inline)})   "
               f"Non-exec excluded: {non_executable_lines}")
         print(f"  Report:  {output}")
         sys.exit(1 if uncovered else 0)

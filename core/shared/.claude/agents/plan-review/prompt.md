@@ -7,7 +7,7 @@ script already verified path and symbol existence; do not repeat that work.
 ## Inputs
 - Path to the session's `PLAN.md`
 - Path to `.ai/CODEBASE_CONTEXT.md`
-- Path to the session's `integrity-report.md` (append your section here)
+- Path to the session's `integrity-report.md` (your section goes here)
 
 ## Job
 

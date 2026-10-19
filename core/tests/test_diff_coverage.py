@@ -159,15 +159,15 @@ INLINE_SOURCE = """class Gateway {
 
 
 def run_inline() -> None:
-    """The body of an `inline fun` runs at its call sites; JaCoCo credits it there and shows the
-    function's own copy as uncovered. Those lines are listed apart and do not fail the check."""
+    """The body of an `inline fun` runs at its call sites and JaCoCo shows its own copy as missed.
+    Those lines are labelled for the reader; they still count as uncovered."""
     path = "src/main/kotlin/com/example/Gateway.kt"
     tracked = {"com/example/Gateway.kt": {n: (3, 0) for n in range(1, 16)}}
     added = {path: {n: line for n, line in enumerate(INLINE_SOURCE.splitlines(), 1) if line.strip()}}
     uncovered, _, _, _, inline = dc.evaluate_jacoco(added, tracked, source=lambda p: INLINE_SOURCE)
     lines = lambda xs: sorted(int(x.split(":")[1].split()[0]) for x in xs)
-    check("a braced inline body is listed apart", lines(inline) == [4, 5, 6, 7, 8, 14], f"inline={lines(inline)}")
-    check("code outside inline bodies still fails", lines(uncovered) == [1, 2, 10, 11, 12, 15],
+    check("a braced inline body is labelled", lines(inline) == [4, 5, 6, 7, 8, 14], f"inline={lines(inline)}")
+    check("labelled lines still count as uncovered", lines(uncovered) == [1, 2, 4, 5, 6, 7, 8, 10, 11, 12, 14, 15],
           f"uncovered={lines(uncovered)}")
     check("bodies of inline funs in other files are not guessed",
           dc.inline_bodies("fun plain() {\n    x()\n}\n") == set())
@@ -195,9 +195,9 @@ def run_inline() -> None:
     tracked2 = {"com/example/Pay.kt": {2: (2, 0), 3: (3, 0)}}
     added2 = {"src/main/kotlin/com/example/Pay.kt": {2: "fun charge() {", 3: "    pay()"}}
     unc, executable2, _, _, inl = dc.evaluate_jacoco(added2, tracked2, source=lambda p: src)
-    check("a comment cannot turn missed code CLEAN", len(unc) == 2 and not inl, f"uncovered={unc} inline={inl}")
+    check("a comment does not label missed code inline", len(unc) == 2 and not inl, f"uncovered={unc} inline={inl}")
     _, executable3, _, _, inl3 = dc.evaluate_jacoco(added, tracked, source=lambda p: INLINE_SOURCE)
-    check("inline lines leave the executable count", executable3 == len(added[path]) - len(inl3),
+    check("labelled lines stay in the executable count", executable3 == len(added[path]),
           f"executable={executable3} added={len(added[path])} inline={len(inl3)}")
 
 
