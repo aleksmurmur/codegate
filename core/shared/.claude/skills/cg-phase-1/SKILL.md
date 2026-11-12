@@ -1,6 +1,6 @@
 ---
 name: cg-phase-1
-description: Codegate Phase 1 — open the task session and run elicitation (data map, then rounds of at most 4 questions, architecture and business never mixed, then a summary of what is settled). Use right after Phase 0 created the task branch.
+description: Codegate Phase 1 — open the task session and run elicitation (data map, a design draft a fresh critic reads before the user sees it, rounds of at most 4 questions, architecture and business never mixed, then a summary of what is settled). Use right after Phase 0 created the task branch.
 user-invocable: false
 ---
 
@@ -63,8 +63,30 @@ user-invocable: false
   under `## Split off`, tell the user to start each as its own task later, audit
   `[ts] Task split: <parts>`, and continue elicitation on the first part.
 
+### The design draft — critique before the user sees the design
+
+Once per task (not for a fast-path), before the first architecture round or the completion,
+the sub-agent returns a **design draft**. The user sees nothing of it yet.
+
+1. Write the draft (from its `# Design` heading) to `{dir}/design.md`; audit
+   `[ts] Design draft written`.
+2. Design critic sub-agent: `.claude/agents/design-critic/prompt.md`, with the paths of
+   `task.md`, `design.md` and CODEBASE_CONTEXT.md when present. Only those — never
+   `elicitation.md` or the conversation. Append its `## Critique` section to `design.md`;
+   audit `[ts] Design critique: N findings (B blockers)`.
+3. Resume the elicitation sub-agent with the critique (as for a round's answers). It returns
+   `## Critique dispositions`: append them, and the `## Design (updated)` sections when it
+   sends them, to `design.md`; audit `[ts] Critique dispositions: adopted X, declined Y,
+   asked Z`. Its next output — a round or the completion — is handled as usual.
+
+Resuming after an interruption: `design.md` without `## Critique` → step 2; with it but
+without `## Critique dispositions` → step 3.
+
 ### Elicitation complete
 
+- `design.md` must exist unless the task went through the fast-path; if it does not, the
+  sub-agent skipped Step 5.5 — send it back for the draft.
+- When the completion has `### Design (updated)`, append it to `design.md`.
 - Write its Requirements part to `{dir}/requirements.md` — the file exists only once
   elicitation is complete; `/ok` and `/cg-approve elicit` read it as that. The independent
   review in Phase 4 reads it instead of `elicitation.md`. Append the summary to

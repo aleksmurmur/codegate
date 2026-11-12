@@ -22,7 +22,7 @@ except Exception:
 " <<< "$INPUT" 2>/dev/null)
 
 case "$PROMPT" in
-  *agents/elicitation/prompt.md*|*agents/planning/prompt.md*) ;;
+  *agents/elicitation/prompt.md*|*agents/design-critic/prompt.md*|*agents/planning/prompt.md*) ;;
   *) exit 0 ;;
 esac
 

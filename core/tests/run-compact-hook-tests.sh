@@ -74,6 +74,15 @@ session "$REPO" IDLE "$WORK"
 echo "## Round 1" > "$REPO/.ai/sessions/s1/elicitation.md"
 OUT=$(run "$REPO")
 case "$OUT" in *"round is open"*) pass "open elicitation round" ;; *) fail "open elicitation round" ;; esac
+printf '# Design\n## Shape\n' > "$REPO/.ai/sessions/s1/design.md"
+OUT=$(run "$REPO")
+case "$OUT" in *"critic has not run"*) pass "design draft awaiting critique" ;; *) fail "design draft awaiting critique" ;; esac
+printf '## Critique\nNo findings.\n' >> "$REPO/.ai/sessions/s1/design.md"
+OUT=$(run "$REPO")
+case "$OUT" in *"has not answered it"*) pass "critique awaiting dispositions" ;; *) fail "critique awaiting dispositions" ;; esac
+printf '## Critique dispositions\n' >> "$REPO/.ai/sessions/s1/design.md"
+OUT=$(run "$REPO")
+case "$OUT" in *"round is open"*) pass "after dispositions the round is open again" ;; *) fail "after dispositions the round is open again" ;; esac
 echo "- shape" > "$REPO/.ai/sessions/s1/requirements.md"
 OUT=$(run "$REPO")
 case "$OUT" in *"Elicitation complete"*) pass "completed elicitation" ;; *) fail "completed elicitation" ;; esac

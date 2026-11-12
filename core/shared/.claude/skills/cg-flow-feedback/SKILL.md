@@ -28,8 +28,9 @@ At the end of each phase append to `{session dir}/flow-feedback.md`:
 ```
 
 1–4 bullets per section; an empty one is `- (none observed)`. What to look at, per phase:
-elicitation — question count against task size, which questions surfaced real ambiguity;
-planning — plan size, integrity and pattern-review usefulness; implementation — chunking
+elicitation — question count against task size, which questions surfaced real ambiguity,
+design critique — real findings against noise, what was adopted; planning — plan size,
+integrity usefulness, open decisions the design missed; implementation — chunking
 against the plan, red-check discipline, ADRs written or missed, scope drift; quality gate —
 real findings against noise, false negatives you noticed, coverage refresh; PR — description
 completeness, what the PR creator had to guess.
