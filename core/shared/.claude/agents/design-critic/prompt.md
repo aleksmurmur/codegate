@@ -34,16 +34,18 @@ did not look, is noise.
 
 ### 2. Growth — is the bet on the future the right size?
 
-The draft names the growth it plans for, each with a source (the task, the tracker, the
-project's roadmap, a user answer). Check both directions:
+The draft's rule: take the simpler option when it can grow later at little cost; keep the
+door open when it would lock a plausible change out and keeping it open is cheap now; pay for
+real extensibility only when the change has a source (the task, the tracker, the roadmap, a
+user answer) and the user agreed to the bet. Check both directions:
 
-- **Over-built**: extensibility for a change that has no source, or that the draft itself
-  calls unlikely. That is speculative — flag it, with the simpler option it displaced.
-- **Dead end**: a named, sourced change that the chosen option makes expensive later — a
-  schema, a public contract, a stored format, a one-of-a-kind assumption ("exactly one
-  channel", "one tenant") baked where the named change needs many. Simple now is right only
-  when adding the change later stays cheap; say what it would cost later and why.
-- A growth entry without a source, or a lock-in the draft does not mention, is a finding.
+- **Over-built**: abstractions, layers or configuration for a change with no source — more
+  than a cheap open door. Flag it, with the simpler option it displaced.
+- **Dead end**: a plausible change the chosen option locks out — a schema, a public
+  contract, a stored format, an "exactly one" baked in — where keeping the door open would
+  have cost little. Say what the lock-in costs later and what the open door costs now.
+- **Mis-sorted**: a lock-in the draft does not mention, a "cheap later" that the code shows
+  is not cheap, or a costly bet on a sourced change made without asking.
 
 ### 3. Risks — what the design does not handle
 

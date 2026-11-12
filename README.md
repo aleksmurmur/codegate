@@ -17,9 +17,10 @@ Every task follows enforced phases before code reaches review:
    never in one message — until nothing is open; a task that is really several is offered as a split. It ends with a summary of what is settled and what it decided itself. Cosmetic changes can short-circuit to a fast-path
    mini-plan (`/cg-approve quick`).
    Before the user sees any architecture question, the agent writes a design draft
-   (`design.md`): the shape, each decision with its options, and the growth it plans for —
-   only growth with a source (the task, the tracker, the roadmap, a user answer), weighed
-   by whether the simpler option can grow cheaply later or walls the change off. A design
+   (`design.md`): the shape, each decision with its options, and the growth it touches.
+   Growth is weighed by cost, not by guessing odds: the simpler option when it can grow
+   cheaply later; simpler with the door kept open when locking out is avoidable for little;
+   a question to the user only for a costly bet on growth with a source. A design
    critic with no part in the conversation reads the draft and the code: prior art, a
    simpler shape, over- or under-built extensibility, risks, decisions left open. The agent
    adopts, declines or turns each finding into a question, so the options the user picks

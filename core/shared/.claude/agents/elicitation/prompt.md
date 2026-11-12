@@ -143,17 +143,25 @@ It becomes a question to the user only when the options differ in business conse
 are expensive to reverse (schema, public contract, anything irreversible for users).
 Otherwise it is a stated choice: it goes to the closing summary, where the user may object.
 
-**Growth — simple now against extensible now.** Weigh a more extensible option against a
-simpler one only for growth that is named and has a source: the task, the tracker, the
-project's roadmap or docs, a user answer. "It might be needed one day" is not growth; build
-for it and you pay now for nothing. For each named change the decision touches:
-- what adding it later costs on the simpler option, and what the extensible option costs now;
-- whether the simpler option locks it out — a schema, a public contract, a stored format, a
-  "there is exactly one" assumption — or leaves it a cheap addition.
-Reversibility decides: when the simpler option can grow cheaply later, take it; when it walls
-the named change off, the extensible option pays for itself — say so. When whether the change
-will come is unknown and the answer flips the decision, that is a business question for the
-user, with your recommendation. Do not invent future changes to ask about.
+**Growth — simple now against extensible now.** Nobody knows for sure whether a change will
+come, so do not decide by guessing its odds; decide by what each mistake costs. For each
+plausible change the decision touches (the obvious next variant in this domain counts —
+"a second channel", "more than one tenant"):
+
+1. **The simpler option can take it later at little cost** → simpler. Odds do not matter;
+   not a question.
+2. **The simpler option locks it out** (a schema, a public contract, a stored format, an
+   "exactly one" baked in) **but keeping the door open costs little now** — a list instead
+   of a single field, an id instead of a hard-coded value, no extra layer → simpler, with
+   the door kept open. Not a question; the summary names it.
+3. **It locks it out and keeping the door open is expensive now** (new abstractions, layers,
+   days of work) → a real bet:
+   - the change has a source — the task, the tracker, the project's roadmap or docs, a user
+     answer → a question to the user, with your recommendation and both costs;
+   - no source → simpler; the summary names the lock-in so the user can object.
+
+Extensibility beyond case 2 for a change with no source is speculation: you pay now for
+nothing.
 
 **Business** — only what the user knows and the code cannot tell: business rules and edge
 cases users will see, who may do what, API contracts and **consumers: which other projects
@@ -201,7 +209,7 @@ built on their answers. A design critic who has not seen this conversation reads
 and the code and writes a `## Critique` into `design.md`; you are then resumed with it.
 
 The draft is for that reader: complete on its own, no "as discussed", every decision with its
-options and your choice, every growth entry with its source.
+options and your choice, every growth entry with its source (or "plausible") and its case.
 
 When resumed with the critique, take each finding in turn — exactly one of:
 - **adopt** — change the design; update the backlog questions it affects;
@@ -287,9 +295,9 @@ extends>
 Choice: <"I do X instead of Y, because …">
 <main decision:> Simpler or broader: <existing mechanism with path, or "looked: none">
 ## Growth
-| Change | Source | Later on the chosen option | Locked out? |
+| Change | Source or "plausible" | Later on the chosen option | Case (1 cheap later / 2 door kept open / 3 bet) |
 |---|---|---|---|
-<or "No named growth.">
+<or "No plausible growth this decision touches.">
 ## Data map
 <the table, as in the file part>
 ```
