@@ -102,17 +102,10 @@ plan_creating() {  # plan_creating <path> <sentence>
 run_plan() { ( cd "$REPO" && python3 "$SCRIPT" "$REPO/PLAN.md" ) >/dev/null 2>&1; report=$(cat "$REPO/integrity-report.md"); }
 
 plan_creating src/WidgetGateway.kt 'The plan adds `WidgetGateway` with `WidgetGateway.createAll()`.'
-printf '# Plan Integrity Report\n\n## Warnings (1)\n- WARN: old\n\n## Pattern Review (advisory)\n- PRIOR ART: first\n\n## Pattern Review (advisory)\n- PRIOR ART: second\n' \
-    > "$REPO/integrity-report.md"
+printf '# Plan Integrity Report\n\n## Warnings (1)\n- WARN: old\n' > "$REPO/integrity-report.md"
 run_plan
-has "a re-run keeps the pattern review"          "PRIOR ART: second" yes
-has "...only the latest one"                     "PRIOR ART: first"  no
-has "...but not its own old sections"            "WARN: old"         no
+has "a re-run replaces the old report"            "WARN: old"         no
 has "a class the plan creates is not 'not found'" 'not found in repo: `WidgetGateway' no
-
-cp "$FIXTURES_DIR/no-checklist.md" "$REPO/PLAN.md"
-run_plan
-has "a plan that cannot be parsed drops the review" "PRIOR ART" no
 
 mkdir -p "$REPO/src/v1" && printf 'class OrderController {\n    fun cancelOrder() = Unit\n}\n' > "$REPO/src/v1/OrderController.kt"
 git -C "$REPO" add src/v1/OrderController.kt && git -C "$REPO" commit -qm "an existing class"

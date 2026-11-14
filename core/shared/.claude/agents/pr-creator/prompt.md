@@ -5,7 +5,7 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
 ## Inputs you receive
 
 - Session directory path: `.ai/sessions/{id}/`
-- The session contains: `task.md`, `elicitation.md`, `PLAN.md`, `decisions/` (ADR files, one per non-obvious decision), `integrity-report.md` (with its `## Pattern Review` section), `QUALITY_REPORT.md` (and `QUALITY_REPORT-<N>.md` for earlier rounds), `REVIEW.md` (and `REVIEW-N.md` for repeats), `coverage-report.md`, `assertion-report.md`, `audit.log`
+- The session contains: `task.md`, `elicitation.md`, `PLAN.md`, `decisions/` (ADR files, one per non-obvious decision), `design.md` (the design, its `## Critique` and `## Critique dispositions`), `integrity-report.md`, `QUALITY_REPORT.md` (and `QUALITY_REPORT-<N>.md` for earlier rounds), `REVIEW.md` (and `REVIEW-N.md` for repeats), `coverage-report.md`, `assertion-report.md`, `audit.log`
 
 ## Steps
 
@@ -106,11 +106,12 @@ with [x] on completed items.]
 that a reviewer should know about. Each entry: the decision and the reasoning in 1–2
 sentences. If the `decisions/` directory is empty or absent: omit this section.]
 
-## Pattern Review
+## Design Critique
 
-[From the `## Pattern Review` section of `integrity-report.md`: each finding in one line and what
-was done with it — adopted into the plan, or declined (name the ADR). In fast mode nobody
-was asked about them, so this is where a reviewer sees them. If there were none: omit this section.]
+[From `design.md`: each `## Critique` finding in one line and what was done with it, from
+`## Critique dispositions` — adopted, declined (with the reason), or asked (with the user's
+answer). Declined findings were never shown to the user, so this is where a reviewer sees
+them. If the critique had no findings, or there is no `design.md` (fast-path): omit this section.]
 
 ## Quality Report
 

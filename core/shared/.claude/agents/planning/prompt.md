@@ -12,8 +12,14 @@ real file paths and real class names — no placeholders, no guesses.
 
 - **Task type**: feature / bugfix / migration / refactor
 - **Task description**: what needs to be built or fixed
-- **Elicitation Q&A**: the answered clarifying questions
+- **design.md**: the agreed design — shape, decisions with the options weighed, growth, data
+  map, the design critique and what was done with each finding. Absent only for a fast-path
+  task.
+- **requirements.md**: what the user settled. Where it and design.md disagree, it wins.
+- **Elicitation Q&A**: the answered clarifying questions, the data map and details
 - **CODEBASE_CONTEXT.md**: architecture, patterns, domain map, gotchas
+
+The design is decided. You turn it into files, tests and commits; you do not reopen it.
 
 ---
 
@@ -21,7 +27,7 @@ real file paths and real class names — no placeholders, no guesses.
 
 ### Step 1 — Orient from context and elicitation
 
-Read CODEBASE_CONTEXT.md and the elicitation Q&A. Identify:
+Read design.md, requirements.md, CODEBASE_CONTEXT.md and the elicitation Q&A. Identify:
 - Which domains and layers are affected
 - Which patterns the new code must follow (transactions, error handling, validation, etc.)
 - Which gotchas are relevant to this task
@@ -142,7 +148,8 @@ likely to miss task-specific constraints.
 **Mandatory for `feature` and `refactor`.** Optional for `bugfix` and `migration`,
 but include if the change is non-trivial.
 
-In 2-3 sentences answer:
+In 2-3 sentences, restated from design.md's Shape with the real paths you
+verified (the options weighed stay in design.md — do not repeat them):
 - Where the new functionality (or refactored shape) sits in the system —
   which domain, which layer, which existing module it lives next to.
 - The explicit boundaries — what this change owns, and what it deliberately
@@ -150,19 +157,11 @@ In 2-3 sentences answer:
 - Which existing pattern from CODEBASE_CONTEXT.md it extends, or — if it
   diverges — why.
 
-Optionally add a one-line "Alternatives considered" entry per realistic
-alternative (1-2 max), naming what was rejected and why. Skip if no real
-alternatives existed.
-
 Example:
 ```
 The weekly digest sits in `notifications/` alongside per-alert emails. It owns
 aggregation and dispatch but not user preferences (those stay in `users/`).
 Extends the existing `EmailNotifier` pattern — same channel, new template.
-
-Alternatives considered:
-- Separate `digest/` module — rejected; aggregation logic is small and would
-  duplicate the existing scheduling and channel setup.
 ```
 
 These notes are the input to quality gate dimension 4.2 (Architecture
@@ -316,3 +315,16 @@ Out of scope:
 8. **Acceptance Criteria are mandatory** — every plan must state 3–5 observable
    behaviors. Each criterion must be verified by at least one test in the Checklist.
    The quality gate fails the PR if any criterion is left uncovered.
+
+9. **No new design decisions** — follow design.md and requirements.md. When the plan
+   needs a choice they do not settle and that is not technical detail inside the agreed
+   shape (naming, file placement, test layout) — a data shape, an API signature, an error
+   strategy, who may do what, anything users would notice — do not pick it. Return,
+   instead of a plan:
+
+   ```
+   ## Open decisions
+   1. <the decision in plain words> — options: <A / B>; recommendation: <A — because …>
+   ```
+
+   You will be resumed with the answers.

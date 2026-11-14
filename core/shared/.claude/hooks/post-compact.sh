@@ -88,6 +88,10 @@ case "$STATE" in
   IDLE)
     if [ -f "$SESSION_DIR/PLAN.md" ] && [ ! -f "$SESSION_DIR/elicitation.md" ]; then
       echo "▶ Cosmetic fast path proposed (mini-plan: $REL_DIR/PLAN.md): /cg-approve quick to implement, /cg-approve elicit for the full workflow."
+    elif [ -f "$SESSION_DIR/design.md" ] && ! grep -q '^## Critique$' "$SESSION_DIR/design.md"; then
+      echo "▶ Elicitation (skill cg-phase-1): design draft written, the design critic has not run — $REL_DIR/design.md"
+    elif [ -f "$SESSION_DIR/design.md" ] && ! grep -q '^## Critique dispositions' "$SESSION_DIR/design.md"; then
+      echo "▶ Elicitation (skill cg-phase-1): design critique is in, the elicitation agent has not answered it — $REL_DIR/design.md"
     elif [ -f "$SESSION_DIR/requirements.md" ]; then
       echo "▶ Elicitation complete ($REL_DIR/requirements.md): /cg-approve elicit to plan."
     elif [ -f "$SESSION_DIR/elicitation.md" ]; then

@@ -23,6 +23,8 @@ Quality matters more than speed. Read as much code as you need.
 - **Previous rounds** (from round 2 on, unless you are the same agent resumed with the
   answers): `elicitation.md` — your data map, your backlog and the user's answers so far.
   Continue from it: update the data map where the answers change it, do not redo it.
+- **Critique** (once, after your design draft): the `## Critique` section the design critic
+  wrote into `design.md`. See Step 5.5.
 
 ---
 
@@ -141,6 +143,26 @@ It becomes a question to the user only when the options differ in business conse
 are expensive to reverse (schema, public contract, anything irreversible for users).
 Otherwise it is a stated choice: it goes to the closing summary, where the user may object.
 
+**Growth — simple now against extensible now.** Nobody knows for sure whether a change will
+come, so do not decide by guessing its odds; decide by what each mistake costs. For each
+plausible change the decision touches (the obvious next variant in this domain counts —
+"a second channel", "more than one tenant"):
+
+1. **The simpler option can take it later at little cost** → simpler. Odds do not matter;
+   not a question.
+2. **The simpler option locks it out** (a schema, a public contract, a stored format, an
+   "exactly one" baked in) **but keeping the door open costs little now** — a list instead
+   of a single field, an id instead of a hard-coded value, no extra layer → simpler, with
+   the door kept open. Not a question; the summary names it.
+3. **It locks it out and keeping the door open is expensive now** (new abstractions, layers,
+   days of work) → a real bet:
+   - the change has a source — the task, the tracker, the project's roadmap or docs, a user
+     answer → a question to the user, with your recommendation and both costs;
+   - no source → simpler; the summary names the lock-in so the user can object.
+
+Extensibility beyond case 2 for a change with no source is speculation: you pay now for
+nothing.
+
 **Business** — only what the user knows and the code cannot tell: business rules and edge
 cases users will see, who may do what, API contracts and **consumers: which other projects
 (services, apps) depend on this, and in what order to roll out**, scope (what is in, what is
@@ -177,6 +199,27 @@ with its track and the questions it waits for. The user gets them in rounds:
   question; the summary marks each "by recommendation".
 
 Elicitation is complete when the backlog is empty.
+
+### Step 5.5 — Design draft and critique (once per task)
+
+The first time you would return an architecture round — or the completion, when there is no
+architecture round — return a **design draft** instead (format below). Business rounds that
+frame the task (what exactly, for whom, what is out of scope) come before it; the draft is
+built on their answers. A design critic who has not seen this conversation reads the draft
+and the code and writes a `## Critique` into `design.md`; you are then resumed with it.
+
+The draft is for that reader: complete on its own, no "as discussed", every decision with its
+options and your choice, every growth entry with its source (or "plausible") and its case.
+
+When resumed with the critique, take each finding in turn — exactly one of:
+- **adopt** — change the design; update the backlog questions it affects;
+- **decline** — one line on why, with the evidence when the finding misread the code;
+- **ask** — it changes business consequences or is expensive to reverse: it becomes a
+  question in the backlog, with your recommendation.
+
+Then continue: the next round, or the completion. The critic runs once; when later answers
+change the design, keep `design.md` current through your output, but do not ask for a second
+critique.
 
 ### Step 6 — Write it so it gets read
 
@@ -233,6 +276,44 @@ Reply "all as recommended" or "as recommended except N: …".
 <names, paths, evidence behind the message>
 ```
 
+The design draft (Step 5.5; once). The orchestrator writes it to `design.md` and shows the
+user nothing yet:
+
+```
+## Design draft
+
+# Design
+## Settled so far
+<one line per user answer so far — the decision, not the discussion>
+## Shape
+<where it lives, what it owns, what it deliberately does not touch; the existing pattern it
+extends>
+## Decisions
+### <decision, in plain words>
+- Option A — <what>; now: <cost>; later: <cost/benefit>
+- Option B — …
+Choice: <"I do X instead of Y, because …">
+<main decision:> Simpler or broader: <existing mechanism with path, or "looked: none">
+## Growth
+| Change | Source or "plausible" | Later on the chosen option | Case (1 cheap later / 2 door kept open / 3 bet) |
+|---|---|---|---|
+<or "No plausible growth this decision touches.">
+## Data map
+<the table, as in the file part>
+```
+
+After the critique, the dispositions — the orchestrator appends them to `design.md`, then you
+return the next round or the completion as usual:
+
+```
+## Critique dispositions
+1. adopt — <what changed in the design>
+2. decline — <why>
+3. ask — <the backlog question it became>
+<when the design changed:> ## Design (updated)
+<the sections that changed, in full>
+```
+
 The completion (also when there was nothing to ask):
 
 ```
@@ -241,12 +322,16 @@ The completion (also when there was nothing to ask):
 ### Message
 **Settled:** <one line per answered question; "(by recommendation)" where the user left it to you>
 **How it fits the system:** <"I do X instead of Y, because …"> Simpler or broader: <…>
+**Critique:** <N findings — adopted X, declined Y, asked Z; one line on each Blocker>
 **Decided without asking:**
 - <decision — one line each, up to 5>
 Say if anything here is wrong.
 
 ### Requirements
 <one line per settled answer and one for the shape: what was decided, not why or how>
+
+### Design (updated)
+<the sections of design.md that answers changed since the critique, in full; omit if none>
 
 ### File
 <data map changes and details, as in a round>

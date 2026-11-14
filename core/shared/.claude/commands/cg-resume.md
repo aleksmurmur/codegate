@@ -23,6 +23,7 @@ a new Claude Code window, or an unexpected stop.
    - `.ai/sessions/{id}/state` — current phase
    - `.ai/sessions/{id}/task.md` — original task description
    - `.ai/sessions/{id}/elicitation.md` — Q&A answers
+   - `.ai/sessions/{id}/design.md` — the design draft, its critique and the dispositions (Phase 1 names the step to resume when one is missing)
    - `.ai/sessions/{id}/PLAN.md` — implementation plan with checklist
    - `.ai/sessions/{id}/decisions/` — directory of ADR files, one per non-obvious decision (filename pattern: `NNN-slug.md`)
    - `.ai/sessions/{id}/audit.log` — last few lines for recent activity

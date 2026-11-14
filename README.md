@@ -16,12 +16,19 @@ Every task follows enforced phases before code reaches review:
    (how the change fits the system, options, a simpler or broader alternative) and business
    never in one message — until nothing is open; a task that is really several is offered as a split. It ends with a summary of what is settled and what it decided itself. Cosmetic changes can short-circuit to a fast-path
    mini-plan (`/cg-approve quick`).
-2. **Planning** — plan generated, then a mechanical integrity script verifies
-   every referenced path, symbol, and migration version, and warns when a file
-   the plan will create already names an existing symbol. An advisory pattern
-   review then reads the codebase for prior art — something that already does
-   what the plan proposes to build — and flags deviations from HIGH-confidence
-   conventions.
+   Before the user sees any architecture question, the agent writes a design draft
+   (`design.md`): the shape, each decision with its options, and the growth it touches.
+   Growth is weighed by cost, not by guessing odds: the simpler option when it can grow
+   cheaply later; simpler with the door kept open when locking out is avoidable for little;
+   a question to the user only for a costly bet on growth with a source. A design
+   critic with no part in the conversation reads the draft and the code: prior art, a
+   simpler shape, over- or under-built extensibility, risks, decisions left open. The agent
+   adopts, declines or turns each finding into a question, so the options the user picks
+   from have already been challenged.
+2. **Planning** — the agreed design written down as files, tests and commits; the planner
+   makes no design decision of its own and brings back any the design left open. A
+   mechanical integrity script then verifies every referenced path, symbol, and migration
+   version, and warns when a file the plan will create already names an existing symbol.
 3. **Implementation** — code written against the approved plan, chunk by chunk, test first,
    each chunk in a sub-agent that works from the session files.
 4. **Quality gate** — two mechanical checks first: diff coverage (new
@@ -220,7 +227,7 @@ your-project/
 │       ├── elicitation/               # Phase 1 (incl. fast-path triage)
 │       ├── planning/                  # Phase 2
 │       ├── implementer/               # Phase 3, one plan chunk test-first
-│       ├── plan-review/               # Phase 2 advisory prior-art / pattern review
+│       ├── design-critic/             # Phase 1, fresh read of the design draft
 │       ├── quality-gate/              # Phase 4
 │       ├── independent-review/        # Phase 4, last step: sees only task and code
 │       └── pr-creator/                # Phase 5
@@ -235,7 +242,7 @@ your-project/
 - [x] M0: Foundation (hooks, state machine, slash commands)
 - [x] M1: Codebase Intelligence Engine
 - [x] M2: Elicitation Engine (context-aware questions per task type, cosmetic fast-path)
-- [x] M3: Plan Gate (planning agent, mechanical integrity script, advisory pattern review)
+- [x] M3: Plan Gate (planning agent, mechanical integrity script; the design critique moved to Phase 1)
 - [x] M4: Quality Gate (baseline-diffed tests, diff-coverage, assertion check, LLM review)
 - [x] M5: Session Resilience (compaction recovery, /cg-resume)
 - [ ] M6: SQL EXPLAIN Integration (requires MCP)
