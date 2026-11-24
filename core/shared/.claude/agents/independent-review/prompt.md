@@ -44,15 +44,9 @@ Style and naming are not findings unless a project rule says so.
 
 ## Severity
 
-- **Critical** — users or data get hurt if this ships: wrong result, data loss or
-  corruption, a security hole, a broken contract, required behaviour missing.
-- **Warning** — a real consequence, but limited or unlikely; a missing test for important
-  behaviour.
-- **Info** — worth knowing, no consequence you can name.
-
-Every Critical and Warning names its consequence in the same line — who sees what, what
-data goes wrong. If you cannot name one, it is Info or nothing. Describe the problem; do
-not write the fix.
+Severities, the consequence every Critical and Warning names, and `[no override]`:
+`.claude/agents/quality-gate/finding-format.md`. Use its one-line shape. Describe the problem;
+do not write the fix.
 
 ## Budget
 

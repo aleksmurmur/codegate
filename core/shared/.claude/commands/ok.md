@@ -52,7 +52,7 @@ Otherwise, infer the phase from session state and dispatch:
    | QUALITY_REVIEWED | audit has `Independent review started` | the review is under way: continue Phase 4 §5; when it is waiting on "fix or proceed?", `/ok` means proceed |
    | QUALITY_REVIEWED | verdict `PASS`, or the audit has `WARN accepted` / `Quality gate override` | start Phase 4 §5 (the independent review) |
    | QUALITY_REVIEWED | verdict is `WARN` | run `/cg-approve quality`, but FIRST print: "⚠ Accepting WARN findings via /ok. Read QUALITY_REPORT.md if you haven't." |
-   | QUALITY_REVIEWED | verdict is `FAIL` | **refuse**: "Quality gate is FAIL. /ok will not override FAIL — type `/cg-approve quality` explicitly to override (note: critical SQL/security FAILs cannot be overridden at all)." Stop. |
+   | QUALITY_REVIEWED | verdict is `FAIL` | **refuse**: "Quality gate is FAIL. /ok will not override FAIL — type `/cg-approve quality` explicitly to override (note: findings marked `[no override]` cannot be overridden at all)." Stop. |
    | PR_CREATED / PR_UPDATED | — | "The PR/MR exists — nothing to approve. Fixes to it are rework; `/cg-merged` checks for a merge." Stop. |
    | REWORK | — | "Rework in progress — the delta check runs before the push (skill `cg-rework`). Nothing to approve." Stop. |
    | MERGED / ABANDONED | — | "The task is closed. New work starts a new task." Stop. |

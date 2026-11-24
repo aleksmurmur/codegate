@@ -88,3 +88,23 @@
   choices: full, none
   default: >
     full. Propose none when the suite is slow and already green on the base branch.
+
+- key: gate_checks
+  question: >
+    Which project checks must pass before a PR/MR — a migration linter, architecture
+    tests, a dependency audit? The quality gate runs each command next to the linters it
+    finds itself; a failing one blocks the PR/MR until fixed or overridden.
+  default: >
+    Empty (none). Otherwise commands separated by ` ;; `, each run from the project root,
+    exit 0 meaning pass. Propose only checks the project's own CI or rules already run, and
+    only ones that do not change files.
+
+- key: gate_mode
+  question: >
+    Run the quality gate as one agent walking its whole rule list, or as three agents —
+    architecture, security, testing — each taking its part of the same list, merged into
+    one report? Three cost more tokens and look deeper into each part.
+  choices: single, lenses
+  default: >
+    single. Propose lenses only when the user asks for a deeper gate (money, access,
+    personal data).

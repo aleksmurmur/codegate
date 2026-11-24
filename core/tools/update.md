@@ -52,7 +52,8 @@ PR/MR is created (flags, push options) is what to propose — rewritten with the
 `options.yml` lists for it. A `key=value` in `$ARGUMENTS` answers or **changes** an
 option without asking, including one already recorded — that is how a user switches a
 setting later. Append new answers to `$WORK/options`; replace the row for a changed key.
-Rows for keys no longer in `options.yml` are dropped.
+Rows for keys no longer in `options.yml` are dropped. An option a §6b block answers
+(`gate_mode` when `.ai/multi-persona-qg-enabled` exists) is not asked.
 
 Set `OPTIONS_CHANGED=yes` if anything was asked or changed.
 
@@ -399,6 +400,16 @@ baseline did not. Phase 4 now ends with a review by a sub-agent that sees only t
 the code. If the project has its own review before the PR/MR (a command, an agent, a hook
 that demands its marker), tell the user both now run, and ask whether to keep theirs. Their
 command, agent and hook are project files: never delete or edit them without a yes.
+
+**One list of gate rules** — upstream has `.claude/agents/quality-gate/rules-common.md` and
+baseline did not. `quality-gate/prompt.md` is now one shared file over that list, and the lens
+prompts (`quality-gate-arch-code`, `quality-gate-security`, `quality-gate-testing`,
+`quality-gate-synthesis`) are gone; §4 already left them out of staging.
+- `.ai/multi-persona-qg-enabled` exists: set `gate_mode` to `lenses` in `$WORK/options`, delete
+  the marker, and tell the user in one line that the lens gate is now the option `gate_mode`.
+- Any of those removed files the project had edited (its content differs from baseline, compared
+  as in §4): list them. Their rules now live in `.claude/agents/quality-gate/rules-stack.md`
+  (stack) and `rules-common.md`; offer to carry each local rule there, and only with a yes.
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: cg-phase-4
-description: Codegate Phase 4 — quality gate and independent review. Use when implementation is complete (or /cg-approve implementation): commit leftovers, diff coverage and assertion checks once, the review sub-agent, fix rounds limited to what failed.
+description: Codegate Phase 4 — quality gate and independent review. Use when implementation is complete (or /cg-approve implementation): commit leftovers, the mechanical checks once, the gate and review sub-agents, fix rounds in a sub-agent limited to what failed.
 user-invocable: false
 ---
 
@@ -12,8 +12,11 @@ the remote when the local copy is behind it. It fails (the target branch is gone
 merged parent of a stacked task was deleted) → stop and ask the user which branch the task
 now targets; write it to `{dir}/target-branch`.
 
-Mechanical checks run once; the gate runs again only after FAIL, and only on what the fixes
-touched: fix commits get their own review.
+Mechanical checks are commands, run once; the gate runs again only after FAIL, and only on
+what the fixes touched. Every command's output goes to a file in `{dir}`: read its summary,
+not the log. Every fix — for a check, the gate or the review — is done by a **fix sub-agent**:
+`.claude/agents/implementer/prompt.md`, given `{dir}`, the task type, the report and the items
+to fix. It fixes, commits and returns a short status; the gate and the review never edit code.
 
 ## 1. Leftovers
 
@@ -23,7 +26,7 @@ task's files only (`git add -u` plus new plan files by path; never `-A`/`.`) and
 
 ## 2. Mechanical checks — once
 
-Both read committed history (`$BASE..HEAD`), not the working tree.
+All read committed history (`$BASE..HEAD`), not the working tree.
 
 **2a. Tests and diff coverage.** Run the full test suite — the gate's full run; every later
 coverage re-check is a full run again. The command is the one the baseline used (Phase 3,
@@ -35,13 +38,13 @@ informational only — say coverage was not measured. Audit
 `[ts] coverage-refresh: <command>, coverage <report|none>`.
 Then `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output {dir}/coverage-report.md`.
 - `0` CLEAN → 2b.
-- `1` FAIL → write the missing tests (not production code bent to the metric), commit, and
-  re-run **coverage only**. A line no test can reach (unreachable by construction, a tool
-  artifact) is not a round's work: when only such lines are left, escalate at once, each
-  with why it cannot be covered. Up to 3 rounds; then escalate: show what is still uncovered; the
-  user says what to do, or accepts it — audit `[ts] Coverage accepted by user — N items`,
-  the report goes into the PR description, go on to 2b. Audit each FAIL
-  `[ts] Coverage check FAIL — N uncovered items`.
+- `1` FAIL → fix sub-agent with `coverage-report.md`: the missing tests (not production code
+  bent to the metric), committed; then re-run **coverage only**. A line no test can reach
+  (unreachable by construction, a tool artifact) is not a round's work: when only such lines
+  are left, escalate at once, each with why it cannot be covered. Up to 3 rounds; then
+  escalate: show what is still uncovered; the user says what to do, or accepts it — audit
+  `[ts] Coverage accepted by user — N items`, the report goes into the PR description, go on
+  to 2b. Audit each FAIL `[ts] Coverage check FAIL — N uncovered items`.
 - `2` "report is older than the last commit" → the coverage run did not finish: rebuild the
   report from that run without re-running the tests (the stack's report task), or run it
   again, then re-check.
@@ -49,54 +52,60 @@ Then `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output {dir}/cov
 
 **2b. Assertions.** `python3 .claude/scripts/test-assertions.py --base "$BASE" --output {dir}/assertion-report.md`.
 - `0` → go on; advisory existence-only findings go to the gate as context.
-- `1` → tests touched by this diff assert nothing that could fail: add real assertions,
-  commit, re-run this check only. Up to 3 rounds; then escalate as for coverage (accepted
-  → audit `[ts] Assertions accepted by user — N tests`, go on to §3).
+- `1` → tests touched by this diff assert nothing that could fail: fix sub-agent with
+  `assertion-report.md` adds real assertions and commits; re-run this check only. Up to 3
+  rounds; then escalate as for coverage (accepted → audit `[ts] Assertions accepted by user —
+  N tests`, go on).
 - `2` → warn, note, go on.
+
+**2c. Linters and project checks.** `bash .claude/scripts/gate-checks.sh --output {dir}/checks-report.md`
+runs the linters the project has configured, in check mode, and the commands of the option
+`gate_checks`. `0` or `1` → go on: a failure is the gate's to rate, its fix goes through §4.
+`2` → warn, note, go on. Audit `[ts] gate-checks: <CLEAN|FAIL>`.
 
 ## 3. The gate
 
-Inputs: the diff `$BASE..HEAD`, the list of files it touches (the agent reads each in full —
-the defects hardest to catch are invisible in a diff: a guard every sibling applies and the
-new method omits, a second copy of existing machinery), CODEBASE_CONTEXT.md, PLAN.md,
-`test-baseline.txt`, `test-results.txt`, `coverage-report.md`, `assertion-report.md`,
-`.ai/tech-debt/`.
+Inputs, as paths: `$BASE`, the report path, `{dir}` (where `design.md`, `requirements.md`,
+`PLAN.md`, `test-baseline.txt`, `test-results.txt`, `coverage-report.md`,
+`assertion-report.md`, `checks-report.md` are), `.ai/CODEBASE_CONTEXT.md`, `.ai/tech-debt/`,
+the task type. The agent reads the files itself; do not paste them.
 
 The gate writes the report path it is given: `{dir}/QUALITY_REPORT.md`. Before a re-run, copy
 the previous report to `{dir}/QUALITY_REPORT-<N>.md` (copy, not move: the shared session
 store would bring a moved file back), so the latest verdict is always in
 `QUALITY_REPORT.md` and every round stays readable.
 
-- Default: one sub-agent, `.claude/agents/quality-gate/prompt.md`.
-- `.ai/multi-persona-qg-enabled` exists: in ONE message, three parallel sub-agents
-  (`quality-gate-security`, `quality-gate-arch-code`, `quality-gate-testing`), each writing
-  `{dir}/quality-findings-<lens>.md`; then `quality-gate-synthesis` writes the report (a missing
-  lens is noted, not blocking). Lenses read and search the code but do not run linters or smoke
-  checks: before synthesis, run the gate prompt's Stage 2 (linters) and Stage 3 (smoke)
-  yourself and pass their results to synthesis.
+Option `gate_mode` (`.claude/scripts/cg-option.sh gate_mode single`):
+- `single`: one sub-agent, `.claude/agents/quality-gate/prompt.md`, walks the whole rule list.
+- `lenses`: in ONE message, three parallel sub-agents with `.claude/agents/quality-gate/lens.md`,
+  each given its lens — `arch`, `security`, `testing` — and the same inputs, each writing
+  `{dir}/quality-findings-<lens>.md`. Then one sub-agent with
+  `.claude/agents/quality-gate/prompt.md` in merge mode, given those three files, writes the
+  report. A missing lens file is noted, not blocking.
 
 Then: state `QUALITY_REVIEWED`; audit `[ts] Quality gate complete`; present the report;
 `bash .claude/scripts/notify.sh "Codegate" "Quality gate: {VERDICT}"`.
 
 ## 4. Verdict
 
+Severities and what cannot be overridden: `.claude/agents/quality-gate/finding-format.md`.
+
 - **PASS** → audit `[ts] Quality gate passed — verdict: PASS`, go to §5. Both modes.
-- **WARN** → fix what is worth fixing now (these fixes are not re-gated: the PR/MR review sees
-  them), log the rest as tech debt or in the PR description. `fast`: audit
+- **WARN** → the fix sub-agent fixes the Warnings worth fixing now (not re-gated: the PR/MR
+  review sees them); the rest go to tech debt or the PR description. `fast`: audit
   `[ts] fast-mode-auto-proceed: phase-4-warn`, §5. `interactive`:
   "Type `/cg-approve quality` to proceed." Wait.
-- **FAIL** → fix each FAIL item; commit `fix: address quality gate findings — round N`;
-  re-run the gate **on the fix commits only**: their diff, the files they touch, and the
-  sibling paths of the fixed code (other callers and writers of what was changed). Not the
-  whole task again. Before it, re-run the tests listed in `test-results.txt` and the fix's
-  own tests, and rewrite `test-results.txt` from that run — the gate judges test failures
-  by that file. Up to 3 rounds; then escalate. Audit `[ts] Quality gate FAIL — N issues`.
+- **FAIL** → the fix sub-agent fixes every Critical, commits
+  `fix: address quality gate findings — round N`, then re-runs the tests listed in
+  `test-results.txt` and the fix's own tests and rewrites `test-results.txt` from that run.
+  Re-run 2c when a check had failed. Then re-run the gate **on the fix commits only** (its §0
+  says what a re-run judges). Up to 3 rounds; then escalate. Audit
+  `[ts] Quality gate FAIL — N issues`.
   - When the fixes changed production code, re-run diff coverage once after the last round;
     its result goes into the PR description, it does not restart the loop.
   - `/cg-approve quality` by the user overrides FAIL: audit `[ts] Quality gate override by
     user — FAIL items accepted`, §5.
-  - Cannot be overridden, in any mode: critical SQL and security findings (XSS, hardcoded
-    secret, an untested Security AC). Escalate.
+  - A finding marked `[no override]` cannot be overridden, in any mode. Escalate.
 
 ## 5. Independent review
 
@@ -108,13 +117,14 @@ Audit `[ts] Independent review started`. Sub-agent `.claude/agents/independent-r
 `{dir}/requirements.md` when it exists, the base `$BASE`, and the report path `{dir}/REVIEW.md`. Not the
 plan, the ADRs, the gate report, or your own account of how it was built.
 - **CLEAN** → go on.
-- **HAS CRITICAL** → each critical is either fixed test-first (commit
+- **HAS CRITICAL** → each critical is either fixed test-first by the fix sub-agent (commit
   `fix: independent review — <one line>`) or the user says why it does not apply (audit
   their reason). The agent never dismisses a critical alone, in any mode. Then re-run the
   review on the fix commits only (base = HEAD before the fixes, report `{dir}/REVIEW-N.md`),
   with the tests of the fixed code. Up to 3 rounds; then escalate.
-- **HAS WARNINGS ONLY** → `fast`: fix what is worth fixing now (not re-reviewed), the rest
-  goes to the PR description. `interactive`: show them; "fix or proceed?" — wait.
+- **HAS WARNINGS ONLY** → `fast`: the fix sub-agent fixes what is worth fixing now (not
+  re-reviewed), the rest goes to the PR description. `interactive`: show them; "fix or
+  proceed?" — wait.
 
 Audit `[ts] Independent review: <verdict> — C critical, W warnings`. Then write
 `git rev-parse HEAD` to `{dir}/checked-sha` and go to Phase 5 (skill `cg-phase-5`).

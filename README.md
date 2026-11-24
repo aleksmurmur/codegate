@@ -124,31 +124,21 @@ to override quality `FAIL` — the long form is required for that, by design.
 /cg-resume   # pick up this branch's task after /clear, compaction or a new window
 ```
 
-### Multi-persona quality gate (opt-in)
+### Quality gate: one list, one or three agents
 
-By default Phase 4 runs a single quality-gate sub-agent across all 9
-dimensions. For deeper review on critical features, opt in to the
-multi-persona path:
+Phase 4 first runs the mechanical checks as commands: the full test suite, diff coverage,
+the assertion check, the linters the project has configured (check mode only), and the
+project's own checks from the option `gate_checks` (a migration linter, architecture tests).
+Then the gate judges the result against one list of rules: what is common to every stack in
+`.claude/agents/quality-gate/rules-common.md`, the stack's additions in `rules-stack.md`, the
+severities and the finding shape — shared with the independent review — in
+`finding-format.md`. The gate reports; a fix sub-agent fixes and commits.
 
-```
-touch .ai/multi-persona-qg-enabled
-```
-
-Three specialized lenses run in parallel — security, architecture-and-code,
-testing — each producing its own findings file. A synthesis pass then reads
-all three, classifies every finding (DUPLICATE / CONTRADICTION / UNIQUE),
-surfaces emergent issues from combinations (e.g. "no input validation" +
-"endpoint became public" = exposed-input bug), and writes the final
-QUALITY_REPORT.md in the same format as single-pass.
-
-Cost: roughly 4× the token cost of single-pass quality gate. Use for
-sensitive features (auth, payments, migrations on PII) where the extra
-cost is justified — not for routine bugfixes.
-
-Disable: `rm .ai/multi-persona-qg-enabled`.
-
-The single-pass path remains default and is updated independently — most
-tasks don't need multi-persona.
+The option `gate_mode` picks how the list is walked: `single` (default) — one agent walks all
+of it; `lenses` — three agents (architecture, security, testing) each walk the sections marked
+with their lens, and a merge step folds duplicates, one-cause-many-places findings and
+combinations into the same report. Three agents cost more tokens; use them for sensitive
+features (access, payments, personal data). Switch with `/cg-start gate_mode=lenses`.
 
 ### Native Plan Mode (default on)
 
@@ -195,7 +185,7 @@ in Phase 3.
 
 Codegate does not bundle or require it. Pointing users at it here as the
 closest existing solution if you find Phase 3's red-check predictions and
-multi-persona testing-lens insufficient.
+the gate's test rules insufficient.
 
 ## Project structure after install
 
@@ -219,7 +209,9 @@ your-project/
 │   │   ├── tracker.py                 # tracker bridge (actions → project adapter)
 │   │   ├── plan-integrity.py          # mechanical path/symbol/migration check (Phase 2)
 │   │   ├── test-assertions.py         # mechanical no-op-assertion check (Phase 4)
-│   │   └── diff-coverage.py           # mechanical coverage check (Phase 4)
+│   │   ├── diff-coverage.py           # mechanical coverage check (Phase 4)
+│   │   ├── gate-checks.sh             # linters and project checks (Phase 4)
+│   │   └── linters.sh                 # which linters the project has (stack-specific)
 │   └── agents/                        # sub-agent prompts
 │                                      # (cg-core's own test suites live in
 │                                      #  core/tests/ and are NOT installed)
@@ -228,7 +220,7 @@ your-project/
 │       ├── planning/                  # Phase 2
 │       ├── implementer/               # Phase 3, one plan chunk test-first
 │       ├── design-critic/             # Phase 1, fresh read of the design draft
-│       ├── quality-gate/              # Phase 4
+│       ├── quality-gate/              # Phase 4: gate, lens, rules, finding format
 │       ├── independent-review/        # Phase 4, last step: sees only task and code
 │       └── pr-creator/                # Phase 5
 └── .ai/                               # runtime state

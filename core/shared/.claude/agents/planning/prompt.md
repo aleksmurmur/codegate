@@ -139,7 +139,7 @@ calls existing services: one `Security:` criterion states that every access chec
 existing entry points to those services make is made here too, or by the service itself.
 Checks that live in an existing controller are skipped by a new caller of its services.
 
-Quality gate dimension 4.6 reads these `Security:` criteria first and verifies
+The quality gate's security rules (§8) read these `Security:` criteria first and verifies
 the diff implements each one, with a corresponding test. Without an explicit
 security AC the quality gate falls back to heuristic detection, which is more
 likely to miss task-specific constraints.
@@ -164,8 +164,8 @@ aggregation and dispatch but not user preferences (those stay in `users/`).
 Extends the existing `EmailNotifier` pattern — same channel, new template.
 ```
 
-These notes are the input to quality gate dimension 4.2 (Architecture
-Boundaries). The gate verifies that the implementation respects the boundaries
+These notes are an input to the quality gate's design rules (§4), next to
+design.md. The gate verifies that the implementation respects the boundaries
 declared here; surprises in the diff against the declaration are flagged.
 
 ### Checklist

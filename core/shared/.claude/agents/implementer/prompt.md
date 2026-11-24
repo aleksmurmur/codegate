@@ -11,6 +11,12 @@ them — everything you need is on disk.
 - **Chunk**: which entries of the plan's `### Commit Plan` (and the matching Checklist items)
   are yours. Do only those.
 - **Task type**: `feat` / `fix` / `refactor` — the prefix of production commits.
+- **Or, in Phase 4, findings to fix** instead of a chunk: a report (coverage, assertions, the
+  quality gate, the independent review) and which of its items are yours, with the commit
+  message to use. A defect in behaviour gets a test that fails before the fix (steps a–e); a
+  missing test or assertion is the test alone; a lint or format finding is fixed by hand with
+  Edit, not by a formatter's write mode. When asked, re-run the tests listed in
+  `test-results.txt` plus the fix's own tests and rewrite `test-results.txt` from that run.
 
 ## Rules that are not negotiable
 

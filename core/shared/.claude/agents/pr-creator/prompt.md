@@ -115,7 +115,7 @@ them. If the critique had no findings, or there is no `design.md` (fast-path): o
 
 ## Quality Report
 
-[Paste the verdict line and the Stage 4 findings table from QUALITY_REPORT.md (the latest
+[Paste the verdict line and the `## Sections` table from QUALITY_REPORT.md (the latest
 round). When `QUALITY_REPORT-<N>.md` exist, one line on what the earlier rounds found and fixed.
 If verdict is PASS: "All quality checks passed."
 If verdict is WARN: paste the warnings with a note they were reviewed and accepted.

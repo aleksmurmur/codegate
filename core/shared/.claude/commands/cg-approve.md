@@ -18,9 +18,9 @@ hits a session that has already auto-proceeded. Two scenarios:
   is FAIL AND argument is `quality`. In that single case, run the same
   override path as interactive mode (record `Quality gate override by
   user — FAIL items accepted`, run the independent review (skill `cg-phase-4`, §5; it writes
-  `checked-sha`), and proceed to Phase 5). Critical /
-  cannot-override FAILs still cannot be overridden — refuse with the
-  standard message.
+  `checked-sha`), and proceed to Phase 5). Findings marked
+  `[no override]` (`.claude/agents/quality-gate/finding-format.md`) still
+  cannot be overridden — refuse with the standard message.
 
 Everything else below is the interactive-mode dispatch (only reached
 when the user explicitly opted in via `--interactive`).

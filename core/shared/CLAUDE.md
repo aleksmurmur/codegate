@@ -67,8 +67,8 @@ In fast mode, still present each artifact (plan, gate report) and say "auto-proc
 
 ## Heavy work runs in sub-agents
 
-Implementation chunks and the quality gate run in sub-agents that read the session files,
-not the conversation, and return a short summary. The main conversation is re-sent with
+Implementation chunks, the quality gate and its fix rounds run in sub-agents that read the
+session files, not the conversation, and return a short summary. The main conversation is re-sent with
 every call, so it should hold decisions and summaries, not file dumps and test output. A
 sub-agent cannot ask the user: it returns the question, you ask, then resume the same
 sub-agent with the answer.

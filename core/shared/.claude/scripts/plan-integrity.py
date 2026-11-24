@@ -267,7 +267,7 @@ def check_security_acs(text: str) -> list[str]:
         return []
     return [
         "security-sensitive markers found in plan text, but Acceptance Criteria "
-        "has no `Security: ...` line — quality-gate 4.6 will fall back to "
+        "has no `Security: ...` line — the quality gate's security rules will fall back to "
         "heuristic detection and may miss task-specific constraints"
     ]
 
