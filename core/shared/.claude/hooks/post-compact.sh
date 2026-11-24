@@ -74,26 +74,27 @@ case "$STATE" in
 esac
 
 TASK=$(head -1 "$SESSION_DIR/task.md" 2>/dev/null || echo "(task description not found)")
-MODE=$(cat "$SESSION_DIR/mode" 2>/dev/null | tr -d '[:space:]')
 
 echo "CODEGATE TASK ON THIS BRANCH"
 echo ""
 echo "Session : $SESSION ($REL_DIR)"
-echo "State   : $STATE  mode: ${MODE:-interactive}"
+echo "State   : $STATE"
 echo "Task    : $TASK"
 echo "Reply to the user in the language they write in."
+echo "Phases proceed by themselves: continue from the step below without waiting for an approval;"
+echo "stop only for what the user must answer (an elicitation round, a question, an unfixable FAIL)."
 echo ""
 
 case "$STATE" in
   IDLE)
     if [ -f "$SESSION_DIR/PLAN.md" ] && [ ! -f "$SESSION_DIR/elicitation.md" ]; then
-      echo "▶ Cosmetic fast path proposed (mini-plan: $REL_DIR/PLAN.md): /cg-approve quick to implement, /cg-approve elicit for the full workflow."
+      echo "▶ Cosmetic fast path (mini-plan: $REL_DIR/PLAN.md): write IMPLEMENTING and implement it (skill cg-phase-3)."
     elif [ -f "$SESSION_DIR/design.md" ] && ! grep -q '^## Critique$' "$SESSION_DIR/design.md"; then
       echo "▶ Elicitation (skill cg-phase-1): design draft written, the design critic has not run — $REL_DIR/design.md"
     elif [ -f "$SESSION_DIR/design.md" ] && ! grep -q '^## Critique dispositions' "$SESSION_DIR/design.md"; then
       echo "▶ Elicitation (skill cg-phase-1): design critique is in, the elicitation agent has not answered it — $REL_DIR/design.md"
     elif [ -f "$SESSION_DIR/requirements.md" ]; then
-      echo "▶ Elicitation complete ($REL_DIR/requirements.md): /cg-approve elicit to plan."
+      echo "▶ Elicitation complete ($REL_DIR/requirements.md): next is planning (skill cg-phase-2)."
     elif [ -f "$SESSION_DIR/elicitation.md" ]; then
       echo "▶ Elicitation (skill cg-phase-1): a round is open — rounds and answers so far: $REL_DIR/elicitation.md"
     else

@@ -1,13 +1,12 @@
 ---
 name: cg-phase-3
-description: Codegate Phase 3 — implementation. Use when the plan is approved (or auto-proceeded): the full-suite baseline, then the plan's commit chunks, each implemented test-first by an implementer sub-agent.
+description: Codegate Phase 3 — implementation. Use when the plan is written: the full-suite baseline, then the plan's commit chunks, each implemented test-first by an implementer sub-agent.
 user-invocable: false
 ---
 
 # Phase 3 — Implementation
 
-**Entry**: plan approved (`/cg-approve plan`, or fast auto-proceed; the cosmetic fast-path
-lands here directly). Session dir: `python3 .claude/scripts/cg_session.py dir` (`{dir}`).
+**Entry**: the plan is written (the cosmetic fast-path lands here directly). Session dir: `python3 .claude/scripts/cg_session.py dir` (`{dir}`).
 
 1. Write `PLAN_APPROVED`, then `IMPLEMENTING` to `{dir}/state`; audit
    `[ts] Plan approved, implementation started`.
@@ -39,9 +38,8 @@ lands here directly). Session dir: `python3 .claude/scripts/cg_session.py dir` (
      scope without the user.
    A one-line change may be done inline under the same rules instead of a sub-agent.
 5. Audit `[ts] Implementation complete`.
-6. Mode: `fast` → audit `[ts] fast-mode-auto-proceed: phase-3`, "Implementation complete.
-   Auto-proceeding to quality gate." → skill `cg-phase-4`. `interactive` → "Type
-   `/cg-approve implementation` to run the quality gate." Wait.
+6. Audit `[ts] auto-proceed: phase-3`, "Implementation complete. Going on to the quality
+   gate." → skill `cg-phase-4`.
 
 Fix rounds after the quality gate follow the same rules (skill `cg-phase-4`). Three rounds
 without resolving a finding → stop and escalate to the user.

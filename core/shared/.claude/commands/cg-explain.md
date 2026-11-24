@@ -62,7 +62,7 @@ Steps:
    This is purely a read-and-report command.
 
 If `.ai/sessions/{id}/state` is `IDLE` or `ELICITED`, the diff section is
-not applicable — say "No diff yet — implementation starts after /cg-approve plan."
+not applicable — say "No diff yet — implementation starts after planning."
 
 If `.ai/sessions/{id}/state` is `QUALITY_REVIEWED` or `PR_CREATED`, also
 include the verdict line from `QUALITY_REPORT.md` if it exists.

@@ -78,13 +78,10 @@ proposal:
 
 **Why fast-path**: change is confined to <strings|comments|log text|docs>; no callers
 or behavior affected. External reference count: 0.
-
-Type `/cg-approve quick` to skip elicitation and planning and go straight to
-implementation. Or type `/cg-approve elicit` to run the full workflow anyway.
 ```
 
-The orchestrator (skill `cg-phase-1`) takes care of writing this proposal to
-`.ai/sessions/{id}/PLAN.md` as a minimal plan and waiting for the user's choice.
+The orchestrator (skill `cg-phase-1`) writes this proposal to `.ai/sessions/{id}/PLAN.md` as
+a minimal plan and goes straight to implementation.
 
 If classification is **not cosmetic** (or you're unsure), fall through to Step 1 below
 and run normal elicitation. When in doubt, do not fast-path. Full workflow is the safe

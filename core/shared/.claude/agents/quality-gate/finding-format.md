@@ -46,8 +46,7 @@ Mark a Critical `[no override]` when it is one of:
 - a secret in the code, in client-shipped config, or in logs;
 - a missing access check on a protected resource, or another user's or tenant's data reachable.
 
-Such a finding is fixed; neither the user's override of a gate FAIL nor fast mode lets it
-through. It can be withdrawn only by showing it is wrong.
+Such a finding is fixed; the user's override of a gate FAIL does not let it through. It can be withdrawn only by showing it is wrong.
 
 ## Gate verdict
 

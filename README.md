@@ -14,8 +14,8 @@ Every task follows enforced phases before code reaches review:
 1. **Elicitation** — the agent first maps who reads and writes the data the task touches,
    then asks in rounds of at most four questions, each with a recommendation — architecture
    (how the change fits the system, options, a simpler or broader alternative) and business
-   never in one message — until nothing is open; a task that is really several is offered as a split. It ends with a summary of what is settled and what it decided itself. Cosmetic changes can short-circuit to a fast-path
-   mini-plan (`/cg-approve quick`).
+   never in one message — until nothing is open; a task that is really several is offered as a split. It ends with a summary of what is settled and what it decided itself. Cosmetic changes short-circuit to a fast-path
+   mini-plan.
    Before the user sees any architecture question, the agent writes a design draft
    (`design.md`): the shape, each decision with its options, and the growth it touches.
    Growth is weighed by cost, not by guessing odds: the simpler option when it can grow
@@ -93,23 +93,19 @@ Commit `CODEBASE_CONTEXT.md` so your team shares the same baseline.
 /cg-refactor extract the export logic into its own module
 ```
 
-Answer the elicitation questions, then follow the prompts.
+Answer the elicitation questions; the phases then proceed by themselves.
 
-### Phase approvals
+### When it stops
+
+There is one mode: no approval is typed between phases. The workflow stops only for what
+the user alone can give — an elicitation round, a question about behaviour or scope during
+implementation, a gate FAIL it could not fix in three rounds, a finding that cannot be
+overridden. It still shows each artifact (the plan, the gate report) on the way.
 
 ```
-/cg-approve quick           # accept a cosmetic fast-path proposal (skips elicitation + planning)
-/cg-approve elicit          # after answering elicitation questions
-/cg-approve plan            # after reviewing the generated plan
-/cg-approve implementation  # commits changes, runs coverage + quality gate
-/cg-approve quality         # override WARN-level quality issues
+/cg-approve quality   # accept the FAIL items the gate could not get fixed
+/ok                   # "yes, go on": accept a round's recommendations; never overrides a FAIL
 ```
-
-**Shortcut**: `/ok` is a context-aware alias. With no argument it reads
-session state and runs the right `/cg-approve` automatically — five long
-forms collapse into one short command throughout the flow. With an
-argument (`/ok plan`) it behaves identically to the long form. Refuses
-to override quality `FAIL` — the long form is required for that, by design.
 
 ### Other commands
 
@@ -144,8 +140,7 @@ features (access, payments, personal data). Switch with `/cg-start gate_mode=len
 
 After Phase 2 finishes and the integrity check is CLEAN, codegate presents the
 plan via Claude Code's native Plan Mode UI. The markdown presentation still
-happens, and `/cg-approve plan` remains the formal approval gate — Plan Mode is
-a richer preview, not a replacement.
+happens — Plan Mode is a richer preview, not a replacement.
 
 Disable per-project by creating an empty marker file:
 ```

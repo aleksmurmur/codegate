@@ -1,12 +1,12 @@
 ---
 name: cg-phase-2
-description: Codegate Phase 2 — planning. Use after elicitation is answered (or /cg-approve elicit): the planning sub-agent writes down the agreed design, a mechanical integrity check, then on to implementation.
+description: Codegate Phase 2 — planning. Use after elicitation is answered: the planning sub-agent writes down the agreed design, a mechanical integrity check, then on to implementation.
 user-invocable: false
 ---
 
 # Phase 2 — Planning
 
-**Entry**: elicitation answered (fast) or `/cg-approve elicit` (interactive).
+**Entry**: elicitation answered.
 Session dir: `python3 .claude/scripts/cg_session.py dir` (below: `{dir}`).
 
 The design was decided and critiqued in Phase 1. Planning writes it down as files, tests and
@@ -27,11 +27,7 @@ commits; it does not reopen it, so there is no review of the plan's merit here.
 4. Present the plan. Optional: when `ExitPlanMode` is available and `.ai/plan-mode-disabled`
    does not exist, show PLAN.md through it (presentation only; if the user asks for changes,
    re-run planning with their feedback).
-5. Mode:
-   - `fast`: audit `[ts] fast-mode-auto-proceed: phase-2` and go to Phase 3 (skill
-     `cg-phase-3`).
-   - `interactive`: "Plan ready. Type `/cg-approve plan` to begin implementation." Wait; no
-     source file is written before it.
+5. Audit `[ts] auto-proceed: phase-2` and go to Phase 3 (skill `cg-phase-3`).
 
 The plan must include: a numbered Checklist of files (exact paths); tests first, with
 scenarios; schema changes with migration versions; optional smoke commands; affected systems

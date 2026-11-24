@@ -21,7 +21,6 @@ user-invocable: false
    - `branch` — `git branch --show-current`. This binds the session to the branch: hooks,
      commands and the push gate find the session through it;
    - `target-branch` — where the PR/MR goes (Phase 0); `ticket` — the key, if any;
-   - `mode` — `fast` or `interactive` (the starting command decides);
    - `tracker.json` — `{"id", "key", "url"}` when Phase 0 created or took an item;
    - `state` — `IDLE`.
 3. `audit.log`: `[ts] Session started, task type: {type}`, `[ts] Branch {name} from {target}`,
@@ -40,17 +39,15 @@ user-invocable: false
 ### Fast-path proposal (cosmetic; never for `refactor`)
 
 - Write its mini-plan to `PLAN.md`; audit `[ts] Fast-path proposed — classification: cosmetic`.
-- `fast`: audit `[ts] fast-mode-auto-proceed: phase-1-cosmetic via quick`, write
-  `IMPLEMENTING`, and go to Phase 3 (skill `cg-phase-3`) without planning.
-- `interactive`: present it; "Type `/cg-approve quick` to go straight to implementation, or
-  `/cg-approve elicit` for the full workflow." Wait.
+- Audit `[ts] auto-proceed: phase-1-cosmetic`, write `IMPLEMENTING`, and go to Phase 3
+  (skill `cg-phase-3`) without planning.
 
 ### A round
 
 - Append the round to `elicitation.md` under its `## Round N — <track>` heading: the message,
   then the file part (data map, backlog). Show the user only the message. Audit
   `[ts] Elicitation round N: <track>, K questions`.
-- Wait for the answer, in either mode — rounds are the one boundary fast mode never skips.
+- Wait for the answer — rounds are a boundary that never proceeds by itself.
   "All as recommended", "as recommended except N: …" and "decide the rest yourself" are
   complete answers. Record each answer under its question in `elicitation.md`.
   A non-answer ("not sure", "TBD") gets the concrete options with their cost and one
@@ -87,13 +84,11 @@ without `## Critique dispositions` → step 3.
 - `design.md` must exist unless the task went through the fast-path; if it does not, the
   sub-agent skipped Step 5.5 — send it back for the draft.
 - When the completion has `### Design (updated)`, append it to `design.md`.
-- Write its Requirements part to `{dir}/requirements.md` — the file exists only once
-  elicitation is complete; `/ok` and `/cg-approve elicit` read it as that. The independent
-  review in Phase 4 reads it instead of `elicitation.md`. Append the summary to
-  `elicitation.md`; audit `[ts] Elicitation complete — N rounds`.
-- Show the summary message. `fast`: audit `[ts] fast-mode-auto-proceed: phase-1`, say "Going
-  ahead with the above — say if anything is wrong." and go to Phase 2 (skill `cg-phase-2`).
-  `interactive`: "Type `/cg-approve elicit` to plan." Wait.
+- Write its Requirements part to `{dir}/requirements.md`. The independent review in Phase 4
+  reads it instead of `elicitation.md`. Append the completion to `elicitation.md`, its
+  `## Elicitation complete` heading included — `/ok` reads that heading as "complete"; audit `[ts] Elicitation complete — N rounds`.
+- Show the summary message, audit `[ts] auto-proceed: phase-1`, say "Going ahead with the
+  above — say if anything is wrong." and go to Phase 2 (skill `cg-phase-2`).
 
 Answers that pick one approach over another with real consequences become ADRs in Phase 3
 (step "backfill"). The "consumers and rollout order" answer feeds the plan's Consumers

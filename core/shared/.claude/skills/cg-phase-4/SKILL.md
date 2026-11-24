@@ -1,6 +1,6 @@
 ---
 name: cg-phase-4
-description: Codegate Phase 4 — quality gate and independent review. Use when implementation is complete (or /cg-approve implementation): commit leftovers, the mechanical checks once, the gate and review sub-agents, fix rounds in a sub-agent limited to what failed.
+description: Codegate Phase 4 — quality gate and independent review. Use when implementation is complete: commit leftovers, the mechanical checks once, the gate and review sub-agents, fix rounds in a sub-agent limited to what failed.
 user-invocable: false
 ---
 
@@ -90,11 +90,10 @@ Then: state `QUALITY_REVIEWED`; audit `[ts] Quality gate complete`; present the 
 
 Severities and what cannot be overridden: `.claude/agents/quality-gate/finding-format.md`.
 
-- **PASS** → audit `[ts] Quality gate passed — verdict: PASS`, go to §5. Both modes.
+- **PASS** → audit `[ts] Quality gate passed — verdict: PASS`, go to §5.
 - **WARN** → the fix sub-agent fixes the Warnings worth fixing now (not re-gated: the PR/MR
-  review sees them); the rest go to tech debt or the PR description. `fast`: audit
-  `[ts] fast-mode-auto-proceed: phase-4-warn`, §5. `interactive`:
-  "Type `/cg-approve quality` to proceed." Wait.
+  review sees them); the rest go to tech debt or the PR description. Audit
+  `[ts] auto-proceed: phase-4-warn`, §5.
 - **FAIL** → the fix sub-agent fixes every Critical, commits
   `fix: address quality gate findings — round N`, then re-runs the tests listed in
   `test-results.txt` and the fix's own tests and rewrites `test-results.txt` from that run.
@@ -105,12 +104,11 @@ Severities and what cannot be overridden: `.claude/agents/quality-gate/finding-f
     its result goes into the PR description, it does not restart the loop.
   - `/cg-approve quality` by the user overrides FAIL: audit `[ts] Quality gate override by
     user — FAIL items accepted`, §5.
-  - A finding marked `[no override]` cannot be overridden, in any mode. Escalate.
+  - A finding marked `[no override]` cannot be overridden. Escalate.
 
 ## 5. Independent review
 
-Once the gate has concluded (PASS, WARN accepted, FAIL overridden), in both modes: a
-reviewer who did not write the code reads it against the task. It catches what a gate that
+Once the gate has concluded (PASS, WARN, FAIL overridden): a reviewer who did not write the code reads it against the task. It catches what a gate that
 shares the author's plan and reasoning does not.
 
 Audit `[ts] Independent review started`. Sub-agent `.claude/agents/independent-review/prompt.md`, given **only**: `{dir}/task.md`,
@@ -119,12 +117,11 @@ plan, the ADRs, the gate report, or your own account of how it was built.
 - **CLEAN** → go on.
 - **HAS CRITICAL** → each critical is either fixed test-first by the fix sub-agent (commit
   `fix: independent review — <one line>`) or the user says why it does not apply (audit
-  their reason). The agent never dismisses a critical alone, in any mode. Then re-run the
+  their reason). The agent never dismisses a critical alone. Then re-run the
   review on the fix commits only (base = HEAD before the fixes, report `{dir}/REVIEW-N.md`),
   with the tests of the fixed code. Up to 3 rounds; then escalate.
-- **HAS WARNINGS ONLY** → `fast`: the fix sub-agent fixes what is worth fixing now (not
-  re-reviewed), the rest goes to the PR description. `interactive`: show them; "fix or
-  proceed?" — wait.
+- **HAS WARNINGS ONLY** → the fix sub-agent fixes what is worth fixing now (not
+  re-reviewed), the rest goes to the PR description.
 
 Audit `[ts] Independent review: <verdict> — C critical, W warnings`. Then write
 `git rev-parse HEAD` to `{dir}/checked-sha` and go to Phase 5 (skill `cg-phase-5`).

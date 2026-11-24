@@ -33,7 +33,6 @@ REL_DIR=$("$PY" "$SCRIPTS"/cg_session.py dir 2>/dev/null)
 
 if [ -n "$REL_DIR" ]; then
   STATE=$(cat "$REL_DIR/state" 2>/dev/null | tr -d '[:space:]')
-  MODE=$(cat "$REL_DIR/mode" 2>/dev/null | tr -d '[:space:]')
   TICKET=$(cat "$REL_DIR/ticket" 2>/dev/null | tr -d '[:space:]')
   NAME=${TICKET:-$(basename "$REL_DIR")}
   case "$STATE" in
@@ -42,7 +41,7 @@ if [ -n "$REL_DIR" ]; then
     PR_CREATED|PR_UPDATED|REWORK)
       LINE="codegate: task $NAME on '$BRANCH', state $STATE (PR/MR open). A fix to that PR/MR is rework (skill cg-rework); other code changes are a new task (skill cg-phase-0)." ;;
     *)
-      LINE="codegate: task $NAME on '$BRANCH', state ${STATE:-IDLE}, mode ${MODE:-interactive}. Other code changes are a new task (skill cg-phase-0)." ;;
+      LINE="codegate: task $NAME on '$BRANCH', state ${STATE:-IDLE}. Other code changes are a new task (skill cg-phase-0)." ;;
   esac
 else
   LINE="codegate: no task on '${BRANCH:-detached HEAD}'. Code changes start with a task (skill cg-phase-0)."

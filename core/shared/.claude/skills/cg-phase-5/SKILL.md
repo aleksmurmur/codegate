@@ -6,7 +6,7 @@ user-invocable: false
 
 # Phase 5 — PR/MR
 
-**Entry**: the gate concluded (PASS, WARN accepted, FAIL overridden) and the independent
+**Entry**: the gate concluded (PASS, WARN, FAIL overridden) and the independent
 review concluded (Phase 4 §5). Session dir:
 `python3 .claude/scripts/cg_session.py dir` (`{dir}`).
 

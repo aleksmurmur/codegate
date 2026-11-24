@@ -38,8 +38,6 @@ so far.
 - The marker takes effect at the next phase boundary. Toggling it
   mid-session works (the next boundary will read the file fresh) but
   produces gappy feedback files.
-- The marker is independent of `mode` (fast / interactive). Both modes
-  capture feedback when the marker is present.
 - Per-session `flow-feedback.md` files are never auto-deleted. Inspect
   them with `cat .ai/sessions/{id}/flow-feedback.md` or aggregate across
   sessions with `find .ai/sessions -name flow-feedback.md -exec cat {} +`.

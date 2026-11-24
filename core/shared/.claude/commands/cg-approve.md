@@ -1,39 +1,23 @@
-Process a phase approval for the current session. Approval type: $ARGUMENTS
+Override a quality gate FAIL for the current session. Argument: $ARGUMENTS
 
-Find this checkout's session: `python3 .claude/scripts/cg_session.py dir` → `.ai/sessions/{id}`. Read its `state`. Read `.ai/sessions/{id}/mode` (default `interactive` if missing — backwards-compat for pre-mode sessions; brand-new sessions always write the file).
+Phases proceed by themselves, so `quality` is the one approval left: the user accepts the
+FAIL items the gate could not get fixed.
 
-## Default-mode short-circuit (fast)
+Find this checkout's session: `python3 .claude/scripts/cg_session.py dir` → `.ai/sessions/{id}`.
+None: say "No active session. Start one with /cg-feature, /cg-bugfix, or /cg-refactor." Stop.
 
-Fast is the default mode for new sessions, so most `/cg-approve` typing
-hits a session that has already auto-proceeded. Two scenarios:
+- **Any argument but `quality`** (`quick`, `elicit`, `plan`, `implementation` belonged to a
+  mode that no longer exists): say "Phases proceed by themselves — nothing to approve.
+  `/cg-status` shows where the task is." Stop.
+- **`quality`**, state not `QUALITY_REVIEWED`: explain that there is no gate verdict to
+  override in state `<state>`, and what comes next (`/cg-status`). Stop.
+- **`quality`**, state `QUALITY_REVIEWED`, verdict in `{dir}/QUALITY_REPORT.md`:
+  - `FAIL` with a finding marked `[no override]` (`.claude/agents/quality-gate/finding-format.md`):
+    refuse — that finding has to be fixed. Stop.
+  - `FAIL`: audit `[ts] Quality gate override by user — FAIL items accepted`, then continue.
+  - `PASS` / `WARN`: nothing to override; continue.
 
-- The user instinctively typed `/cg-approve <phase>` forgetting fast
-  is the default — most common. Respond: "Session is in fast mode
-  (default) — phase `<phase>` already auto-proceeded (or will, when it
-  becomes the active phase). No approval needed. Use `/cg-status` to
-  see where the session is now."
-- The user is overriding an escalation point that fast mode could not
-  resolve autonomously (cannot-override FAIL, scope-drift, mid-impl
-  clarification) — only valid when `state=QUALITY_REVIEWED` AND verdict
-  is FAIL AND argument is `quality`. In that single case, run the same
-  override path as interactive mode (record `Quality gate override by
-  user — FAIL items accepted`, run the independent review (skill `cg-phase-4`, §5; it writes
-  `checked-sha`), and proceed to Phase 5). Findings marked
-  `[no override]` (`.claude/agents/quality-gate/finding-format.md`) still
-  cannot be overridden — refuse with the standard message.
-
-Everything else below is the interactive-mode dispatch (only reached
-when the user explicitly opted in via `--interactive`).
-
-| Argument | Required state | Transition | Then |
-|---|---|---|---|
-| `quick` | IDLE (fast-path proposal pending) | → IMPLEMENTING | Run Phase 3 (skill `cg-phase-3`, fast-path) |
-| `elicit` | IDLE, `{dir}/requirements.md` exists | → ELICITED | Run Phase 2 (skill `cg-phase-2`). No `requirements.md` → a round is still open: say so, and that the user can answer it or say "decide the rest yourself" |
-| `plan` | ELICITED | → PLAN_APPROVED → IMPLEMENTING | Run Phase 3 (skill `cg-phase-3`) |
-| `implementation` | IMPLEMENTING or PLAN_APPROVED | (no state change yet) | Run Phase 4 (skill `cg-phase-4`) |
-| `quality` | QUALITY_REVIEWED | (accept WARN / override FAIL) | Audit `[ts] Quality gate WARN accepted by user` or `[ts] Quality gate override by user — FAIL items accepted`. The review already under way (audit `Independent review started`) → this means proceed: finish §5. Otherwise run the independent review (skill `cg-phase-4`, §5) — it writes `checked-sha`, which the push gate requires — then Phase 5 (skill `cg-phase-5`). `python3 .claude/scripts/cg_session.py checked` succeeds → the review has run: straight to Phase 5 |
-
-For each transition: write the new state to `.ai/sessions/{id}/state`, append to audit log with timestamp.
-
-If the argument doesn't match the current state: explain the mismatch and what the user should do instead.
-If no active session: say "No active session. Start one with /cg-feature, /cg-bugfix, or /cg-refactor."
+  Continue: `python3 .claude/scripts/cg_session.py checked` succeeds → the review has run:
+  Phase 5 (skill `cg-phase-5`). The audit has `Independent review started` → finish it
+  (skill `cg-phase-4`, §5). Otherwise run the independent review (skill `cg-phase-4`, §5) —
+  it writes `checked-sha`, which the push gate requires — then Phase 5.

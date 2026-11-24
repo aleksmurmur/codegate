@@ -51,19 +51,13 @@ PR_CREATED → (REWORK → PR_UPDATED)* → MERGED`; `ABANDONED` for a task clos
 relevant. Log every transition to `{dir}/audit.log` with a timestamp: `[ts]` is
 `date +%Y-%m-%dT%H:%M:%S%z` (`[2026-01-31T14:05:00+0300]`), never the literal `[ts]`.
 
-## Session mode
+## Phase boundaries
 
-`{dir}/mode`, set when the task starts: `fast` (default) or `interactive` (`--interactive`).
-A missing file means `interactive` (sessions older than the flag).
-
-- **fast** proceeds through phase boundaries by itself. It still stops for what only the
-  user can give: the elicitation rounds, clarification and scope questions during
-  implementation, gate FAILs it cannot fix in three rounds, and findings that cannot be
-  overridden.
-- **interactive** stops at every boundary and waits for `/cg-approve {phase}` (or `/ok`).
-
-In fast mode, still present each artifact (plan, gate report) and say "auto-proceeding to
-<next>"; audit `[ts] fast-mode-auto-proceed: <phase>`.
+Phases proceed by themselves; no approval is typed between them. They stop only for what
+the user alone can give: the elicitation rounds, clarification and scope questions during
+implementation, gate FAILs not fixed in three rounds, and findings that cannot be
+overridden. Still present each artifact (plan, gate report) and say "going on to <next>";
+audit `[ts] auto-proceed: <phase>`.
 
 ## Heavy work runs in sub-agents
 
@@ -105,9 +99,9 @@ workflow on it beyond the question in Phase 0.
 ## Commands
 
 - `/cg-context` — explore the project, write `.ai/CODEBASE_CONTEXT.md`, seed tech debt. No task.
-- `/cg-feature`, `/cg-bugfix`, `/cg-refactor [--interactive] <task or tracker key>` — start a task.
-- `/cg-approve {quick|elicit|plan|implementation|quality}`, `/ok` — approvals (interactive mode;
-  `/cg-approve quality` also overrides a FAIL in either mode).
+- `/cg-feature`, `/cg-bugfix`, `/cg-refactor <task or tracker key>` — start a task.
+- `/cg-approve quality` — override a quality gate FAIL. `/ok` — "yes, go on" to what the task
+  waits for (accept a round's recommendations; never a FAIL override).
 - `/cg-status`, `/cg-explain` — the current task; `/cg-tasks` — all tasks; `/cg-resume` — pick
   up the task of this checkout after `/clear` or in a new window.
 - `/cg-merged` — is this task's PR/MR merged; closes the task when it is.

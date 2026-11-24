@@ -44,8 +44,8 @@ Not sure whether the PR/MR is merged: `/cg-merged` (below) first.
      coverage (the baseline's command, as in Phase 4 — failing test names to
      `{dir}/test-results.txt`), then `diff-coverage.py --base <checked-sha>`.
    A critical, or a gate FAIL → fix and re-check the new commits, up to 3 rounds; then
-   escalate. Warnings only → as in Phase 4 §5 (`fast`: fix what is worth it now, the rest
-   in a PR/MR comment; `interactive`: ask).
+   escalate. Warnings only → as in Phase 4 §5: fix what is worth it now, the rest in a
+   PR/MR comment.
 5. Passed: write `git rev-parse HEAD` to `{dir}/checked-sha`, state `PR_UPDATED`, audit
    `[ts] Rework checked: <sha>`. Push (the push gate compares the pushed HEAD with
    `checked-sha`; commits that touch only `.ai/` do not count).
