@@ -35,7 +35,8 @@ any code). Identify:
 - Pre-existing failures (already failing before changes; not this PR's problem)
 - Passing tests
 
-If baseline is "CLEAN" and any tests now fail → those are introduced failures. Either
+If baseline is "CLEAN" or "NONE" (no run before the task) and any tests now fail → those
+are introduced failures. Either
 file missing → say so in the report; do not guess the results.
 
 ---

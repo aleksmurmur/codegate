@@ -24,6 +24,8 @@ lands here directly). Session dir: `python3 .claude/scripts/cg_session.py dir` (
    `[ts] baseline: <command>` — the gate runs the same command. Failures here are not this
    task's; the gate compares against them. `{dir}/test-baseline.txt`: the failing test
    names, or `CLEAN`.
+   Option `baseline` (`cg-option.sh baseline full`) is `none`: do not run it; write `NONE` to
+   `{dir}/test-baseline.txt` and audit `[ts] baseline: <command> — not run (baseline=none)`.
 4. **Chunks.** Each entry of the plan's `### Commit Plan` is a chunk; group small adjacent
    entries that touch the same files. For each chunk, in order, dispatch a sub-agent with
    `.claude/agents/implementer/prompt.md`, passing `{dir}`, the chunk's entries and the task

@@ -70,11 +70,21 @@
 
 - key: test_command
   question: >
-    How is the project's full test suite run, with coverage? The workflow runs it at least
-    twice per task: as the baseline before any code, and for diff coverage in the quality
-    gate; each later coverage re-check (after a fix, in rework) is another full run.
+    How is the project's full test suite run, with coverage? The workflow runs it for diff
+    coverage in the quality gate, and as the baseline before any code unless `baseline` is
+    `none`; each later coverage re-check (after a fix, in rework) is another full run.
   default: >
     Empty: the stack's usual command (`npx vitest run --coverage`, `npx jest --coverage`,
     `./gradlew test jacocoTestReport`, `mvn test`). Set it when the project runs its suite differently — a wrapper
     script, another runner, extra flags. Codegate only calls the command;
     it must leave a coverage report where the stack's diff-coverage looks for it.
+
+- key: baseline
+  question: >
+    Run the full test suite before each task, so the quality gate can tell the task's
+    failures from those already there? Without it the task runs only its own tests while it
+    is built, the gate's run is the one full run, and every failing test in it is the task's
+    to fix or to override.
+  choices: full, none
+  default: >
+    full. Propose none when the suite is slow and already green on the base branch.
