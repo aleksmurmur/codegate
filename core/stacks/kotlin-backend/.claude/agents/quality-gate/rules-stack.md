@@ -45,9 +45,22 @@ For new queries, schema changes and ORM use:
 - List endpoints paginated, or bounded by construction.
 - Columns used in `WHERE` / `ORDER BY` / `JOIN` indexed.
 - Every schema change has a migration, following the project's versioning convention.
+- **A heavy query on a frequent path.** For each new or changed query, find how often it runs:
+  follow it to its entry points — a list or page load, a check on every request, a job over
+  every row. On a frequent path, judge its cost from the query itself, JPQL and derived
+  queries by the SQL they turn into: joins across large tables, a subquery or aggregate per
+  row, a scan with no index to use, everything loaded and then filtered in memory.
+- **A migration that rewrites existing data.** One that updates or backfills existing rows,
+  or alters a table in a way that rewrites or locks it. The design or the plan must say so:
+  which tables, how much data, what is locked and for how long, and why not a cheaper way
+  (in batches, a new column filled alongside, computed at read time). Said → check the
+  migration matches what was said.
 
-Critical: a confirmed N+1, an unbounded list that can grow, a schema change without a migration.
-Warning: a possible N+1 that needs a closer look, an index that may be needed.
+Critical: a confirmed N+1, an unbounded list that can grow, a schema change without a
+migration, a heavy query on a frequent path, a data-rewriting migration the design and the
+plan do not explain (whoever approved it did not know what they approved).
+Warning: a possible N+1 that needs a closer look, an index that may be needed, a query whose
+cost you cannot judge from the code (say what to check: its plan on realistic data).
 
 ## S2. Resources — lens: arch
 

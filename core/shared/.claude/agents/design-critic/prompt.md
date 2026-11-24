@@ -53,7 +53,10 @@ Design-level, not code-level: a step that succeeds while the next one fails and 
 half-done; retries or repeats that apply something twice; concurrent use; existing data that
 breaks the new rule; a second writer or an old reader of the same data the data map missed;
 a new entry point without the access checks its neighbours have; an assumption about an
-external system or the data that nothing in the draft or the code backs.
+external system or the data that nothing in the draft or the code backs. Load: a new read on
+a path that runs often (a list, a page, every request) whose cost the draft does not weigh;
+a migration that rewrites or locks existing data, proposed without what it touches, how long
+it holds locks and why not a cheaper way.
 
 ### 4. Left open — what the implementer would have to decide
 

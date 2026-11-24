@@ -235,7 +235,10 @@ Example:
 
 ### Database Changes
 If schema changes: list each migration with file name, what it adds/changes, and
-whether it is purely additive or modifies existing rows.
+whether it is purely additive or modifies existing rows. One that updates existing rows or
+rewrites or locks a table also says which tables, how much data, what is locked and for how
+long, and why not a cheaper way (in batches, a column filled alongside, computed at read
+time) — the gate fails a data-rewriting migration that nobody explained.
 If none: "No database changes."
 
 ### Smoke Verification (optional)
