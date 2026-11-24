@@ -15,7 +15,8 @@ Every task follows enforced phases before code reaches review:
    then asks in rounds of at most four questions, each with a recommendation — architecture
    (how the change fits the system, options, a simpler or broader alternative) and business
    never in one message — until nothing is open; a task that is really several is offered as a split. It ends with a summary of what is settled and what it decided itself.
-   A **small task** skips all of this: clear without questions, nothing expensive to reverse
+   A **small task** skips all of this: clear what to build (a question about a detail is
+   fine), nothing expensive to reverse
    (no new table, column, API field or endpoint), one place, no area the project excluded
    (option `short_path_excluded`; the full rules: `.claude/agents/elicitation/short-path.md`).
    A refactor qualifies on the same terms. The agent says so in one line with 1–3 acceptance

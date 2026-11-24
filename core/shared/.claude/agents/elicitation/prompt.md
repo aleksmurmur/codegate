@@ -304,11 +304,13 @@ orchestrator shows the user only the message and waits for a yes or a no:
 ## Short path
 
 ### Message
-Small task — going the short path: <why, one line in plain words: what changes, where, and
-why nothing needs asking>.
+Small task — going the short path: <why, one line in plain words: what changes and where>.
 Done when:
 1. <acceptance criterion, plain words>
-Go ahead? One word is enough; "no" takes the full path, with questions and a plan.
+<only when a detail is open (`short-path.md`, condition 1), one line each:
+Question: <the detail> — I suggest <recommendation>.>
+Go ahead? One word is enough (it accepts the suggestions too); "no" takes the full path,
+with questions and a plan.
 
 ### Requirements
 # Requirements (short path)
@@ -320,7 +322,8 @@ Go ahead? One word is enough; "no" takes the full path, with questions and a pla
 - <test file> — <the scenario that fails today>
 
 ### Why small
-- Clear: <what makes it unambiguous>
+- Clear: <what makes the shape unambiguous; the open details, if any, and why no answer
+  changes it>
 - Nothing to reverse: <what was checked>
 - One place: <path; callers checked, and why they need no change>
 - Excluded areas: <none touched | none set>

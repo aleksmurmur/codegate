@@ -9,9 +9,12 @@ test-first implementation, the quality gate, the independent review, the PR/MR.
 **All** of these hold, checked in the code (find the place with Glob/Grep, read it, grep its
 callers), not guessed from the task text:
 
-1. **Clear** — what to do follows from the task and the code; there is no question you would
-   have to put to the user.
-2. **Nothing expensive to reverse** — no new table, column, API field or endpoint; no change
+1. **Clear what to build** — the shape of the change follows from the task and the code. A
+   question about a detail inside that shape — a value, a message text, which of two close
+   readings of the task — is allowed: it goes into the proposal with your recommendation. A
+   question whose answer could break conditions 2–4 (a new field, a second place, a choice
+   with business consequences) → not small.
+2. **Nothing expensive to reverse** — no new table, column, API field or endpoint; no migration; no change
    to a stored format, an event or another public contract.
 3. **One place** — it changes existing behaviour (a fix, an adjustment) in one function,
    class or component and its tests. Not a new feature; not a change its callers must follow.
@@ -26,10 +29,11 @@ Any doubt on any of them → not small.
 ## Outgrown
 
 While the task is being implemented (Phase 3), it stops being small the moment it needs:
-- anything condition 2 rules out;
-- a question to the user;
+- anything condition 2 rules out — an answer from the user that asks for it included;
 - a change in a second place — another function, class or component than `requirements.md`'s
   `## Place` names; a caller that must follow counts.
+
+A question about a detail, as in condition 1, does not outgrow it: ask it and go on.
 
 Then it moves to the full path (skill `cg-phase-3`, "The short path grows").
 

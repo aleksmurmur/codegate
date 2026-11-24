@@ -48,7 +48,9 @@ returned `## Short path`.
 3. **Yes** (any agreement, or `/ok`): write its Requirements part to `{dir}/requirements.md`
    and `short` to `{dir}/path`; audit `[ts] Short path confirmed by user`; go to Phase 3
    (skill `cg-phase-3`). No rounds, no design draft, no PLAN.md.
-   A correction to a criterion is a yes with that change: amend `short-path.md` first.
+   A correction to a criterion, or an answer other than the suggestion to a question in the
+   message, is a yes with that change: amend `short-path.md` first. An answer that breaks a
+   condition of "Small" (a new field, a second place) is a no.
 4. **No**: write `full` to `{dir}/path`; audit `[ts] Short path declined by user`; resume the
    sub-agent (or dispatch it again) with **Known so far** — `short-path.md` and "the user
    wants the full path". It goes on from its Step 1.
