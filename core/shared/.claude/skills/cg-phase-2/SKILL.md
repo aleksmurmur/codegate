@@ -19,11 +19,14 @@ commits; it does not reopen it, so there is no review of the plan's merit here.
    the design left a choice open: ask the user (one question each, with its recommendation),
    record the answers in `requirements.md` and `elicitation.md`, and resume it.
 3. Integrity check (deterministic): `python3 .claude/scripts/plan-integrity.py {dir}/PLAN.md`
-   → `{dir}/integrity-report.md`. It checks that Modify paths exist, Create paths do not,
-   and Flyway versions do not collide. Its findings are warnings for you to fix, not a gate. On `MIRAGES_FOUND` fix the plan yourself
-   (edit the line, or re-run planning with the report) and re-run the check once; on
-   `PARSE_FAILED` bring the Checklist to the format `[ ] N. Verb path.ext — description`.
-   Stop and ask only when the fix changes what the task delivers.
+   → `{dir}/integrity-report.md`. Exit 1 blocks implementation until it passes:
+   `MIRAGES_FOUND` — a Modify or Delete path that does not exist, a Create path that does,
+   colliding Flyway versions, fewer than 3 acceptance criteria, or a Commit Plan that does not
+   cover every Checklist item exactly once; `PARSE_FAILED` — no `## Checklist`, or no item in
+   the format `[ ] N. Verb path.ext — description`. Fix the plan yourself (edit the line, or
+   re-run planning with the report) and re-run the check. Its warnings — symbols not found,
+   a created name that already exists, missing Design Notes or `Security:` criteria — do not
+   block: fix what is real. Stop and ask only when a fix changes what the task delivers.
 4. Present the plan. Optional: when `ExitPlanMode` is available and `.ai/plan-mode-disabled`
    does not exist, show PLAN.md through it (presentation only; if the user asks for changes,
    re-run planning with their feedback).

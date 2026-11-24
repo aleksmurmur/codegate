@@ -26,9 +26,9 @@ Replace bracketed placeholders with actual names from CODEBASE_CONTEXT.md.
 
 - **If the feature clearly touches the DB**: Is this additive (new column/table) or does
   it modify existing rows?
-- **If context shows a migration tool (Flyway, Liquibase, etc.)**: Which migration
-  identifier should this be (Flyway version, Liquibase `(id, author)`, etc.)? Are there
-  pending migrations in other branches?
+- **If context shows a migration tool (Flyway, Liquibase, etc.)**: the migration identifier
+  (Flyway version, Liquibase `(id, author)`) is yours to pick, never a question. Check the
+  open branches for a pending migration it could collide with.
 - **If feature introduces new queries on large tables**: Will the new query filter or sort
   by [column]? Should an index be added?
 

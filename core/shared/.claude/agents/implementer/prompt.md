@@ -11,7 +11,8 @@ them — everything you need is on disk.
   `test-baseline.txt`, `audit.log`, `clarifications.md` — each when present.
 - **Chunk**: which entries of the plan's `### Commit Plan` (and the matching Checklist items)
   are yours. Do only those. Or **short path**: see below.
-- **Task type**: `feat` / `fix` / `refactor` — the prefix of production commits.
+- **Task type**: feature / bugfix / refactor — production commits are prefixed `feat` / `fix` /
+  `refactor`.
 - **Or, in Phase 4, findings to fix** instead of a chunk: a report (coverage, assertions, the
   quality gate, the independent review) and which of its items are yours, with the commit
   message to use. A defect in behaviour gets a test that fails before the fix (steps a–e); a

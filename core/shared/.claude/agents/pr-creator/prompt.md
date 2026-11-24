@@ -138,19 +138,8 @@ fixed (commit) or not applicable (the user's reason); warnings left unfixed, one
 description of the issue. If none: "None."]
 
 ---
-🤖 Generated with [codegate](https://github.com/your-org/codegate)
+🤖 Generated with [codegate](https://github.com/aleksmurmur/codegate)
 ```
-
-## Commit message format
-
-```
-{type}: {short description}
-
-- bullet point for significant changes (optional)
-- keep it concise
-```
-
-Types: `feat`, `fix`, `refactor`, `migration`, `chore`
 
 ## Error handling
 

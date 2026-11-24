@@ -12,18 +12,15 @@ Steps:
 2. Otherwise read:
    - `.ai/sessions/{id}/task.md` — task description
    - `.ai/sessions/{id}/state` — current phase
-   - `.ai/sessions/{id}/PLAN.md` — checklist (if it exists; absent before Phase 2)
+   - `.ai/sessions/{id}/PLAN.md` — checklist (if it exists; absent before Phase 2, and on the
+     short path, where `requirements.md` names the place to change instead)
    - `.ai/sessions/{id}/audit.log` — last 5 lines for recent activity
    - `.ai/sessions/{id}/decisions/` — list filenames if any
    - `.ai/sessions/{id}/clarifications.md` — list unresolved questions if any
 
-3. Determine the baseline commit. The session's first audit-log entry usually
-   records `Plan approved, implementation started` — the commit at HEAD just
-   before that is the baseline. If the session hasn't reached IMPLEMENTING
-   yet, there is no diff to show; skip step 4.
-
-   Practical: run `git log --oneline` and find the commit recorded near the
-   `Plan approved` entry, or use `python3 .claude/scripts/cg_session.py base` as a fallback.
+3. The baseline commit is `python3 .claude/scripts/cg_session.py base` — where this task's
+   branch left its target. If the session hasn't reached IMPLEMENTING yet, there is no diff
+   to show; skip step 4.
 
 4. Run `git diff <baseline>..HEAD --stat` to get the file change summary.
    For each Modify/Create file in the checklist, indicate whether it appears

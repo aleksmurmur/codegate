@@ -22,6 +22,8 @@ a new Claude Code window, or an unexpected stop.
    Read these files (skip any that don't exist):
    - `.ai/sessions/{id}/state` — current phase
    - `.ai/sessions/{id}/task.md` — original task description
+   - `.ai/sessions/{id}/path`, `short-path.md`, `requirements.md` — the short path, when the
+     task took it (no PLAN.md then)
    - `.ai/sessions/{id}/elicitation.md` — Q&A answers
    - `.ai/sessions/{id}/design.md` — the design draft, its critique and the dispositions (Phase 1 names the step to resume when one is missing)
    - `.ai/sessions/{id}/PLAN.md` — implementation plan with checklist
@@ -32,7 +34,8 @@ a new Claude Code window, or an unexpected stop.
 
    Tell the user clearly:
    - What the task is
-   - What phase the session is in (ELICITED / PLAN_APPROVED / IMPLEMENTING / QUALITY_REVIEWED)
+   - Its state and the phase it means — any of the states in `CLAUDE.md`, read as `/cg-status`
+     reads them (`.claude/commands/cg-status.md`, "Next step by state")
    - What has been done (completed checklist items, if in IMPLEMENTING)
    - What comes next (the exact next action)
 
@@ -61,3 +64,4 @@ a new Claude Code window, or an unexpected stop.
    user to say "continue" — they ran /cg-resume because they want to keep going.
 
    Load the skill of the current phase (`cg-phase-N`, or `cg-rework` after the PR/MR) and follow it.
+   A closed task (MERGED / ABANDONED) has nothing to resume: say so; new work is a new task.

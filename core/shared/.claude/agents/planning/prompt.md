@@ -10,7 +10,7 @@ real file paths and real class names — no placeholders, no guesses.
 
 ## Inputs you receive
 
-- **Task type**: feature / bugfix / migration / refactor
+- **Task type**: feature / bugfix / refactor
 - **Task description**: what needs to be built or fixed
 - **design.md**: the agreed design — shape, decisions with the options weighed, growth, data
   map, the design critique and what was done with each finding.
@@ -55,9 +55,9 @@ Derive the affected set from three sources, in this order:
 layers. A pure CSS fix produces no service tests; a backend-only fix produces no
 frontend items. Do not add "while we're here" steps in untouched layers.
 
-If you are unsure whether a layer is affected, leave it out — scope creep is
-caught after the fact, but unwarranted scope is not. The user will surface the
-gap during plan review if a layer was wrongly excluded.
+If you are unsure whether a layer is affected, leave it out: a layer wrongly left out
+shows up as an acceptance criterion with no test, which the quality gate fails; scope
+added for nothing shows up nowhere.
 
 ### Step 2 — Read the affected code
 
@@ -144,8 +144,8 @@ security AC the quality gate falls back to heuristic detection, which is more
 likely to miss task-specific constraints.
 
 ### Design Notes
-**Mandatory for `feature` and `refactor`.** Optional for `bugfix` and `migration`,
-but include if the change is non-trivial.
+**Mandatory for `feature` and `refactor`.** Optional for `bugfix`, but include if
+the change is non-trivial.
 
 In 2-3 sentences, restated from design.md's Shape with the real paths you
 verified (the options weighed stay in design.md — do not repeat them):

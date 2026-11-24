@@ -269,9 +269,9 @@ check "a direct push to that target is still blocked" feat/x "git push origin HE
 
 check "git stash push is not a push"               main   "git stash push"                 0
 
-# ── pre-pr.sh ──────────────────────────────────────────────────────────────────────────
+# ── PR/MR creation ─────────────────────────────────────────────────────────────────────
 echo ""
-echo "-- pre-pr --"
+echo "-- PR/MR creation --"
 PRHOOK="$HOOK"  # pre-push.sh checks PR/MR creation too
 pr_check() {
     local name="$1" cmd="$2" want="$3" got

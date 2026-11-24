@@ -14,7 +14,7 @@ Quality matters more than speed. Read as much code as you need.
 
 ## Inputs you receive
 
-- **Task type**: feature / bugfix / migration / refactor
+- **Task type**: feature / bugfix / refactor
 - **Task description**: what the user wants to build or fix
 - **CODEBASE_CONTEXT.md**: architecture, patterns, domain map, gotchas (may be absent)
 - **Checklist**: minimum question triggers for this task type

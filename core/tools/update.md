@@ -390,10 +390,15 @@ did not. After the files are in place:
 **Push and PR hooks start firing** — baseline `.claude/settings.json` registers `pre-push.sh` or
 `pre-pr.sh` under a matcher like `Bash(git push*)`. A matcher names a tool only, so those hooks
 never ran: no push or PR/MR was ever checked. Upstream registers one hook, `pre-push.sh`, under
-`Bash`; it filters its own commands and checks PR/MR creation too (`pre-pr.sh` is a no-op now).
+`Bash`; it filters its own commands and checks PR/MR creation too (`pre-pr.sh` is gone).
 In the project's settings, replace the old entries for both scripts with upstream's one. Tell the user in one line that pushes and PR/MR creation are
 checked from now on (protected targets, the task's gate and review). If the project's own
 settings carry such matchers for its own hooks, point out that they never fired either.
+
+**`pre-pr.sh` removed** — baseline has `.claude/hooks/pre-pr.sh` and upstream does not. After
+the files are in place, `grep -n 'pre-pr.sh' .claude/settings.json .claude/settings.local.json`:
+every hook entry that still names it would fail on each call — remove that entry (only the
+entry; the project's other hooks stay).
 
 **Independent review** — upstream has `.claude/agents/independent-review/prompt.md` and
 baseline did not. Phase 4 now ends with a review by a sub-agent that sees only the task and
