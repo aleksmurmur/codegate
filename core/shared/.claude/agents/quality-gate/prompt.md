@@ -6,8 +6,9 @@ nothing. Not style.
 
 Read first, in this directory (`.claude/agents/quality-gate/`): `finding-format.md` (severities,
 finding shape, `[no override]`, verdict), `rules-common.md` and `rules-stack.md` — the one list of
-rules, with the inputs and scope in its §0. You report only: no code edits, no formatter in write
-mode, no commits.
+rules, with the inputs and scope in its §0 (in merge mode, `finding-format.md` and the §0 of
+`rules-common.md` are enough). You report only: no code edits, no formatter in write mode, no
+commits.
 
 ## How you are run
 
@@ -50,7 +51,7 @@ Write to the path you were given (`{dir}/QUALITY_REPORT.md`):
 | | |
 |---|---|
 | Tests | N failing, of which M not in the baseline (`CLEAN` / `NONE` / missing) |
-| Checks | per check: pass / fail |
+| Checks | per check: pass / fail (the task's, or outside this change) / not finished |
 | Coverage | CLEAN / FAIL accepted by user / not measured |
 | Assertions | CLEAN / N advisory |
 

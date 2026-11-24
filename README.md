@@ -17,7 +17,8 @@ Every task follows enforced phases before code reaches review:
    never in one message — until nothing is open; a task that is really several is offered as a split. It ends with a summary of what is settled and what it decided itself.
    A **small task** skips all of this: clear without questions, nothing expensive to reverse
    (no new table, column, API field or endpoint), one place, no area the project excluded
-   (option `short_path_excluded`). The agent says so in one line with 1–3 acceptance
+   (option `short_path_excluded`; the full rules: `.claude/agents/elicitation/short-path.md`).
+   A refactor qualifies on the same terms. The agent says so in one line with 1–3 acceptance
    criteria; a word from the user confirms it, and the task goes test-first straight to the
    gate, the review and the PR/MR. If it turns out bigger, it goes back to elicitation.
    Before the user sees any architecture question, the agent writes a design draft
@@ -129,6 +130,11 @@ overridden. It still shows each artifact (the plan, the gate report) on the way.
 Phase 4 first runs the mechanical checks as commands: the full test suite, diff coverage,
 the assertion check, the linters the project has configured (check mode only), and the
 project's own checks from the option `gate_checks` (a migration linter, architecture tests).
+Linters that take files see only the files the task changed; the others, and the project's
+checks (given `CG_BASE` and `CG_CHANGED_FILES` to scope themselves), may see the whole
+project, and the gate counts only failures the change caused. Each check stops after
+`gate_checks_timeout` seconds. Code style — naming, function size, comments — is not a gate
+rule: the linters and the project's own rules carry it.
 Then the gate judges the result against one list of rules: what is common to every stack in
 `.claude/agents/quality-gate/rules-common.md`, the stack's additions in `rules-stack.md`, the
 severities and the finding shape — shared with the independent review — in

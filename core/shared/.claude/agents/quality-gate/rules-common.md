@@ -18,11 +18,13 @@ after the gate by another agent, from your report.
   There is no `PLAN.md` or `design.md`. Wherever a rule reads `PLAN.md`'s Acceptance Criteria
   (`Security:` lines included), read `requirements.md`'s `## Acceptance criteria`; the code
   should stay within its `## Place`. Rules on Design Notes and smoke commands are "not
-  applicable", with no "plan predates" Warning; judge design by `CODEBASE_CONTEXT.md` and the
-  neighbouring code.
+  applicable", and no "plan predates" Warning applies (§4, §8, §9): a short path has a
+  `Security:` criterion only when the change is security-relevant. Judge design by
+  `CODEBASE_CONTEXT.md` and the neighbouring code.
 - **Read every touched file in full** before judging it. Several rules ask what the rest of the
   file and its neighbours already do; answering from the diff alone is guessing.
-- **A re-run** after a FAIL is given the fix commits only: judge their diff, the files they
+- **A re-run** after a FAIL is given the fix commits only (its base is the commit before the
+  first fix): judge their diff, the files they
   touch, and the paths next to the fixed code (other callers and writers of what changed) — not
   the whole task again.
 
@@ -32,9 +34,15 @@ after the gate by another agent, from your report.
   with `test-baseline.txt` (the run before any code). A failure not in the baseline is a
   Critical. When the baseline is `CLEAN` or `NONE` (no run before the task), every failure is
   the task's. Either file missing → say so; do not guess.
-- **Checks** (`checks-report.md`: the linters and the project's own checks, already run).
-  A failed project check, a compile or type error, or a linter error that breaks the build →
-  Critical. Formatting and style violations → one Warning per linter, listing them.
+- **Checks** (`checks-report.md`: the linters and the project's own checks, already run; its
+  Scope column says whether a check saw the changed files or the whole project). Only what
+  the diff caused counts: a failure that points at code the diff added or changed, or at what
+  that code broke (a caller of a changed signature, a type it changed). Then: a failed project
+  check, a compile or type error, or a linter error that breaks the build → Critical;
+  formatting and style violations → one Warning per linter, listing them. A failure that points
+  only at code the diff did not touch is not the task's: one Warning naming the check, "fails
+  outside this change", nothing to fix. A row `not finished` (it hit its time limit) → say so
+  under Mechanical results; not a finding.
 - **Coverage and assertions** (`coverage-report.md`, `assertion-report.md`). Their blocking
   findings were resolved or accepted before you ran; weigh what is left (advisory
   existence-only tests, files the assertion script could not parse, coverage accepted by the
@@ -56,6 +64,10 @@ readers and writers — and check those paths still hold: the old reader that no
 value, the second writer that skips the new rule, the sibling path that returns the same data
 unchanged. Report one line per path checked. A broken neighbour is a finding of the section it
 falls under.
+
+The same for code: every function or method whose result, side effect or failure behaviour the
+diff changed under the same signature, and every event or message it now emits differently —
+grep its callers and consumers, and check each still gets what it relies on.
 
 ## 4. Design — lens: arch
 

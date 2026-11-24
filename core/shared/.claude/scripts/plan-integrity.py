@@ -245,14 +245,13 @@ def check_design_notes(text: str) -> list[str]:
 
     The script does not know the task type, so it can't say "feature/refactor
     must have one" — instead the warning hints that feature and refactor plans
-    require it, and bugfix/migration plans should include it for non-trivial
-    changes.
+    require it, and bugfix plans should include it for non-trivial changes.
     """
     if any(DESIGN_NOTES_HEADING.match(ln) for ln in text.splitlines()):
         return []
     return [
         "no 'Design Notes' section — required for feature and refactor plans, "
-        "recommended for non-trivial bugfix or migration plans"
+        "recommended for non-trivial bugfix plans"
     ]
 
 

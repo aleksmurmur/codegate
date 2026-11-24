@@ -18,6 +18,13 @@ not the log. Every fix — for a check, the gate or the review — is done by a 
 `.claude/agents/implementer/prompt.md`, given `{dir}`, the task type, the report and the items
 to fix. It fixes, commits and returns a short status; the gate and the review never edit code.
 
+**Fix sub-agent results.** `STATUS: done` → check its commits are in `git log`, go on.
+`STATUS: question` or `scope` → ask the user (sub-agents cannot), then resume the **same**
+sub-agent with the answer (`SendMessage` to its id). A scope result here is a question to the
+user, never a change of phase: `{dir}/state` and `{dir}/path` stay — a short-path task does not
+go back to the full path after Phase 3. The user declines the wider fix → the finding stays
+open and is overridden, accepted or logged as tech debt, as §4 and §5 allow.
+
 ## 1. Leftovers
 
 `git status`. Clean → audit `[ts] phase-4-commit: nothing-to-commit`. Otherwise stage this
@@ -58,10 +65,15 @@ Then `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output {dir}/cov
   N tests`, go on).
 - `2` → warn, note, go on.
 
-**2c. Linters and project checks.** `bash .claude/scripts/gate-checks.sh --output {dir}/checks-report.md`
-runs the linters the project has configured, in check mode, and the commands of the option
-`gate_checks`. `0` or `1` → go on: a failure is the gate's to rate, its fix goes through §4.
-`2` → warn, note, go on. Audit `[ts] gate-checks: <CLEAN|FAIL>`.
+**2c. Linters and project checks.** `bash .claude/scripts/gate-checks.sh --base "$BASE" --output {dir}/checks-report.md`
+runs the linters the project has configured, in check mode — on the changed files where the
+tool takes files — and the commands of the option `gate_checks`, each given `CG_BASE` and
+`CG_CHANGED_FILES`. A build-tool linter can outlast a foreground tool call: run the script in
+the background and wait for it to exit (each check has its own limit, option
+`gate_checks_timeout`). The report is written only when the run ends.
+`0` or `1` → go on: a failure is the gate's to rate, its fix goes through §4. `2`, or no
+report at all (the run was cut off) → warn, note, go on; a row `not finished` is a check that
+hit its limit. Audit `[ts] gate-checks: <CLEAN|FAIL|incomplete>`.
 
 ## 3. The gate
 
@@ -94,12 +106,13 @@ Severities and what cannot be overridden: `.claude/agents/quality-gate/finding-f
 - **WARN** → the fix sub-agent fixes the Warnings worth fixing now (not re-gated: the PR/MR
   review sees them); the rest go to tech debt or the PR description. Audit
   `[ts] auto-proceed: phase-4-warn`, §5.
-- **FAIL** → the fix sub-agent fixes every Critical, commits
-  `fix: address quality gate findings — round N`, then re-runs the tests listed in
+- **FAIL** → note `FIX_BASE=$(git rev-parse HEAD)`; the fix sub-agent fixes every Critical,
+  commits `fix: address quality gate findings — round N`, then re-runs the tests listed in
   `test-results.txt` and the fix's own tests and rewrites `test-results.txt` from that run.
-  Re-run 2c when a check had failed. Then re-run the gate **on the fix commits only** (its §0
-  says what a re-run judges). Up to 3 rounds; then escalate. Audit
-  `[ts] Quality gate FAIL — N issues`.
+  Re-run 2c as it was (the task's `$BASE`) when a check had failed. Then re-run the gate **on the fix
+  commits only**: base `$FIX_BASE`, so it judges `$FIX_BASE..HEAD` (its §0 says what a re-run
+  judges). A re-run is always one sub-agent in walk mode, whatever `gate_mode`. Up to 3
+  rounds; then escalate. Audit `[ts] Quality gate FAIL — N issues`.
   - When the fixes changed production code, re-run diff coverage once after the last round;
     its result goes into the PR description, it does not restart the loop.
   - `/cg-approve quality` by the user overrides FAIL: audit `[ts] Quality gate override by

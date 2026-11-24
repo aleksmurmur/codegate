@@ -280,7 +280,8 @@ echo "noop=$STATS_NOOP upstream=$STATS_UPSTREAM kept=$STATS_KEPT merged=$STATS_M
 
 ## 5. Resolve conflicts (agent reasoning)
 
-For each path in `$WORK/conflicts`, read three versions and decide.
+For each path in `$WORK/conflicts`, read three versions and decide. A path a §6b block says
+to take from upstream (the old stack `quality-gate/prompt.md`) is not resolved here: §6b.
 
 The conflict-meta file for path `<p>` is at
 `$WORK/conflict-meta/$(echo "<p>" | tr '/' '_').tsv` and contains a single
@@ -415,6 +416,12 @@ prompts (`quality-gate-arch-code`, `quality-gate-security`, `quality-gate-testin
 - Any of those removed files the project had edited (its content differs from baseline, compared
   as in §4): list them. Their rules now live in `.claude/agents/quality-gate/rules-stack.md`
   (stack) and `rules-common.md`; offer to carry each local rule there, and only with a yes.
+- `.claude/agents/quality-gate/prompt.md` the project had edited: it was the stack's whole gate
+  and is now a short shared file, so a 3-way merge of the two only carries the old stages into
+  the new prompt. Do not merge it, and do not resolve it in §5: stage upstream as is (remove the
+  path from `$WORK/conflicts` if §4 put it there; resolution-log `took-upstream`), list the
+  local edits (local vs baseline), and offer to move each into `rules-stack.md` — only with a
+  yes.
 
 ---
 

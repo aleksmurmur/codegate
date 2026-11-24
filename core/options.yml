@@ -97,7 +97,20 @@
   default: >
     Empty (none). Otherwise commands separated by ` ;; `, each run from the project root,
     exit 0 meaning pass. Propose only checks the project's own CI or rules already run, and
-    only ones that do not change files.
+    only ones that do not change files. A check should look at the task's change, not the
+    whole repository, or a problem already on the target branch fails every task: each
+    command gets CG_BASE (the task's base commit) and CG_CHANGED_FILES (the files it adds or
+    changes, one per line) — e.g. lint only the changed migration files:
+    `f=$(printf '%s\n' "$CG_CHANGED_FILES" | grep '\.sql$'); [ -z "$f" ] || squawk $f`. Whole-repository checks
+    (architecture tests) are fine when the target branch passes them.
+
+- key: gate_checks_timeout
+  question: >
+    How long may one gate check (a linter, a project check) run before it is stopped and
+    reported as not finished?
+  default: >
+    1200 (seconds, per check). Propose more only when the project's linters are known to
+    take longer, e.g. a Gradle build that compiles before it lints.
 
 - key: short_path_excluded
   question: >

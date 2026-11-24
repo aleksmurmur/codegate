@@ -5,10 +5,11 @@ Additions to the sections of `rules-common.md` (same numbers), then this stack's
 ## 1. Mechanical results — additions
 
 ESLint findings from `react-hooks/rules-of-hooks`, `react-hooks/exhaustive-deps` and `jsx-a11y/*`
-catch real bugs: each is a Critical (a Warning when a tech-debt entry already records the
-pattern), and the fix never silences the rule. A TypeScript error is Critical; every
-`@ts-expect-error` / `@ts-ignore` the diff adds needs its justification. No ESLint and no type
-check configured → Warning, and a tech-debt entry recommending both.
+in code the diff added or changed catch real bugs: each is a Critical (a Warning when a tech-debt
+entry already records the pattern), and the fix never silences the rule. A TypeScript error the
+diff caused is Critical; every `@ts-expect-error` / `@ts-ignore` the diff adds needs its
+justification. No ESLint and no type check configured → a note under Mechanical results, not a
+finding.
 
 ## 3. Who else reads and writes — additions
 
