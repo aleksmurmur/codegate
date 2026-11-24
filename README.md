@@ -14,8 +14,12 @@ Every task follows enforced phases before code reaches review:
 1. **Elicitation** — the agent first maps who reads and writes the data the task touches,
    then asks in rounds of at most four questions, each with a recommendation — architecture
    (how the change fits the system, options, a simpler or broader alternative) and business
-   never in one message — until nothing is open; a task that is really several is offered as a split. It ends with a summary of what is settled and what it decided itself. Cosmetic changes short-circuit to a fast-path
-   mini-plan.
+   never in one message — until nothing is open; a task that is really several is offered as a split. It ends with a summary of what is settled and what it decided itself.
+   A **small task** skips all of this: clear without questions, nothing expensive to reverse
+   (no new table, column, API field or endpoint), one place, no area the project excluded
+   (option `short_path_excluded`). The agent says so in one line with 1–3 acceptance
+   criteria; a word from the user confirms it, and the task goes test-first straight to the
+   gate, the review and the PR/MR. If it turns out bigger, it goes back to elicitation.
    Before the user sees any architecture question, the agent writes a design draft
    (`design.md`): the shape, each decision with its options, and the growth it touches.
    Growth is weighed by cost, not by guessing odds: the simpler option when it can grow
@@ -211,7 +215,7 @@ your-project/
 │                                      # (cg-core's own test suites live in
 │                                      #  core/tests/ and are NOT installed)
 │       ├── codebase-intelligence/     # /cg-context
-│       ├── elicitation/               # Phase 1 (incl. fast-path triage)
+│       ├── elicitation/               # Phase 1 (incl. the small-task check)
 │       ├── planning/                  # Phase 2
 │       ├── implementer/               # Phase 3, one plan chunk test-first
 │       ├── design-critic/             # Phase 1, fresh read of the design draft
@@ -228,7 +232,7 @@ your-project/
 
 - [x] M0: Foundation (hooks, state machine, slash commands)
 - [x] M1: Codebase Intelligence Engine
-- [x] M2: Elicitation Engine (context-aware questions per task type, cosmetic fast-path)
+- [x] M2: Elicitation Engine (context-aware questions per task type, short path for small tasks)
 - [x] M3: Plan Gate (planning agent, mechanical integrity script; the design critique moved to Phase 1)
 - [x] M4: Quality Gate (baseline-diffed tests, diff-coverage, assertion check, LLM review)
 - [x] M5: Session Resilience (compaction recovery, /cg-resume)

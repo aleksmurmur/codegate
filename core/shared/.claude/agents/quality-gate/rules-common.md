@@ -14,6 +14,12 @@ after the gate by another agent, from your report.
   `.ai/CODEBASE_CONTEXT.md`, the session's `design.md` (when present), `requirements.md` (when
   present), `PLAN.md`, `test-baseline.txt`, `test-results.txt`, `coverage-report.md`,
   `assertion-report.md`, `checks-report.md`, and `.ai/tech-debt/`.
+- **Short path** (the session's `path` file reads `short`): a small task built without a plan.
+  There is no `PLAN.md` or `design.md`. Wherever a rule reads `PLAN.md`'s Acceptance Criteria
+  (`Security:` lines included), read `requirements.md`'s `## Acceptance criteria`; the code
+  should stay within its `## Place`. Rules on Design Notes and smoke commands are "not
+  applicable", with no "plan predates" Warning; judge design by `CODEBASE_CONTEXT.md` and the
+  neighbouring code.
 - **Read every touched file in full** before judging it. Several rules ask what the rest of the
   file and its neighbours already do; answering from the diff alone is guessing.
 - **A re-run** after a FAIL is given the fix commits only: judge their diff, the files they

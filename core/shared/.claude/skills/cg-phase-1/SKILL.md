@@ -1,6 +1,6 @@
 ---
 name: cg-phase-1
-description: Codegate Phase 1 — open the task session and run elicitation (data map, a design draft a fresh critic reads before the user sees it, rounds of at most 4 questions, architecture and business never mixed, then a summary of what is settled). Use right after Phase 0 created the task branch.
+description: Codegate Phase 1 — open the task session; a small task the user confirms takes the short path (straight to test-first implementation), any other runs elicitation (data map, a design draft a fresh critic reads before the user sees it, rounds of at most 4 questions, architecture and business never mixed, then a summary of what is settled). Use right after Phase 0 created the task branch.
 user-invocable: false
 ---
 
@@ -32,15 +32,34 @@ user-invocable: false
 ## Elicitation
 
 6. Run the elicitation sub-agent: `.claude/agents/elicitation/prompt.md`, with the task text,
-   task type, the language the user writes in, CODEBASE_CONTEXT.md if present, and the checklist
-   `.claude/agents/elicitation/checklists/{type}.md`. It returns a **fast-path proposal**
-   (cosmetic change), a **round** of questions, or **Elicitation complete**.
+   task type, the language the user writes in, CODEBASE_CONTEXT.md if present, the checklist
+   `.claude/agents/elicitation/checklists/{type}.md`, and the areas the project never treats as
+   small (`.claude/scripts/cg-option.sh short_path_excluded`; no output = none). It returns a
+   **short-path proposal** (a small task), a **round** of questions, or **Elicitation complete**.
 
-### Fast-path proposal (cosmetic; never for `refactor`)
+### Short path — a small task
 
-- Write its mini-plan to `PLAN.md`; audit `[ts] Fast-path proposed — classification: cosmetic`.
-- Audit `[ts] auto-proceed: phase-1-cosmetic`, write `IMPLEMENTING`, and go to Phase 3
-  (skill `cg-phase-3`) without planning.
+The sub-agent judged the task small (its Step 0: clear without questions, nothing expensive to
+reverse, one place, no excluded area) and returned `## Short path`.
+
+1. Write its whole output to `{dir}/short-path.md`; audit `[ts] Short path proposed: <why>`.
+2. Show the user its message — one line saying why, and the acceptance criteria — and wait:
+   the user's word decides.
+3. **Yes** (any agreement, or `/ok`): write its Requirements part to `{dir}/requirements.md`
+   and `short` to `{dir}/path`; audit `[ts] Short path confirmed by user`; go to Phase 3
+   (skill `cg-phase-3`). No rounds, no design draft, no PLAN.md.
+   A correction to a criterion is a yes with that change: amend `short-path.md` first.
+4. **No**: write `full` to `{dir}/path`; audit `[ts] Short path declined by user`; resume the
+   sub-agent (or dispatch it again) with **Known so far** — `short-path.md` and "the user
+   wants the full path". It goes on from its Step 1.
+
+### After the short path grew
+
+Phase 3 sends a short-path task back here when it turned out bigger (state `IDLE`,
+`{dir}/path` = `full`, the reason in the audit log). Dispatch the sub-agent as in step 6, plus
+**Known so far**: `short-path.md`, the reason, and the commits already on the branch
+(`git log --oneline $(python3 .claude/scripts/cg_session.py base)..HEAD`). From there Phase 1
+runs as for any task; its completion overwrites `requirements.md`.
 
 ### A round
 
@@ -62,7 +81,7 @@ user-invocable: false
 
 ### The design draft — critique before the user sees the design
 
-Once per task (not for a fast-path), before the first architecture round or the completion,
+Once per task (not on the short path), before the first architecture round or the completion,
 the sub-agent returns a **design draft**. The user sees nothing of it yet.
 
 1. Write the draft (from its `# Design` heading) to `{dir}/design.md`; audit
@@ -81,8 +100,8 @@ without `## Critique dispositions` → step 3.
 
 ### Elicitation complete
 
-- `design.md` must exist unless the task went through the fast-path; if it does not, the
-  sub-agent skipped Step 5.5 — send it back for the draft.
+- `design.md` must exist; if it does not, the sub-agent skipped Step 5.5 — send it back for
+  the draft.
 - When the completion has `### Design (updated)`, append it to `design.md`.
 - Write its Requirements part to `{dir}/requirements.md`. The independent review in Phase 4
   reads it instead of `elicitation.md`. Append the completion to `elicitation.md`, its

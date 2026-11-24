@@ -36,7 +36,7 @@ never write code without a task on the branch.
 | Phase | Entry | Skill |
 |---|---|---|
 | 0 Start a task | `/cg-feature`, `/cg-bugfix`, `/cg-refactor`, or rule 3 above | `cg-phase-0` |
-| 1 Session + elicitation | Phase 0 done | `cg-phase-1` |
+| 1 Session + elicitation, or the short path | Phase 0 done | `cg-phase-1` |
 | 2 Planning | elicitation answered | `cg-phase-2` |
 | 3 Implementation | plan approved | `cg-phase-3` |
 | 4 Quality gate + independent review | implementation complete | `cg-phase-4` |
@@ -45,6 +45,11 @@ never write code without a task on the branch.
 
 On entering a phase, invoke its skill and follow it. After compaction the recovery note
 names the skill to load.
+
+A **small task** — clear without questions, nothing expensive to reverse, one place, no area
+the project excluded — takes the short path once the user confirms it in a word: Phase 1 →
+Phase 3 test-first → Phase 4 → Phase 5, no rounds and no plan (`{dir}/path` = `short`). It
+grows → back to Phase 1.
 
 States (`{dir}/state`): `IDLE → ELICITED → PLAN_APPROVED → IMPLEMENTING → QUALITY_REVIEWED →
 PR_CREATED → (REWORK → PR_UPDATED)* → MERGED`; `ABANDONED` for a task closed as no longer

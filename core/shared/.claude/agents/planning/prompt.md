@@ -13,8 +13,7 @@ real file paths and real class names — no placeholders, no guesses.
 - **Task type**: feature / bugfix / migration / refactor
 - **Task description**: what needs to be built or fixed
 - **design.md**: the agreed design — shape, decisions with the options weighed, growth, data
-  map, the design critique and what was done with each finding. Absent only for a fast-path
-  task.
+  map, the design critique and what was done with each finding.
 - **requirements.md**: what the user settled. Where it and design.md disagree, it wins.
 - **Elicitation Q&A**: the answered clarifying questions, the data map and details
 - **CODEBASE_CONTEXT.md**: architecture, patterns, domain map, gotchas

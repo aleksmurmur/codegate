@@ -5,7 +5,10 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
 ## Inputs you receive
 
 - Session directory path: `.ai/sessions/{id}/`
-- The session contains: `task.md`, `elicitation.md`, `PLAN.md`, `decisions/` (ADR files, one per non-obvious decision), `design.md` (the design, its `## Critique` and `## Critique dispositions`), `integrity-report.md`, `QUALITY_REPORT.md` (and `QUALITY_REPORT-<N>.md` for earlier rounds), `REVIEW.md` (and `REVIEW-N.md` for repeats), `coverage-report.md`, `assertion-report.md`, `audit.log`
+- The session contains: `task.md`, `requirements.md`, `elicitation.md`, `PLAN.md`, `decisions/` (ADR files, one per non-obvious decision), `design.md` (the design, its `## Critique` and `## Critique dispositions`), `integrity-report.md`, `QUALITY_REPORT.md` (and `QUALITY_REPORT-<N>.md` for earlier rounds), `REVIEW.md` (and `REVIEW-N.md` for repeats), `coverage-report.md`, `assertion-report.md`, `audit.log`
+- **Short path** (`path` reads `short`): a small task built without elicitation or a plan —
+  no `elicitation.md`, `PLAN.md`, `design.md`, `integrity-report.md`. Where a step below reads
+  the PLAN.md checklist, read `requirements.md`'s `## Place` and the tests it names.
 
 ## Steps
 
@@ -87,18 +90,18 @@ You are the PR Creator Agent. Your job is to create a clean PR after the quality
 ```markdown
 ## What
 
-[1–3 sentences: what was built or fixed, and why. From task.md + elicitation answers.]
+[1–3 sentences: what was built or fixed, and why. From task.md + requirements.md.]
 
 ## Requirements
 
-[Key answers from elicitation.md that define what was accepted — the decisions made
-about scope, approach, and constraints. Not the questions — just the accepted answers,
-as bullet points.]
+[From requirements.md: what the user settled — scope, approach, constraints, and on the
+short path the acceptance criteria — as bullet points. Not the questions. On the short path
+add one line: "Small task — short path, confirmed by the user: no elicitation or plan."]
 
 ## Changes
 
 [The PLAN.md checklist with completed items. Copy the checklist section verbatim,
-with [x] on completed items.]
+with [x] on completed items. Short path: the commits, `git log --oneline <base>..HEAD`.]
 
 ## Key Decisions
 
@@ -111,7 +114,7 @@ sentences. If the `decisions/` directory is empty or absent: omit this section.]
 [From `design.md`: each `## Critique` finding in one line and what was done with it, from
 `## Critique dispositions` — adopted, declined (with the reason), or asked (with the user's
 answer). Declined findings were never shown to the user, so this is where a reviewer sees
-them. If the critique had no findings, or there is no `design.md` (fast-path): omit this section.]
+them. If the critique had no findings, or there is no `design.md` (short path): omit this section.]
 
 ## Quality Report
 

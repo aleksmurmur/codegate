@@ -8,7 +8,9 @@ Steps:
 4. Report: session id, ticket, task (first line), state, recent activity, next step.
 
 Next step by state:
-- IDLE → elicitation is open: answer its questions
+- IDLE → `short-path.md` without a `path` file: the short path is proposed, yes or no;
+  otherwise elicitation is open: answer its questions
+- `path` reads `short` → the task is on the short path (no plan; `requirements.md`)
 - ELICITED → planning
 - PLAN_APPROVED / IMPLEMENTING → implementation in progress
 - QUALITY_REVIEWED → gate report in QUALITY_REPORT.md; no `checked-sha` yet → fix rounds or

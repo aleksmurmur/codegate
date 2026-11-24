@@ -86,6 +86,24 @@ case "$OUT" in *"round is open"*) pass "after dispositions the round is open aga
 echo "- shape" > "$REPO/.ai/sessions/s1/requirements.md"
 OUT=$(run "$REPO")
 case "$OUT" in *"Elicitation complete"*) pass "completed elicitation" ;; *) fail "completed elicitation" ;; esac
+case "$OUT" in *"/cg-approve"*) fail "no approval is asked for" ;; *) pass "no approval is asked for" ;; esac
+
+# ── the short path: proposed, under way, outgrown ──────────────────────────────────────
+rm -rf "$REPO/.ai/sessions/s1"
+session "$REPO" IDLE "$WORK"
+S="$REPO/.ai/sessions/s1"
+echo "## Short path" > "$S/short-path.md"
+OUT=$(run "$REPO")
+case "$OUT" in *"Short path proposed"*) pass "short path waits for the user" ;; *) fail "short path waits for the user" ;; esac
+echo short > "$S/path"; echo "# Requirements (short path)" > "$S/requirements.md"; echo IMPLEMENTING > "$S/state"
+OUT=$(run "$REPO")
+case "$OUT" in *"short path"*"no PLAN.md"*) pass "short path implementation needs no plan" ;; *) fail "short path implementation needs no plan" ;; esac
+echo full > "$S/path"; echo IDLE > "$S/state"
+OUT=$(run "$REPO")
+case "$OUT" in *"Elicitation complete"*) fail "outgrown short path: its requirements are not a finished elicitation" ;; *"after the short path"*) pass "outgrown short path: its requirements are not a finished elicitation" ;; *) fail "outgrown short path: its requirements are not a finished elicitation" ;; esac
+printf '## Round 1\n## Elicitation complete\n' > "$S/elicitation.md"
+OUT=$(run "$REPO")
+case "$OUT" in *"Elicitation complete"*) pass "outgrown short path, elicitation then completed" ;; *) fail "outgrown short path, elicitation then completed" ;; esac
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

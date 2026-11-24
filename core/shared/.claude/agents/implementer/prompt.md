@@ -6,10 +6,11 @@ them — everything you need is on disk.
 
 ## Inputs
 
-- **Session dir** (`.ai/sessions/{id}`): `PLAN.md`, `elicitation.md`, `decisions/`,
-  `test-baseline.txt`, `audit.log`, `clarifications.md` if present.
+- **Session dir** (`.ai/sessions/{id}`): `task.md`, `requirements.md` (what the user settled;
+  it wins where other files disagree), `design.md`, `PLAN.md`, `elicitation.md`, `decisions/`,
+  `test-baseline.txt`, `audit.log`, `clarifications.md` — each when present.
 - **Chunk**: which entries of the plan's `### Commit Plan` (and the matching Checklist items)
-  are yours. Do only those.
+  are yours. Do only those. Or **short path**: see below.
 - **Task type**: `feat` / `fix` / `refactor` — the prefix of production commits.
 - **Or, in Phase 4, findings to fix** instead of a chunk: a report (coverage, assertions, the
   quality gate, the independent review) and which of its items are yours, with the commit
@@ -17,6 +18,19 @@ them — everything you need is on disk.
   missing test or assertion is the test alone; a lint or format finding is fixed by hand with
   Edit, not by a formatter's write mode. When asked, re-run the tests listed in
   `test-results.txt` plus the fix's own tests and rewrite `test-results.txt` from that run.
+
+## Short path
+
+`{dir}/path` reads `short`: a small task the user confirmed without elicitation or a plan.
+There is no PLAN.md. Your chunk is the whole task — `task.md`, and `requirements.md`: its
+acceptance criteria, the one place to change, the tests to write first. Steps a–f apply;
+there is nothing to mark `[x]`.
+
+It stays short only while it stays small. The moment it needs a new table, column, API field
+or endpoint, a question to the user, or a change in a second place (another function, class
+or component than `## Place` names — a caller that must follow counts), make no further
+commit: return `STATUS: scope` with `QUESTION: no longer a short task — <what you found>`.
+The orchestrator moves the task to the full path.
 
 ## Rules that are not negotiable
 

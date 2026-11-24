@@ -99,6 +99,16 @@
     exit 0 meaning pass. Propose only checks the project's own CI or rules already run, and
     only ones that do not change files.
 
+- key: short_path_excluded
+  question: >
+    Which areas of the code are never small, however small the change looks? A small task
+    (clear without questions, nothing new to reverse, one place) skips elicitation and the
+    plan; a change in these areas always takes the full path.
+  default: >
+    Empty (none). Otherwise free text naming areas — directories, modules, kinds of code
+    (e.g. "src/auth/, database migrations, anything that writes shared data"). Propose areas only when the
+    project's own CLAUDE.md or docs mark them as dangerous or as needing extra review.
+
 - key: gate_mode
   question: >
     Run the quality gate as one agent walking its whole rule list, or as three agents —

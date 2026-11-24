@@ -74,6 +74,8 @@ case "$STATE" in
 esac
 
 TASK=$(head -1 "$SESSION_DIR/task.md" 2>/dev/null || echo "(task description not found)")
+# `short` once the user confirmed the short path; `full` once it was declined or outgrown.
+TASK_PATH=$(cat "$SESSION_DIR/path" 2>/dev/null | tr -d '[:space:]')
 
 echo "CODEGATE TASK ON THIS BRANCH"
 echo ""
@@ -87,12 +89,16 @@ echo ""
 
 case "$STATE" in
   IDLE)
-    if [ -f "$SESSION_DIR/PLAN.md" ] && [ ! -f "$SESSION_DIR/elicitation.md" ]; then
-      echo "▶ Cosmetic fast path (mini-plan: $REL_DIR/PLAN.md): write IMPLEMENTING and implement it (skill cg-phase-3)."
+    if [ -f "$SESSION_DIR/short-path.md" ] && [ -z "$TASK_PATH" ]; then
+      echo "▶ Short path proposed ($REL_DIR/short-path.md): it waits for the user's yes or no (skill cg-phase-1, \"Short path\")."
     elif [ -f "$SESSION_DIR/design.md" ] && ! grep -q '^## Critique$' "$SESSION_DIR/design.md"; then
       echo "▶ Elicitation (skill cg-phase-1): design draft written, the design critic has not run — $REL_DIR/design.md"
     elif [ -f "$SESSION_DIR/design.md" ] && ! grep -q '^## Critique dispositions' "$SESSION_DIR/design.md"; then
       echo "▶ Elicitation (skill cg-phase-1): design critique is in, the elicitation agent has not answered it — $REL_DIR/design.md"
+    elif [ "$TASK_PATH" = full ] && [ -f "$SESSION_DIR/short-path.md" ] &&
+         ! grep -q '^## Elicitation complete' "$SESSION_DIR/elicitation.md" 2>/dev/null; then
+      # requirements.md may be the short path's: only the completion heading means "complete".
+      echo "▶ Elicitation (skill cg-phase-1) after the short path was declined or grew — known so far: $REL_DIR/short-path.md; rounds so far: $REL_DIR/elicitation.md"
     elif [ -f "$SESSION_DIR/requirements.md" ]; then
       echo "▶ Elicitation complete ($REL_DIR/requirements.md): next is planning (skill cg-phase-2)."
     elif [ -f "$SESSION_DIR/elicitation.md" ]; then
@@ -105,7 +111,12 @@ case "$STATE" in
     echo "▶ Planning (skill cg-phase-2). Elicitation is in $REL_DIR/elicitation.md"
     ;;
   PLAN_APPROVED|IMPLEMENTING)
-    echo "▶ Implementation (skill cg-phase-3): continue from the first unchecked item of PLAN.md."
+    if [ "$TASK_PATH" = short ]; then
+      echo "▶ Implementation on the short path (skill cg-phase-3): no PLAN.md; the criteria and the one place are in $REL_DIR/requirements.md."
+      echo "  It needs a schema or API change, a question to the user, or a second place → the full path (cg-phase-3, \"The short path grows\")."
+    else
+      echo "▶ Implementation (skill cg-phase-3): continue from the first unchecked item of PLAN.md."
+    fi
     PLAN_FILE="$SESSION_DIR/PLAN.md"
     if [ -f "$PLAN_FILE" ]; then
       UNCHECKED=$(grep -E '^\s*\[ \]' "$PLAN_FILE" 2>/dev/null | head -7)

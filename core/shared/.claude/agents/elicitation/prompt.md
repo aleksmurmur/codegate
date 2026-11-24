@@ -25,67 +25,38 @@ Quality matters more than speed. Read as much code as you need.
   Continue from it: update the data map where the answers change it, do not redo it.
 - **Critique** (once, after your design draft): the `## Critique` section the design critic
   wrote into `design.md`. See Step 5.5.
+- **Short path excluded**: areas the project never treats as small (free text; empty = none).
+  See Step 0.
+- **Known so far** (only after the short path was declined or outgrown): `short-path.md` — your
+  earlier proposal — and why it is no longer short. Build on it; do not redo what it settled.
 
 ---
 
 ## Step-by-step process
 
-### Step 0 — Triage for fast-path (skip for task type `refactor`)
+### Step 0 — Is it a small task? (the short path)
 
-Before generating questions, check whether this task is small enough to skip the full
-workflow. Fast-path is reserved for **cosmetic changes only**: edits that live inside
-string literals, log messages, comments, or docs — with no semantic effect.
+A small task skips the rounds, the design draft and the plan: tests first, the gate, the
+review. With **Known so far** among your inputs, skip this step — the short path was declined
+or outgrown; go to Step 1.
 
-**Skip triage entirely when task type is `refactor`**. Refactors are structural by
-definition and must go through the full workflow.
+Small means **all** of these hold, checked in the code (find the place with Glob/Grep, read
+it, grep its callers), not guessed from the task text:
+1. **Clear** — what to do follows from the task and the code; there is no question you would
+   have to put to the user.
+2. **Nothing expensive to reverse** — no new table, column, API field or endpoint; no change
+   to a stored format, an event or another public contract.
+3. **One place** — it changes existing behaviour (a fix, an adjustment) in one function,
+   class or component and its tests. Not a new feature; not a change its callers must follow.
+4. **Not in an excluded area** — the project's **Short path excluded** areas do not cover the
+   code it touches.
 
-Classify the task into one of four buckets:
-
-1. **cosmetic** — changes to text inside `"..."` / `'...'` / `/* */` / `//` / `#`
-   comments, log message content, version bumps, doc files. No change to control flow,
-   conditions, signatures, SQL, schema, or public API.
-2. **local-semantic** — real code change but scoped to 1 function with ≤3 call sites.
-3. **shared-semantic** — change touches a utility, base class, or symbol with many
-   callers; behavior of callers may shift.
-4. **structural** — change affects architecture, schema, public API, or spans domains.
-
-Use this procedure:
-1. Extract the target from the description (file mentioned? string to change? symbol?).
-2. `Glob` / `Grep` to confirm what would actually be edited.
-3. If a symbol is affected: `grep -n` for callers. Count external references.
-4. Check for any of these in the affected files: migration, persistence mapping (ORM
-   entity or column), route, scheduled job, public API signature change. If present →
-   **not cosmetic**.
-
-**Only classify as `cosmetic` when all of the following hold:**
-- The change lives entirely inside strings, comments, log text, docs, or a version literal.
-- No control flow, conditional, or signature is modified.
-- No schema, migration, endpoint, or scheduled job is touched.
-- You can name the specific file(s) and the specific line-level change.
-
-If classification is **cosmetic**, skip Steps 1–5 below. Instead produce a fast-path
-proposal:
-
-```
-## Fast-path proposal: cosmetic change
-
-**Classification**: cosmetic
-**Affected files**:
-  - path/to/file.ext (line N: change "old text" → "new text")
-
-**Mini-plan** (auto-approved if user confirms):
-  [ ] 1. Modify path/to/file.ext — <one-line description>
-
-**Why fast-path**: change is confined to <strings|comments|log text|docs>; no callers
-or behavior affected. External reference count: 0.
-```
-
-The orchestrator (skill `cg-phase-1`) writes this proposal to `.ai/sessions/{id}/PLAN.md` as
-a minimal plan and goes straight to implementation.
-
-If classification is **not cosmetic** (or you're unsure), fall through to Step 1 below
-and run normal elicitation. When in doubt, do not fast-path. Full workflow is the safe
-default.
+Any doubt on any of them → not small: Step 1. Small → skip Steps 1–6 and return the
+short-path proposal (format at the end). Its acceptance criteria — 1 to 3 — follow the
+planning agent's rules: observable from outside, each provable by a test, specific; for a
+bugfix the first is "the reported defect no longer happens". Add a `Security:` criterion when
+the change touches who may do what, user input crossing a trust boundary, secrets or
+personal data.
 
 ### Step 1 — Orient from CODEBASE_CONTEXT.md
 
@@ -237,7 +208,7 @@ does the round close.
 
 ## Output format
 
-Either a round or the completion. The orchestrator shows the user only the **message**; it
+A round or the completion (or, for a small task, the short-path proposal at the end). The orchestrator shows the user only the **message**; it
 writes everything to `elicitation.md`.
 
 A round:
@@ -334,4 +305,31 @@ Say if anything here is wrong.
 <data map changes and details, as in a round>
 ```
 
-A cosmetic task returns the fast-path proposal from Step 0 instead.
+A small task (Step 0) returns the short-path proposal instead of all of the above. The
+orchestrator shows the user only the message and waits for a yes or a no:
+
+```
+## Short path
+
+### Message
+Small task — going the short path: <why, one line in plain words: what changes, where, and
+why nothing needs asking>.
+Done when:
+1. <acceptance criterion, plain words>
+Go ahead? One word is enough; "no" takes the full path, with questions and a plan.
+
+### Requirements
+# Requirements (short path)
+## Acceptance criteria
+1. <Given/When/Then or must/must-not; `Security: …` when Step 0 asks for one>
+## Place
+- <path> — <symbol>: <what changes>
+## Tests first
+- <test file> — <the scenario that fails today>
+
+### Why small
+- Clear: <what makes it unambiguous>
+- Nothing to reverse: <what was checked>
+- One place: <path; callers checked, and why they need no change>
+- Excluded areas: <none touched | none set>
+```
