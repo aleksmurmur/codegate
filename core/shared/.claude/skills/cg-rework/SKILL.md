@@ -30,7 +30,9 @@ Not sure whether the PR/MR is merged: `/cg-merged` (below) first.
    addendum to PLAN.md (`## Addendum N`); the settled answers are appended to
    `{dir}/requirements.md`. Then implement.
 3. Fix test-first, as in Phase 3: a test that reproduces the report, then the fix; commits
-   staged by explicit path; audit lines per commit.
+   staged by explicit path; audit lines per commit. A fix sub-agent's `STATUS: question` or
+   `scope` is handled as in Phase 4 ("Fix sub-agent results"): a question to the user, never a
+   move back to the full path — `{dir}/path` stays.
 4. **Delta check** — everything after `{dir}/checked-sha` (the last checked commit). When
    there is none, or it is no longer in the branch (amend, rebase, reset), the base is
    `python3 .claude/scripts/cg_session.py base` (fails → ask the user for the target, as in

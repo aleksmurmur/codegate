@@ -87,20 +87,27 @@ echo "Phases proceed by themselves: continue from the step below without waiting
 echo "stop only for what the user must answer (an elicitation round, a question, an unfixable FAIL)."
 echo ""
 
+# Complete = the completion heading in elicitation.md, or (sessions older than it) requirements.md
+# without short-path.md — that one's requirements.md is the short path's. /ok uses the same test.
+elicitation_complete() {
+  grep -q '^## Elicitation complete' "$SESSION_DIR/elicitation.md" 2>/dev/null && return 0
+  [ -f "$SESSION_DIR/requirements.md" ] && [ ! -f "$SESSION_DIR/short-path.md" ]
+}
+
 case "$STATE" in
   IDLE)
     if [ -f "$SESSION_DIR/short-path.md" ] && [ -z "$TASK_PATH" ]; then
       echo "▶ Short path proposed ($REL_DIR/short-path.md): it waits for the user's yes or no (skill cg-phase-1, \"Short path\")."
+    elif [ "$TASK_PATH" = short ]; then
+      echo "▶ Short path confirmed by the user: implementation is next (skill cg-phase-3) — no PLAN.md; the criteria and the one place are in $REL_DIR/requirements.md."
     elif [ -f "$SESSION_DIR/design.md" ] && ! grep -q '^## Critique$' "$SESSION_DIR/design.md"; then
       echo "▶ Elicitation (skill cg-phase-1): design draft written, the design critic has not run — $REL_DIR/design.md"
     elif [ -f "$SESSION_DIR/design.md" ] && ! grep -q '^## Critique dispositions' "$SESSION_DIR/design.md"; then
       echo "▶ Elicitation (skill cg-phase-1): design critique is in, the elicitation agent has not answered it — $REL_DIR/design.md"
-    elif [ "$TASK_PATH" = full ] && [ -f "$SESSION_DIR/short-path.md" ] &&
-         ! grep -q '^## Elicitation complete' "$SESSION_DIR/elicitation.md" 2>/dev/null; then
-      # requirements.md may be the short path's: only the completion heading means "complete".
-      echo "▶ Elicitation (skill cg-phase-1) after the short path was declined or grew — known so far: $REL_DIR/short-path.md; rounds so far: $REL_DIR/elicitation.md"
-    elif [ -f "$SESSION_DIR/requirements.md" ]; then
+    elif elicitation_complete; then
       echo "▶ Elicitation complete ($REL_DIR/requirements.md): next is planning (skill cg-phase-2)."
+    elif [ -f "$SESSION_DIR/short-path.md" ]; then
+      echo "▶ Elicitation (skill cg-phase-1) after the short path was declined or grew — known so far: $REL_DIR/short-path.md; rounds so far: $REL_DIR/elicitation.md"
     elif [ -f "$SESSION_DIR/elicitation.md" ]; then
       echo "▶ Elicitation (skill cg-phase-1): a round is open — rounds and answers so far: $REL_DIR/elicitation.md"
     else
@@ -113,7 +120,7 @@ case "$STATE" in
   PLAN_APPROVED|IMPLEMENTING)
     if [ "$TASK_PATH" = short ]; then
       echo "▶ Implementation on the short path (skill cg-phase-3): no PLAN.md; the criteria and the one place are in $REL_DIR/requirements.md."
-      echo "  It needs a schema or API change, a question to the user, or a second place → the full path (cg-phase-3, \"The short path grows\")."
+      echo "  Outgrown (.claude/agents/elicitation/short-path.md) → the full path (cg-phase-3, \"The short path grows\")."
     else
       echo "▶ Implementation (skill cg-phase-3): continue from the first unchecked item of PLAN.md."
     fi

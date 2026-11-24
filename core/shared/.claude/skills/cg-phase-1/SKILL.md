@@ -39,8 +39,8 @@ user-invocable: false
 
 ### Short path — a small task
 
-The sub-agent judged the task small (its Step 0: clear without questions, nothing expensive to
-reverse, one place, no excluded area) and returned `## Short path`.
+The sub-agent judged the task small (`.claude/agents/elicitation/short-path.md`, "Small") and
+returned `## Short path`.
 
 1. Write its whole output to `{dir}/short-path.md`; audit `[ts] Short path proposed: <why>`.
 2. Show the user its message — one line saying why, and the acceptance criteria — and wait:

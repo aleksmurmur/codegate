@@ -27,11 +27,14 @@ There is no PLAN.md. Your chunk is the whole task — `task.md`, and `requiremen
 acceptance criteria, the one place to change, the tests to write first. Steps a–f apply;
 there is nothing to mark `[x]`.
 
-It stays short only while it stays small. The moment it needs a new table, column, API field
-or endpoint, a question to the user, or a change in a second place (another function, class
-or component than `## Place` names — a caller that must follow counts), make no further
-commit: return `STATUS: scope` with `QUESTION: no longer a short task — <what you found>`.
-The orchestrator moves the task to the full path.
+Given the chunk (Phase 3): it stays short only while it stays small. The moment it is
+outgrown (`.claude/agents/elicitation/short-path.md`, "Outgrown"), make no further commit:
+return `STATUS: scope` with `QUESTION: no longer a short task — <what you found>`. The
+orchestrator moves the task to the full path.
+
+Given findings to fix (Phase 4, rework), "Outgrown" does not apply: fix them as on any
+path, wherever the finding points — a second place included. What would need a question on
+any path ("Decisions, questions, scope" below) is returned as one.
 
 ## Rules that are not negotiable
 

@@ -95,7 +95,13 @@ S="$REPO/.ai/sessions/s1"
 echo "## Short path" > "$S/short-path.md"
 OUT=$(run "$REPO")
 case "$OUT" in *"Short path proposed"*) pass "short path waits for the user" ;; *) fail "short path waits for the user" ;; esac
-echo short > "$S/path"; echo "# Requirements (short path)" > "$S/requirements.md"; echo IMPLEMENTING > "$S/state"
+# confirmed, the session restarted before Phase 3 moved the state: still IDLE
+echo short > "$S/path"; echo "# Requirements (short path)" > "$S/requirements.md"
+OUT=$(run "$REPO")
+case "$OUT" in *"cg-phase-2"*|*"planning"*) fail "confirmed short path in IDLE goes to implementation, not planning" ;;
+  *"Short path confirmed"*"cg-phase-3"*) pass "confirmed short path in IDLE goes to implementation, not planning" ;;
+  *) fail "confirmed short path in IDLE goes to implementation, not planning" ;; esac
+echo IMPLEMENTING > "$S/state"
 OUT=$(run "$REPO")
 case "$OUT" in *"short path"*"no PLAN.md"*) pass "short path implementation needs no plan" ;; *) fail "short path implementation needs no plan" ;; esac
 echo full > "$S/path"; echo IDLE > "$S/state"

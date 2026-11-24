@@ -40,16 +40,8 @@ A small task skips the rounds, the design draft and the plan: tests first, the g
 review. With **Known so far** among your inputs, skip this step — the short path was declined
 or outgrown; go to Step 1.
 
-Small means **all** of these hold, checked in the code (find the place with Glob/Grep, read
-it, grep its callers), not guessed from the task text:
-1. **Clear** — what to do follows from the task and the code; there is no question you would
-   have to put to the user.
-2. **Nothing expensive to reverse** — no new table, column, API field or endpoint; no change
-   to a stored format, an event or another public contract.
-3. **One place** — it changes existing behaviour (a fix, an adjustment) in one function,
-   class or component and its tests. Not a new feature; not a change its callers must follow.
-4. **Not in an excluded area** — the project's **Short path excluded** areas do not cover the
-   code it touches.
+Small is defined in `.claude/agents/elicitation/short-path.md` ("Small"): read it, and check
+each condition in the code; the excluded areas are your **Short path excluded** input.
 
 Any doubt on any of them → not small: Step 1. Small → skip Steps 1–6 and return the
 short-path proposal (format at the end). Its acceptance criteria — 1 to 3 — follow the

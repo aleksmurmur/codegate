@@ -15,6 +15,8 @@ commits; it does not reopen it, so there is no review of the plan's merit here.
 1. Write `ELICITED` to `{dir}/state`; audit `[ts] Elicitation approved`.
 2. Planning sub-agent: `.claude/agents/planning/prompt.md`, with the task, `design.md`,
    `requirements.md`, `elicitation.md` (the data map and details), CODEBASE_CONTEXT.md.
+   The short path grew (`{dir}/short-path.md` exists): also pass it and the commits already
+   on the branch (`git log --stat $(python3 .claude/scripts/cg_session.py base)..HEAD`).
    Write its plan to `{dir}/PLAN.md`. When it returns **Open decisions** instead of a plan,
    the design left a choice open: ask the user (one question each, with its recommendation),
    record the answers in `requirements.md` and `elicitation.md`, and resume it.
@@ -23,7 +25,8 @@ commits; it does not reopen it, so there is no review of the plan's merit here.
    `MIRAGES_FOUND` — a Modify or Delete path that does not exist, a Create path that does,
    colliding Flyway versions, fewer than 3 acceptance criteria, or a Commit Plan that does not
    cover every Checklist item exactly once; `PARSE_FAILED` — no `## Checklist`, or no item in
-   the format `[ ] N. Verb path.ext — description`. Fix the plan yourself (edit the line, or
+   the format `[ ] N. Verb path.ext — description`. A Create of a file the short-path commits
+   already made is a planning slip: make it Modify. Fix the plan yourself (edit the line, or
    re-run planning with the report) and re-run the check. Its warnings — symbols not found,
    a created name that already exists, missing Design Notes or `Security:` criteria — do not
    block: fix what is real. Stop and ask only when a fix changes what the task delivers.

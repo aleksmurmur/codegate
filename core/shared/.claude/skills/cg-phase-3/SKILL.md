@@ -29,6 +29,9 @@ Session dir: `python3 .claude/scripts/cg_session.py dir` (`{dir}`).
    names, or `CLEAN`.
    Option `baseline` (`cg-option.sh baseline full`) is `none`: do not run it; write `NONE` to
    `{dir}/test-baseline.txt` and audit `[ts] baseline: <command> — not run (baseline=none)`.
+   `{dir}/test-baseline.txt` already exists (the short path took it, then grew): keep it — it
+   predates the commits on the branch, a new run would not; audit
+   `[ts] baseline kept from the short path`.
 4. **Chunks.** Each entry of the plan's `### Commit Plan` is a chunk; group small adjacent
    entries that touch the same files. On the short path the whole task is one chunk. For each
    chunk, in order, dispatch a sub-agent with
@@ -41,7 +44,7 @@ Session dir: `python3 .claude/scripts/cg_session.py dir` (`{dir}`).
    - `STATUS: question` → ask the user (sub-agents cannot), then resume the **same**
      sub-agent with the answer (`SendMessage` to its id) — it keeps its context.
    - `STATUS: scope` → stop and put it to the user: update the plan or not. Never expand
-     scope without the user.
+     scope without the user. On the short path: "The short path grows" below.
    A one-line change may be done inline under the same rules instead of a sub-agent.
 5. Audit `[ts] Implementation complete`.
 6. Audit `[ts] auto-proceed: phase-3`, "Implementation complete. Going on to the quality
@@ -49,8 +52,8 @@ Session dir: `python3 .claude/scripts/cg_session.py dir` (`{dir}`).
 
 ## The short path grows
 
-The short path holds only while the task stays small. It needs a new table, column, API field
-or endpoint, a question to the user, or a change in a second place — the implementer returns
+The short path holds only while the task stays small. Outgrown
+(`.claude/agents/elicitation/short-path.md`, "Outgrown") — the implementer returns
 `STATUS: scope` or `question` saying so, or you see it yourself → switch to the full path:
 1. Stop; tell the user in one line why it is no longer small.
 2. Write `full` to `{dir}/path` and `IDLE` to `{dir}/state`; audit
@@ -58,7 +61,7 @@ or endpoint, a question to the user, or a change in a second place — the imple
    edits stay in the working tree — say which.
 3. Phase 1 (skill `cg-phase-1`, "After the short path grew"), with what is known.
 
-Fix rounds after the quality gate follow the same rules (skill `cg-phase-4`). Three rounds
-without resolving a finding → stop and escalate to the user.
+Only in this phase. Fixes after it (the gate, the review, rework) never send the task back:
+skill `cg-phase-4`, "Fix sub-agent results".
 
 Debug mode: skill `cg-flow-feedback`, Phase 3 block.

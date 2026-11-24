@@ -17,6 +17,10 @@ real file paths and real class names — no placeholders, no guesses.
 - **requirements.md**: what the user settled. Where it and design.md disagree, it wins.
 - **Elicitation Q&A**: the answered clarifying questions, the data map and details
 - **CODEBASE_CONTEXT.md**: architecture, patterns, domain map, gotchas
+- **Commits already made** (only when the task began on the short path and grew):
+  `short-path.md` and `git log --stat` of the branch. That work stays. Plan what remains: a
+  file those commits created is `Modify`, never `Create`; their tests exist already — list
+  only the tests still missing.
 
 The design is decided. You turn it into files, tests and commits; you do not reopen it.
 

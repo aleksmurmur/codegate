@@ -5,8 +5,9 @@ The arguments are the task: its text, or a tracker key (skill `cg-phase-0`). A l
 
 ## Pre-elicitation observability
 
-Before elicitation: if Grafana or ELK MCP servers are configured, query for metrics/errors
-related to the bug description and include findings as "Observability context" in the elicitation output.
+Before elicitation: if the project's logs or monitoring are reachable from here (an MCP server
+or a tool the project's docs name), query them for errors and metrics related to the bug
+description and include the findings as "Observability context" in the elicitation output.
 
 ## Flow
 

@@ -9,7 +9,8 @@ Steps:
 
 Next step by state:
 - IDLE → `short-path.md` without a `path` file: the short path is proposed, yes or no;
-  otherwise elicitation is open: answer its questions
+  `path` reads `short`: confirmed, implementation next; elicitation complete (as `/ok` tests
+  it): planning next; otherwise elicitation is open: answer its questions
 - `path` reads `short` → the task is on the short path (no plan; `requirements.md`)
 - ELICITED → planning
 - PLAN_APPROVED / IMPLEMENTING → implementation in progress

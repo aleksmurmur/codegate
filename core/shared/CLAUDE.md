@@ -46,10 +46,9 @@ never write code without a task on the branch.
 On entering a phase, invoke its skill and follow it. After compaction the recovery note
 names the skill to load.
 
-A **small task** — clear without questions, nothing expensive to reverse, one place, no area
-the project excluded — takes the short path once the user confirms it in a word: Phase 1 →
-Phase 3 test-first → Phase 4 → Phase 5, no rounds and no plan (`{dir}/path` = `short`). It
-grows → back to Phase 1.
+A **small task** takes the short path once the user confirms it in a word: Phase 1 →
+Phase 3 test-first → Phase 4 → Phase 5, no rounds and no plan (`{dir}/path` = `short`). What
+is small, and when it is outgrown (back to Phase 1): `.claude/agents/elicitation/short-path.md`.
 
 States (`{dir}/state`): `IDLE → ELICITED → PLAN_APPROVED → IMPLEMENTING → QUALITY_REVIEWED →
 PR_CREATED → (REWORK → PR_UPDATED)* → MERGED`; `ABANDONED` for a task closed as no longer
