@@ -97,16 +97,12 @@ CELLS=$(printf '%s' "$ROW" | sed 's/\\|//g' | tr -cd '|' | wc -c | tr -d ' ')
 grep '^| project check 2 |' "$P/report.md" | grep -qF 'echo \`echo x\`' \
     && ok "backticks in a command are escaped in its row" || bad "backticks in a command are escaped in its row" "$(cat "$P/report.md")"
 
-# --- a check that hangs is stopped and marked; the report is never partial --------
-P=$(project timeout)
-manifest "$P" "sleep 20 ;; true" "gate_checks_timeout: 1"
-START=$(date +%s)
+# --- a slow check runs to its end; the report is never partial --------------------
+P=$(project slow)
+manifest "$P" "sleep 3 && true ;; true"
 run "$P"
-TOOK=$(( $(date +%s) - START ))
-[ "$CODE" = 2 ] && [ "$TOOK" -lt 15 ] && grep -q '^| project check 1 | .* | not finished (time limit 1s) |' "$P/report.md" \
-    && ok "a check past its time limit is stopped and marked not finished" || bad "a check past its time limit is stopped and marked not finished" "exit $CODE, ${TOOK}s: $(cat "$P/report.md")"
-grep -q '^| project check 2 | .* | pass |' "$P/report.md" \
-    && ok "the checks after a stopped one still run" || bad "the checks after a stopped one still run" "$(cat "$P/report.md")"
+[ "$CODE" = 0 ] && grep -q '^| project check 1 | .* | pass |' "$P/report.md" \
+    && ok "a slow check runs to its end, no time limit" || bad "a slow check runs to its end, no time limit" "exit $CODE: $(cat "$P/report.md")"
 
 P=$(project cut-off)
 manifest "$P" "sleep 4"

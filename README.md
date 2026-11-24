@@ -132,8 +132,8 @@ the assertion check, the linters the project has configured (check mode only), a
 project's own checks from the option `gate_checks` (a migration linter, architecture tests).
 Linters that take files see only the files the task changed; the others, and the project's
 checks (given `CG_BASE` and `CG_CHANGED_FILES` to scope themselves), may see the whole
-project, and the gate counts only failures the change caused. Each check stops after
-`gate_checks_timeout` seconds. Code style — naming, function size, comments — is not a gate
+project, and the gate counts only failures the change caused. A check runs to its end: there
+is no time limit to skip it by. Code style — naming, function size, comments — is not a gate
 rule: the linters and the project's own rules carry it.
 Then the gate judges the result against one list of rules: what is common to every stack in
 `.claude/agents/quality-gate/rules-common.md`, the stack's additions in `rules-stack.md`, the

@@ -41,8 +41,7 @@ after the gate by another agent, from your report.
   check, a compile or type error, or a linter error that breaks the build → Critical;
   formatting and style violations → one Warning per linter, listing them. A failure that points
   only at code the diff did not touch is not the task's: one Warning naming the check, "fails
-  outside this change", nothing to fix. A row `not finished` (it hit its time limit) → say so
-  under Mechanical results; not a finding.
+  outside this change", nothing to fix.
 - **Coverage and assertions** (`coverage-report.md`, `assertion-report.md`). Their blocking
   findings were resolved or accepted before you ran; weigh what is left (advisory
   existence-only tests, files the assertion script could not parse, coverage accepted by the

@@ -69,11 +69,11 @@ Then `python3 .claude/scripts/diff-coverage.py --base "$BASE" --output {dir}/cov
 runs the linters the project has configured, in check mode — on the changed files where the
 tool takes files — and the commands of the option `gate_checks`, each given `CG_BASE` and
 `CG_CHANGED_FILES`. A build-tool linter can outlast a foreground tool call: run the script in
-the background and wait for it to exit (each check has its own limit, option
-`gate_checks_timeout`). The report is written only when the run ends.
-`0` or `1` → go on: a failure is the gate's to rate, its fix goes through §4. `2`, or no
-report at all (the run was cut off) → warn, note, go on; a row `not finished` is a check that
-hit its limit. Audit `[ts] gate-checks: <CLEAN|FAIL|incomplete>`.
+the background and wait for it to exit; a check has no time limit — a check cut short is a
+check skipped. The report is written only when the run ends.
+`0` or `1` → go on: a failure is the gate's to rate, its fix goes through §4. `2` (a usage
+error) → fix the call and run it again. No report (the run was cut off) → run it again; the
+gate does not start without it. Audit `[ts] gate-checks: <CLEAN|FAIL>`.
 
 ## 3. The gate
 

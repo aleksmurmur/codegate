@@ -51,7 +51,7 @@ Write to the path you were given (`{dir}/QUALITY_REPORT.md`):
 | | |
 |---|---|
 | Tests | N failing, of which M not in the baseline (`CLEAN` / `NONE` / missing) |
-| Checks | per check: pass / fail (the task's, or outside this change) / not finished |
+| Checks | per check: pass / fail (the task's, or outside this change) |
 | Coverage | CLEAN / FAIL accepted by user / not measured |
 | Assertions | CLEAN / N advisory |
 
