@@ -39,10 +39,10 @@ if mode == "error":
 if mode == "noisy":
     print("debug: talking to the tracker")
 if sys.argv[1:] == ["capabilities"]:
-    if mode == "modern":
+    if mode in ("modern", "parent"):
         print(json.dumps({"ok": True, "actions": ["create", "create:project", "create:relates", "create:link",
             "create:body_file", "get", "event:started", "event:pr_created", "event:merged", "move", "status",
-            "check", "comment", "link", "list"]})); sys.exit(0)
+            "check", "comment", "link", "list"] + (["relation:part_of"] if mode == "parent" else [])})); sys.exit(0)
     print("usage: adapter create|get|event|move|status|check", file=sys.stderr); sys.exit(2)
 print(json.dumps({"ok": True, "key": "X-1", "id": "1", "name": "Задача"}, ensure_ascii=False))
 EOF
@@ -136,6 +136,9 @@ rm -f "$CALLS"
 run create --title t --relates X-1:caused_by
 expect "create with relations on an older adapter is delegated" 0 "j['delegate'] == 'agent' and not calls"
 rm "$PROJECT/.claude/tracker.md"
+rm -f "$CALLS"
+run create --title t --relates X-1:part_of
+expect "create with relations on an older adapter, no instructions: created without them" 0 "j['ok'] and 'X-1:part_of' in j['warning'] and calls[-1] == ['create', '--title', 't']"
 printf '## Context\nline two\n' > "$PROJECT/body.md"
 rm -f "$CALLS"
 run create --title t --body-file body.md
@@ -156,6 +159,15 @@ expect "comment gets the body file and the session's item" 0 "calls == [['commen
 rm -f "$CALLS"
 OUT=$(cd "$PROJECT" && CALLS="$CALLS" ADAPTER_MODE=modern "$PY" .claude/scripts/tracker.py create --title Front --project web --relates X-42:relates --link https://mr/1 --body-file body.md 2>/dev/null); CODE=$?
 expect "create for a consumer passes project, relation and link" 0 "calls == [['create', '--title', 'Front', '--project', 'web', '--relates', 'X-42:relates', '--link', 'https://mr/1', '--body-file', 'body.md']]"
+rm -f "$CALLS"
+OUT=$(cd "$PROJECT" && CALLS="$CALLS" ADAPTER_MODE=modern "$PY" .claude/scripts/tracker.py create --title Step --relates X-42:part_of --relates X-7:caused_by 2>/dev/null); CODE=$?
+expect "part_of becomes relates for an adapter without relation:part_of" 0 "calls[-1] == ['create', '--title', 'Step', '--relates', 'X-42:relates', '--relates', 'X-7:caused_by'] and 'X-42:part_of' in j['warning']"
+rm -f "$CALLS"
+OUT=$(cd "$PROJECT" && CALLS="$CALLS" ADAPTER_MODE=modern "$PY" .claude/scripts/tracker.py link --relates X-42:part_of 2>/dev/null); CODE=$?
+expect "link: part_of becomes relates too" 0 "calls[-1] == ['link', '--relates', 'X-42:relates', '--id', 'item-42'] and 'warning' in j"
+rm -f "$CALLS"
+OUT=$(cd "$PROJECT" && CALLS="$CALLS" ADAPTER_MODE=parent "$PY" .claude/scripts/tracker.py create --title Step --relates X-42:part_of 2>/dev/null); CODE=$?
+expect "part_of reaches an adapter that knows it, no warning" 0 "calls[-1] == ['create', '--title', 'Step', '--relates', 'X-42:part_of'] and 'warning' not in j"
 rm -f "$CALLS"
 OUT=$(cd "$PROJECT" && CALLS="$CALLS" ADAPTER_MODE=modern "$PY" .claude/scripts/tracker.py list --mine 2>/dev/null); CODE=$?
 expect "list needs no item" 0 "calls == [['list', '--mine']]"
