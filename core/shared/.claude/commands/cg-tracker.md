@@ -15,7 +15,7 @@ Inspect `$ARGUMENTS` (trim whitespace):
 | `check` | `tracker.py check` and `tracker.py capabilities` — config, token, states, what the adapter can do |
 | `move <state>` | `tracker.py move "<state>"` — the tracker's own state name, e.g. `move "Code Review"` |
 | `comment <text>` | `tracker.py comment --body "<text>"` |
-| `link <KEY> <type>` | `tracker.py link --relates <KEY>:<type>` — type: relates, blocks, blocked_by, caused_by |
+| `link <KEY> <type>` | `tracker.py link --relates <KEY>:<type>` — type: relates, blocks, blocked_by, caused_by, part_of |
 | `snippet` | print the paragraph below for a consuming repository's `AGENTS.md` / `CLAUDE.md` |
 | anything else | say which arguments exist; do nothing |
 

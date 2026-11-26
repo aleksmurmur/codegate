@@ -81,6 +81,11 @@ with the user's own tracker tools). Every answer is one JSON line:
 the action yourself as that file says; `{"ok": false}` → show the user, never block the
 workflow on it beyond the question in Phase 0.
 
+A tracker key in a branch name means the branch closes that item; a branch closes exactly one
+item, and an item is closed by one branch. Work that needs more than one PR/MR (an epic, a
+stack) is a parent item and one item per PR/MR, linked `part_of` the parent. A key anywhere
+else — a commit message, a PR/MR description — is only a reference.
+
 ## Hard rules
 
 1. Never start a task on the base branch; Phase 0 creates the task branch first.

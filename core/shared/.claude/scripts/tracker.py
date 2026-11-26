@@ -21,8 +21,9 @@ Usage:
   tracker.py capabilities           what the adapter can do
 
 Bodies (--body-file, --body) are markdown; turning them into the tracker's format is the
-adapter's job. TYPE of a relation is one of: relates, blocks, blocked_by, caused_by — how
-each maps onto the tracker is the adapter's business too. ALIAS is a name the project gave
+adapter's job. TYPE of a relation is one of: relates, blocks, blocked_by, caused_by,
+part_of (this item is a part of KEY: one step of an epic, KEY its parent) — how each maps
+onto the tracker is the adapter's business too. ALIAS is a name the project gave
 another project (option `consumers`, e.g. web); the adapter knows which tracker
 project it is. Without --project an action is about this repository's own project.
 
@@ -49,11 +50,15 @@ Exit codes: 0 ok or skipped; 1 error; 2 bad usage or broken config. Credentials 
 per-developer settings are the adapter's business and never belong in the repo.
 
 Capabilities are named `create`, `create:project`, `create:relates`, `create:link`,
-`create:body_file`, `get`, `event:<name>`, `move`, `status`, `check`, `comment`, `link`,
-`list`. A script without `capabilities` is taken to support the original set: create, get,
-event:started, event:pr_created, move, status, check. A call the script cannot make is
-answered {"ok": false, "delegate": "agent", "how": ".claude/tracker.md", "action": [...]}
+`create:body_file`, `relation:part_of`, `get`, `event:<name>`, `move`, `status`, `check`,
+`comment`, `link`, `list`. A script without `capabilities` is taken to support the original
+set: create, get, event:started, event:pr_created, move, status, check. A call the script
+cannot make is answered {"ok": false, "delegate": "agent", "how": ".claude/tracker.md", "action": [...]}
 when tracker.md exists — the agent does it with the user's tools — and "skipped" otherwise.
+What can still be said another way is rewritten instead, and the reply then carries
+"warning": part_of becomes relates for a script without `relation:part_of`; `create` with
+relations, for a script without `create:relates` and no tracker.md, creates the item
+without them (an item unlinked beats no item).
 """
 from __future__ import annotations
 
@@ -70,7 +75,7 @@ import cg_session  # noqa: E402
 ADAPTER = Path(".claude/tracker-adapter.py")
 INSTRUCTIONS = Path(".claude/tracker.md")
 EVENTS = ("started", "pr_created", "merged")
-RELATIONS = ("relates", "blocks", "blocked_by", "caused_by")
+RELATIONS = ("relates", "blocks", "blocked_by", "caused_by", "part_of")
 ORIGINAL = {"create", "get", "event:started", "event:pr_created", "move", "status", "check"}
 NEEDS_ITEM = ("event", "move", "status", "comment", "link")
 
@@ -178,6 +183,32 @@ def capabilities() -> set[str]:
     return set(ORIGINAL)
 
 
+def without_relations(argv: list[str]) -> list[str]:
+    out, i = [], 0
+    while i < len(argv):
+        if argv[i] == "--relates":
+            i += 2
+            continue
+        out.append(argv[i])
+        i += 1
+    return out
+
+
+def loosen(args: argparse.Namespace, argv: list[str], caps: set[str]) -> tuple[list[str], list[str]]:
+    """Relations an older script cannot take: told another way, or dropped with a warning."""
+    warnings = []
+    if args.cmd == "create" and args.relates and "create:relates" not in caps and not INSTRUCTIONS.exists():
+        argv = without_relations(argv)
+        warnings.append(f"the adapter does not support create:relates; created without {', '.join(args.relates)}")
+    elif ({"create": "create:relates", "link": "link"}.get(args.cmd) in caps
+          and "relation:part_of" not in caps):
+        loose = [r for r in args.relates if r.endswith(":part_of")]
+        if loose:
+            argv = [a[: -len("part_of")] + "relates" if a in loose else a for a in argv]
+            warnings.append(f"the adapter does not support part_of; linked as relates: {', '.join(loose)}")
+    return argv, warnings
+
+
 def degrade(args: argparse.Namespace, argv: list[str], caps: set[str]) -> list[str]:
     """Rewrite what an older script cannot take but can still be told another way."""
     if args.cmd == "create" and args.body_file and "create:body_file" not in caps:
@@ -221,7 +252,8 @@ def main(argv: list[str]) -> None:
     if args.cmd == "capabilities":
         emit({"ok": True, "actions": sorted(caps), "delegate": INSTRUCTIONS.exists()})
     argv = with_item(args, argv)
-    missing = needed(args) - caps
+    argv, warnings = loosen(args, argv, caps)
+    missing = needed(parse(argv)) - caps
     if missing:
         delegate(argv, f"the adapter does not support {', '.join(sorted(missing))}")
     argv = degrade(args, argv, caps)
@@ -230,6 +262,8 @@ def main(argv: list[str]) -> None:
     if reply is None:
         # The contract is broken (crash, stray output); say why instead of passing on silence.
         emit({"ok": False, "error": f"{ADAPTER} broke the contract (exit {code}): {detail}"}, 1)
+    if warnings:
+        reply["warning"] = "; ".join(filter(None, [reply.get("warning"), *warnings]))
     emit(reply, code if code in (0, 1, 2) else 1)
 
 

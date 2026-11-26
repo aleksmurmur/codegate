@@ -49,16 +49,35 @@ it only when its answer changes the decision and it is idle. By default go to a 
 
 ## 2. Ticket
 
+A key in a branch name means the branch closes that item, and a branch closes exactly one
+item. So a key that already has its branch is never put on another one.
+
 - **The task is a tracker key** (`/cg-feature ABC-123 …`): `python3 .claude/scripts/tracker.py get <KEY>`.
-  - `{"ok": true}` → the task is its `name` and `description` plus the user's notes; the
-    ticket is the key. Show the title and first lines of the description; keep `id`, `key`,
-    `url`; after the branch exists run `tracker.py event started --id <id>`.
+  - `{"ok": true}` → the task is its `name` and `description` plus the user's notes. Show the
+    title and first lines of the description. Then see whether the key already has its branch:
+    ```bash
+    python3 .claude/scripts/cg_session.py list --json   # rows whose "ticket" is <KEY>
+    git branch -r --format='%(refname:short)' | grep -E "(^|[/_-])<KEY>([^0-9]|$)"
+    ```
+    - No session and no branch with it, or the §1 row `no-session` for this key (that branch
+      is continued) → the ticket is the key; keep `id`, `key`, `url`.
+    - A session with it in `PR_CREATED`, `PR_UPDATED`, `REWORK` or `MERGED`, or a branch with
+      it on the remote → that item is taken. Do not ask: create a new item for this work
+      (**Otherwise** below) with `--relates <KEY>:part_of`; the ticket is the new key, `<KEY>`
+      becomes its parent. Only when the user said explicitly it goes into the same PR/MR is it
+      not a new task — it is rework of that branch (skill `cg-rework`), no new branch.
+    - A session with it in an earlier state → that is the task itself, unfinished: continue it
+      there (`/cg-resume` in its worktree, see `/cg-tasks`) instead of starting it again.
+    Then, after the branch exists, run `tracker.py event started --id <id>` for the ticket's item.
   - `{"ok": false}` → show the error, ask for the task text or another key.
     `{"skipped": true}` → no tracker: the key is just the ticket; ask what the task is.
 - **Otherwise** create the item: `python3 .claude/scripts/tracker.py create --type {type} --title "<short title>" --description "<task text>"`.
   A defect in a task that is already merged, or an extension of an existing task, is linked
   to it: add `--relates <ORIGINAL-KEY>:caused_by` (defect) or `--relates <ORIGINAL-KEY>:relates`
-  (extension).
+  (extension). A stacked task (§1) always gets a new item, never the current task's key:
+  `--relates <current task's key>:part_of`.
+  - A `"warning"` in the answer (the adapter could not link as asked) → one line to the user;
+    the item is there, the link can be made by hand.
   - `{"ok": true, "key": …}` → the ticket; keep `id`, `key`, `url`.
   - `{"skipped": true}` → no tracker: take a key from the task text (`[A-Z][A-Z0-9]+-\d+`); if
     `PATTERN` has `{ticket}` and there is none, ask.
